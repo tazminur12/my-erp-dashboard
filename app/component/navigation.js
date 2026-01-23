@@ -115,16 +115,16 @@ export const navigation = [
     children: [
       { name: 'Dashboard', href: '/air-ticketing/dashboard', icon: LayoutDashboard },
       { name: 'Passenger List', href: '/air-ticketing/passengers', icon: Users },
-      { name: 'New Ticket Sale', href: '/air-ticketing/new-ticket', icon: Plus },
+      { name: 'New Ticket Sale', href: '/air-ticketing/tickets/add', icon: Plus },
       { name: 'Manage Booking', href: '/air-ticketing/tickets', icon: List },
-      { name: 'B2B Agent', href: '/air-ticketing/agent', icon: Users },
+      { name: 'B2B Agent', href: '/air-ticketing/agents', icon: Users },
       {
         name: 'Old Ticketing Service',
         href: '/air-ticketing/old/dashboard',
         icon: History,
         children: [
           { name: 'Dashboard', href: '/air-ticketing/old/dashboard', icon: LayoutDashboard },
-          { name: 'Ticket Check', href: '/air-ticketing/old/ticket-check', icon: FileCheck },
+          { name: 'Ticket Check', href: '/air-ticketing/tickets/check', icon: FileCheck },
           { name: 'Old Ticket Reissue', href: '/air-ticketing/old/ticket-reissue', icon: RotateCcw }
         ]
       },
