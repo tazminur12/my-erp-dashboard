@@ -150,30 +150,71 @@ export async function POST(request) {
       );
     }
 
-    // Generate customer ID if not provided
+    // Generate unique customer ID if not provided
     let customerId = body.customerId;
-    if (!customerId) {
-      // Get the last customer to generate next customer ID
-      const lastCustomer = await airCustomersCollection
-        .findOne({}, { sort: { createdAt: -1 } });
+    if (!customerId || !customerId.trim()) {
+      // Find all customers with AIR prefix IDs and get the highest number
+      const customersWithIds = await airCustomersCollection
+        .find({ customerId: { $regex: /^AIR\d+$/i } })
+        .toArray();
       
-      if (lastCustomer && lastCustomer.customerId) {
-        // Handle formats: AIR-0001, AIR0001, etc.
-        const lastNumber = parseInt(lastCustomer.customerId.replace(/^AIR-?/, '')) || 0;
-        customerId = `AIR${String(lastNumber + 1).padStart(4, '0')}`;
-      } else {
-        customerId = 'AIR0001';
+      let maxNumber = 0;
+      if (customersWithIds.length > 0) {
+        // Extract numbers from all IDs and find the maximum
+        customersWithIds.forEach(customer => {
+          if (customer.customerId) {
+            const idNumber = parseInt(customer.customerId.toUpperCase().replace(/^AIR-?/, '')) || 0;
+            if (idNumber > maxNumber) {
+              maxNumber = idNumber;
+            }
+          }
+        });
       }
-    }
+      
+      // Generate next ID
+      customerId = `AIR${String(maxNumber + 1).padStart(4, '0')}`;
 
-    // Check if customer ID already exists
-    const existingCustomerId = await airCustomersCollection.findOne({ customerId });
-    if (existingCustomerId) {
-      // Regenerate if exists
-      const lastCustomer = await airCustomersCollection
-        .findOne({}, { sort: { createdAt: -1 } });
-      const lastNumber = parseInt(lastCustomer.customerId.replace(/^AIR-?/, '')) || 0;
-      customerId = `AIR${String(lastNumber + 1).padStart(4, '0')}`;
+      // Ensure uniqueness - check if generated ID already exists and increment if needed
+      let attempts = 0;
+      const maxAttempts = 100;
+      while (attempts < maxAttempts) {
+        const existingCustomerId = await airCustomersCollection.findOne({ customerId });
+        if (!existingCustomerId) {
+          break; // ID is unique, proceed
+        }
+        
+        // Extract number and increment
+        const currentNumber = parseInt(customerId.replace(/^AIR-?/i, '')) || 0;
+        customerId = `AIR${String(currentNumber + 1).padStart(4, '0')}`;
+        attempts++;
+      }
+
+      if (attempts >= maxAttempts) {
+        return NextResponse.json(
+          { error: 'Failed to generate unique customer ID. Please try again.' },
+          { status: 500 }
+        );
+      }
+    } else {
+      // If customer ID is provided, validate format and check uniqueness
+      customerId = customerId.trim().toUpperCase();
+      
+      // Validate format: AIR followed by 4 digits
+      if (!/^AIR\d{4}$/.test(customerId)) {
+        return NextResponse.json(
+          { error: 'Invalid customer ID format. Must be in format AIR0001' },
+          { status: 400 }
+        );
+      }
+
+      // Check if provided ID already exists
+      const existingCustomerId = await airCustomersCollection.findOne({ customerId });
+      if (existingCustomerId) {
+        return NextResponse.json(
+          { error: `Customer ID ${customerId} already exists` },
+          { status: 400 }
+        );
+      }
     }
 
     // Create new air customer

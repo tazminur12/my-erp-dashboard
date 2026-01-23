@@ -128,7 +128,7 @@ export const navigation = [
           { name: 'Old Ticket Reissue', href: '/air-ticketing/old/ticket-reissue', icon: RotateCcw }
         ]
       },
-      { name: 'Airline List', href: '/air-ticketing/airline', icon: List },
+      { name: 'Airline List', href: '/air-ticketing/airlines', icon: List },
     ]
   },
   {

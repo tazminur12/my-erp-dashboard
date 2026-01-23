@@ -1021,7 +1021,7 @@ const NewPassenger = () => {
                         onChange={handleInputChange}
                         required
                         placeholder="017xxxxxxxx"
-                        className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
+                        className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                       />
                     </div>
                     <div className="flex items-center space-x-2">
@@ -1096,7 +1096,7 @@ const NewPassenger = () => {
                       value={formData.occupation}
                       onChange={handleInputChange}
                       placeholder="Occupation"
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                     />
                   </div>
 
@@ -1113,7 +1113,7 @@ const NewPassenger = () => {
                         value={formData.email}
                         onChange={handleInputChange}
                         placeholder="example@email.com"
-                        className="w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
+                        className="w-full pl-12 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                       />
                     </div>
                   </div>
@@ -1151,7 +1151,7 @@ const NewPassenger = () => {
                       value={formData.district}
                       onChange={handleInputChange}
                       disabled={!formData.division}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white ${!formData.division ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white ${!formData.division ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <option value="">
                         {formData.division ? 'জেলা নির্বাচন করুন' : 'প্রথমে বিভাগ নির্বাচন করুন'}
@@ -1174,7 +1174,7 @@ const NewPassenger = () => {
                       value={formData.upazila}
                       onChange={handleInputChange}
                       disabled={!formData.district}
-                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white ${!formData.district ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white ${!formData.district ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <option value="">
                         {formData.district ? 'উপজেলা নির্বাচন করুন' : 'প্রথমে জেলা নির্বাচন করুন'}
@@ -1286,7 +1286,7 @@ const NewPassenger = () => {
                       name="passportType"
                       value={formData.passportType}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white"
+                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                     >
                       <option value="">পাসপোর্ট টাইপ নির্বাচন করুন</option>
                       <option value="Ordinary">Ordinary Passport (সাধারণ পাসপোর্ট)</option>
@@ -1454,7 +1454,7 @@ const NewPassenger = () => {
                       name="gender"
                       value={formData.gender}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white"
+                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                     >
                       <option value="">Select gender</option>
                       <option value="Male">Male</option>
@@ -1515,7 +1515,7 @@ const NewPassenger = () => {
                       name="maritalStatus"
                       value={formData.maritalStatus}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-700 dark:bg-gray-700 border-gray-600 dark:border-gray-600 text-white dark:text-white"
+                      className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                     >
                       <option value="">Select status</option>
                       <option value="Single">Single</option>
