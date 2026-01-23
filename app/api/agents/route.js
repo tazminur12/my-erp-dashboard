@@ -36,6 +36,17 @@ export async function GET(request) {
       passport: agent.passport || '',
       profilePicture: agent.profilePicture || agent.profile_picture || '',
       status: agent.status || 'active',
+      // Balance fields
+      totalDue: agent.totalDue !== undefined ? agent.totalDue : (agent.total_due || 0),
+      hajDue: agent.hajDue !== undefined ? agent.hajDue : (agent.haj_due || 0),
+      umrahDue: agent.umrahDue !== undefined ? agent.umrahDue : (agent.umrah_due || 0),
+      totalPaid: agent.totalPaid !== undefined ? agent.totalPaid : (agent.total_paid || 0),
+      hajPaid: agent.hajPaid !== undefined ? agent.hajPaid : (agent.haj_paid || 0),
+      umrahPaid: agent.umrahPaid !== undefined ? agent.umrahPaid : (agent.umrah_paid || 0),
+      totalDeposit: agent.totalDeposit !== undefined ? agent.totalDeposit : (agent.total_deposit || 0),
+      totalAdvance: agent.totalAdvance !== undefined ? agent.totalAdvance : (agent.total_advance || 0),
+      hajAdvance: agent.hajAdvance !== undefined ? agent.hajAdvance : (agent.haj_advance || 0),
+      umrahAdvance: agent.umrahAdvance !== undefined ? agent.umrahAdvance : (agent.umrah_advance || 0),
       created_at: agent.created_at ? agent.created_at.toISOString() : '',
       updated_at: agent.updated_at ? agent.updated_at.toISOString() : '',
     }));

@@ -10,10 +10,13 @@ export async function GET(request) {
     const db = await getDb();
     const vendorsCollection = db.collection('vendors');
 
-    // Build query
+    // Build query - default to active vendors only
     const query = {};
     if (status) {
       query.status = status;
+    } else {
+      // Default: show only active vendors
+      query.status = 'active';
     }
 
     const vendors = await vendorsCollection
@@ -137,8 +140,28 @@ export async function POST(request) {
       );
     }
 
+    // Generate unique vendor ID (VN00010 format)
+    const vendorsWithIds = await vendorsCollection
+      .find({ vendorId: { $regex: /^VN\d+$/i } })
+      .toArray();
+    
+    let maxNumber = 0;
+    if (vendorsWithIds.length > 0) {
+      vendorsWithIds.forEach(vendor => {
+        if (vendor.vendorId) {
+          const idNumber = parseInt(vendor.vendorId.toUpperCase().replace(/^VN/, '')) || 0;
+          if (idNumber > maxNumber) {
+            maxNumber = idNumber;
+          }
+        }
+      });
+    }
+    
+    const vendorId = `VN${String(maxNumber + 1).padStart(5, '0')}`;
+
     // Create new vendor
     const newVendor = {
+      vendorId: vendorId,
       tradeName: tradeName.trim(),
       tradeLocation: tradeLocation.trim(),
       ownerName: ownerName.trim(),
@@ -160,7 +183,7 @@ export async function POST(request) {
     const createdVendor = {
       id: result.insertedId.toString(),
       _id: result.insertedId.toString(),
-      vendorId: result.insertedId.toString(),
+      vendorId: vendorId,
       ...newVendor,
       created_at: newVendor.created_at.toISOString(),
       updated_at: newVendor.updated_at.toISOString(),

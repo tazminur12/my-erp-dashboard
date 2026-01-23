@@ -60,7 +60,7 @@ export const navigation = [
     name: 'Transactions',
     icon: CreditCard,
     children: [
-      { name: 'Transactions List', href: '/transactions/list', icon: List },
+      { name: 'Transactions List', href: '/transactions', icon: List },
       { name: 'New Transaction', href: '/transactions/new', icon: Plus },
       { name: 'Today Transaction', href: '/transactions/today', icon: Calendar }
     ]
@@ -123,9 +123,9 @@ export const navigation = [
         href: '/air-ticketing/old/dashboard',
         icon: History,
         children: [
-          { name: 'Dashboard', href: '/air-ticketing/old/dashboard', icon: LayoutDashboard },
-          { name: 'Ticket Check', href: '/air-ticketing/tickets/check', icon: FileCheck },
-          { name: 'Old Ticket Reissue', href: '/air-ticketing/old/ticket-reissue', icon: RotateCcw }
+          { name: 'ড্যাশবোর্ড', href: '/air-ticketing/old/dashboard', icon: LayoutDashboard },
+          { name: 'Ticket Check', href: '/air-ticketing/ticket-check/list', icon: FileCheck },
+          { name: 'Old Ticket Reissue', href: '/air-ticketing/old/ticket-reissue/list', icon: List }
         ]
       },
       { name: 'Airline List', href: '/air-ticketing/airlines', icon: List },
@@ -140,7 +140,7 @@ export const navigation = [
       { name: 'Passport Service', href: '/additional-services/passport-service', icon: FileCheck },
       { name: 'Manpower Service', href: '/additional-services/manpower-service', icon: Briefcase },
       { name: 'Visa Processing', href: '/additional-services/visa-processing', icon: FileText },
-      { name: "Other's Service", href: '/additional-services/others-service', icon: Package }
+      { name: "Other's Service", href: '/additional-services/other-services', icon: Package }
     ]
   },
   {
@@ -235,10 +235,10 @@ export const navigation = [
     name: 'Marketing Zone',
     icon: Megaphone,
     children: [
-      { name: 'SMS Marketing', href: '/marketing/sms', icon: MessageSquare },
+      { name: 'SMS Marketing', href: '/marketing/sms-marketing', icon: MessageSquare },
       { name: 'All Contacts', href: '/marketing/contacts', icon: Users },
       { name: 'Groups', href: '/marketing/groups', icon: FolderOpen },
-      { name: 'Email Marketing', href: '/marketing/email', icon: Mail }
+      { name: 'Email Marketing', href: '/marketing/email-marketing', icon: Mail }
     ]
   },
   {

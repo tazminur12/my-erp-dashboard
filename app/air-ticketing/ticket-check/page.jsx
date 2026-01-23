@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X, Loader2, Plane, DollarSign, ChevronRight, CheckCircle, User, Building2, ArrowLeft } from 'lucide-react';
-import DashboardLayout from '../../../component/DashboardLayout';
+import DashboardLayout from '../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 
 export default function TicketCheck() {

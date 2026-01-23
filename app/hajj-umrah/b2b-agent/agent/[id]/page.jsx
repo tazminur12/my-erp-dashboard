@@ -8,7 +8,7 @@ import {
   TrendingUp, TrendingDown, MapPin, Phone, Mail, CreditCard, FileText,
   Building, Globe, Award, Target, BarChart3, PieChart, Package,
   ChevronDown, ChevronUp, Eye, Edit, Trash2, Plus, Wallet, Receipt,
-  PiggyBank, Calculator, FileSpreadsheet, AlertTriangle, Banknote
+  PiggyBank, Calculator, FileSpreadsheet, AlertTriangle, Banknote, RefreshCw
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 
@@ -138,10 +138,46 @@ const AgentDetails = () => {
     }
   }, [id]);
 
+  // Refetch data when page becomes visible (user returns from transaction page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && id) {
+        // Page became visible, refetch agent data to get latest updates
+        console.log('🔄 Page became visible, refetching agent data...');
+        fetchAgent();
+      }
+    };
+
+    const handleFocus = () => {
+      if (id) {
+        // Window focused, refetch agent data
+        console.log('🔄 Window focused, refetching agent data...');
+        fetchAgent();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   const fetchAgent = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/agents/${id}`);
+      // Add cache: 'no-store' to ensure fresh data on every fetch
+      const response = await fetch(`/api/agents/${id}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -342,11 +378,11 @@ const AgentDetails = () => {
         ['totalPaid', 'totalDeposit', 'totalReceived', 'totalCollection'],
         packageSummary.overall.paid
       ),
-      due: pickNumberFromObject(
+      due: Math.max(0, pickNumberFromObject(
         agent,
         ['totalDue'],
         packageSummary.overall.due
-      ),
+      )),
       advance: pickNumberFromObject(
         agent,
         ['totalAdvance'],
@@ -374,11 +410,11 @@ const AgentDetails = () => {
         ['hajPaid', 'hajjPaid', 'hajjDeposit', 'hajDeposit', 'totalHajjPaid'],
         packageSummary.hajj.paid
       ),
-      due: pickNumberFromObject(
+      due: Math.max(0, pickNumberFromObject(
         agent,
         ['hajDue'],
         packageSummary.hajj.due
-      ),
+      )),
       advance: pickNumberFromObject(
         agent,
         ['hajAdvance'],
@@ -406,11 +442,11 @@ const AgentDetails = () => {
         ['umrahPaid', 'umrahDeposit', 'totalUmrahPaid'],
         packageSummary.umrah.paid
       ),
-      due: pickNumberFromObject(
+      due: Math.max(0, pickNumberFromObject(
         agent,
         ['umrahDue'],
         packageSummary.umrah.due
-      ),
+      )),
       advance: pickNumberFromObject(
         agent,
         ['umrahAdvance'],
@@ -586,6 +622,25 @@ const AgentDetails = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              fetchAgent();
+              Swal.fire({
+                icon: 'success',
+                title: 'Refreshed',
+                text: 'Agent data has been refreshed',
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+              });
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
+            title="Refresh data"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
           <button
             type="button"
             onClick={() => router.push(`/hajj-umrah/b2b-agent/agent/${id}/create-package`)}

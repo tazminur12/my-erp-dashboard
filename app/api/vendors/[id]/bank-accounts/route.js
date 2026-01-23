@@ -161,16 +161,17 @@ export async function POST(request, { params }) {
       updated_at: new Date(),
     };
 
+    // Get existing bank accounts
+    const bankAccounts = vendor.bankAccounts || [];
+    
     // If setting as primary, unset other primary accounts
     if (isPrimary) {
-      const bankAccounts = vendor.bankAccounts || [];
       bankAccounts.forEach(acc => {
         acc.isPrimary = false;
       });
     }
 
     // Add bank account to vendor
-    const bankAccounts = vendor.bankAccounts || [];
     bankAccounts.push(newBankAccount);
 
     await vendorsCollection.updateOne(

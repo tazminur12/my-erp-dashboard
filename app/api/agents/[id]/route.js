@@ -30,6 +30,23 @@ export async function GET(request, { params }) {
       );
     }
 
+    console.log('📊 Agent API - Raw agent data:', {
+      id: agent._id.toString(),
+      totalDue: agent.totalDue,
+      hajDue: agent.hajDue,
+      umrahDue: agent.umrahDue,
+      totalPaid: agent.totalPaid,
+      hajPaid: agent.hajPaid,
+      umrahPaid: agent.umrahPaid,
+      totalDeposit: agent.totalDeposit,
+      totalBilled: agent.totalBilled,
+      hajBilled: agent.hajBilled,
+      umrahBilled: agent.umrahBilled,
+      totalAdvance: agent.totalAdvance,
+      hajAdvance: agent.hajAdvance,
+      umrahAdvance: agent.umrahAdvance
+    });
+
     const formattedAgent = {
       id: agent._id.toString(),
       _id: agent._id.toString(),
@@ -49,10 +66,21 @@ export async function GET(request, { params }) {
       totalRevenue: agent.totalRevenue || agent.total_revenue || 0,
       commissionRate: agent.commissionRate || agent.commission_rate || 0,
       pendingPayments: agent.pendingPayments || agent.pending_payments || 0,
-      totalDue: agent.totalDue || agent.total_due || 0,
-      hajDue: agent.hajDue || agent.haj_due || 0,
-      umrahDue: agent.umrahDue || agent.umrah_due || 0,
-      totalAdvance: agent.totalAdvance || agent.total_advance || 0,
+      totalDue: agent.totalDue !== undefined ? agent.totalDue : (agent.total_due || 0),
+      hajDue: agent.hajDue !== undefined ? agent.hajDue : (agent.haj_due || 0),
+      umrahDue: agent.umrahDue !== undefined ? agent.umrahDue : (agent.umrah_due || 0),
+      totalPaid: agent.totalPaid !== undefined ? agent.totalPaid : (agent.total_paid || 0),
+      hajPaid: agent.hajPaid !== undefined ? agent.hajPaid : (agent.haj_paid || 0),
+      umrahPaid: agent.umrahPaid !== undefined ? agent.umrahPaid : (agent.umrah_paid || 0),
+      totalDeposit: agent.totalDeposit !== undefined ? agent.totalDeposit : (agent.total_deposit || 0),
+      hajDeposit: agent.hajDeposit !== undefined ? agent.hajDeposit : (agent.haj_deposit || 0),
+      umrahDeposit: agent.umrahDeposit !== undefined ? agent.umrahDeposit : (agent.umrah_deposit || 0),
+      totalBilled: agent.totalBilled !== undefined ? agent.totalBilled : (agent.total_billed || agent.totalBill || agent.totalBillAmount || 0),
+      hajBilled: agent.hajBilled !== undefined ? agent.hajBilled : (agent.haj_billed || agent.hajBill || agent.hajjBill || 0),
+      umrahBilled: agent.umrahBilled !== undefined ? agent.umrahBilled : (agent.umrah_billed || agent.umrahBill || 0),
+      totalAdvance: agent.totalAdvance !== undefined ? agent.totalAdvance : (agent.total_advance || 0),
+      hajAdvance: agent.hajAdvance !== undefined ? agent.hajAdvance : (agent.haj_advance || 0),
+      umrahAdvance: agent.umrahAdvance !== undefined ? agent.umrahAdvance : (agent.umrah_advance || 0),
       hajAdvance: agent.hajAdvance || agent.haj_advance || 0,
       umrahAdvance: agent.umrahAdvance || agent.umrah_advance || 0,
       totalProfit: agent.totalProfit || agent.total_profit || 0,

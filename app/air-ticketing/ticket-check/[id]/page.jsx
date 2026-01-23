@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardLayout from '../../../../component/DashboardLayout';
+import DashboardLayout from '../../../component/DashboardLayout';
 import { 
   ArrowLeft, 
   Edit, 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../component/DashboardLayout';
+import Modal from '../../../../component/Modal';
 import {
   ArrowLeft,
   Edit,
@@ -34,6 +35,9 @@ import {
   ArrowDown,
   Loader2
 } from 'lucide-react';
+import { generateHajiCardPDF } from '../../../../utils/hajiCardPdf';
+import { generateHajiContractPDF } from '../../../../utils/hajiContractPdf';
+import Swal from 'sweetalert2';
 
 const HajiDetails = () => {
   const params = useParams();
@@ -229,21 +233,57 @@ const HajiDetails = () => {
     if (!isUmrah && id) {
       fetchTransactions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isUmrah, id, transactionPage, transactionFilters]);
 
   const fetchTransactions = async () => {
     try {
-      // TODO: Replace with actual API endpoint
-      // const response = await fetch(`/api/hajj-umrah/hajis/${id}/transactions?page=${transactionPage}&limit=20&...`);
-      // const data = await response.json();
-      // setTransactions(data.transactions || []);
-      // setTransactionSummary(data.summary || {});
-      // setTransactionPagination(data.pagination || {});
+      const queryParams = new URLSearchParams({
+        partyType: 'haji',
+        partyId: id,
+        page: transactionPage.toString(),
+        limit: '20',
+        ...(transactionFilters.fromDate && { fromDate: transactionFilters.fromDate }),
+        ...(transactionFilters.toDate && { toDate: transactionFilters.toDate }),
+        ...(transactionFilters.transactionType && { transactionType: transactionFilters.transactionType }),
+      });
+
+      const response = await fetch(`/api/transactions?${queryParams}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setTransactions(data.transactions || data.data || []);
+        setTransactionPagination(data.pagination || {
+          page: transactionPage,
+          limit: 20,
+          total: data.totalCount || 0,
+          totalPages: Math.ceil((data.totalCount || 0) / 20)
+        });
+
+        // Calculate summary
+        const txs = data.transactions || data.data || [];
+        const totalCredit = txs
+          .filter(tx => tx.transactionType === 'credit')
+          .reduce((sum, tx) => sum + (Number(tx.amount || tx.paymentDetails?.amount || 0)), 0);
+        const totalDebit = txs
+          .filter(tx => tx.transactionType === 'debit')
+          .reduce((sum, tx) => sum + (Number(tx.amount || tx.paymentDetails?.amount || 0)), 0);
+        const netAmount = totalCredit - totalDebit;
+
+        setTransactionSummary({
+          totalTransactions: txs.length,
+          totalCredit,
+          totalDebit,
+          netAmount
+        });
+      } else {
+        throw new Error(data.error || 'Failed to fetch transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
       setTransactions([]);
       setTransactionSummary({});
       setTransactionPagination({});
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
     }
   };
 
@@ -294,18 +334,173 @@ const HajiDetails = () => {
 
   const handleDownloadCardPDF = async () => {
     if (!haji || isGeneratingCardPdf) return;
+    
     setIsGeneratingCardPdf(true);
-    // TODO: Implement PDF generation
-    alert('PDF generation feature coming soon');
-    setIsGeneratingCardPdf(false);
+    
+    try {
+      // Show loading alert
+      Swal.fire({
+        title: 'PDF তৈরি হচ্ছে...',
+        text: `${haji.name || 'Haji'} এর নামপ্লেট PDF তৈরি হচ্ছে`,
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Prepare haji data for PDF generation
+      const hajiData = {
+        name: haji.name || haji.firstName || 'N/A',
+        passportNumber: haji.passportNumber || 'N/A',
+        district: haji.district || 'N/A',
+        upazila: haji.upazila || haji.policeStation || haji.thana || 'N/A',
+        mobile: haji.mobile || haji.phone || 'N/A',
+        whatsappNo: haji.whatsappNo || '',
+        ksaMobile: haji.ksaMobile || haji.ksaPhone || haji.saudiMobile || '',
+        photo: haji.photo || haji.photoUrl || haji.image || '',
+        photoUrl: haji.photo || haji.photoUrl || haji.image || ''
+      };
+
+      // Generate PDF with 2 copies by default
+      const result = await generateHajiCardPDF(hajiData, {
+        download: true,
+        copies: 2
+      });
+
+      Swal.close();
+
+      if (result.success) {
+        Swal.fire({
+          title: 'সফল!',
+          text: `নামপ্লেট PDF সফলভাবে ডাউনলোড হয়েছে`,
+          icon: 'success',
+          confirmButtonText: 'ঠিক আছে',
+          confirmButtonColor: '#10B981',
+          timer: 2000
+        });
+      } else {
+        throw new Error(result.error || 'PDF generation failed');
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      Swal.fire({
+        title: 'ত্রুটি!',
+        text: `PDF তৈরি করতে সমস্যা হয়েছে: ${error.message || 'Unknown error'}`,
+        icon: 'error',
+        confirmButtonText: 'ঠিক আছে',
+        confirmButtonColor: '#EF4444'
+      });
+    } finally {
+      setIsGeneratingCardPdf(false);
+    }
   };
 
-  const handleIdCardClick = () => {
-    alert('আইডি কার্ড শীঘ্রই উপলব্ধ।');
+  const handleIdCardClick = async () => {
+    if (!haji) return;
+    
+    Swal.fire({
+      icon: 'info',
+      title: 'শীঘ্রই উপলব্ধ',
+      text: 'আইডি কার্ড PDF generation feature coming soon',
+      confirmButtonColor: '#3b82f6',
+    });
   };
 
-  const handleChuktiPattroClick = () => {
-    alert('চুক্তি পত্র শীঘ্রই উপলব্ধ।');
+  const handleChuktiPattroClick = async () => {
+    if (!haji) return;
+    
+    try {
+      // Show loading alert
+      Swal.fire({
+        title: 'PDF তৈরি হচ্ছে...',
+        text: `${haji.name || 'Haji'} এর চুক্তিপত্র PDF তৈরি হচ্ছে`,
+        icon: 'info',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Prepare haji data for PDF generation
+      const hajiData = {
+        name: haji.name || haji.firstName || 'N/A',
+        fatherName: haji.fatherName || 'N/A',
+        nidNumber: haji.nidNumber || 'N/A',
+        passportNumber: haji.passportNumber || 'N/A',
+        address: haji.address || 'N/A',
+        mobile: haji.mobile || haji.phone || 'N/A',
+        totalAmount: haji.totalAmount || 0,
+        paymentMethod: haji.paymentMethod || 'নগদ / ব্যাংক / কিস্তি',
+        paymentDates: haji.paymentDates || '',
+        packageType: haji.packageType || '',
+        packageCategory: haji.packageCategory || '',
+        packageDuration: haji.packageDuration || '',
+        hajjSeasonHijri: haji.hajjSeasonHijri || '',
+        hajjSeasonEnglish: haji.hajjSeasonEnglish || ''
+      };
+
+      // Get package data if available
+      const packageData = {
+        packageType: haji.packageType || '',
+        packageCategory: haji.packageCategory || '',
+        duration: haji.packageDuration || ''
+      };
+
+      // Generate PDF
+      const result = await generateHajiContractPDF(hajiData, packageData, {
+        download: true
+      });
+
+      Swal.close();
+
+      if (result.success) {
+        Swal.fire({
+          title: 'সফল!',
+          text: `চুক্তিপত্র PDF সফলভাবে ডাউনলোড হয়েছে`,
+          icon: 'success',
+          confirmButtonText: 'ঠিক আছে',
+          confirmButtonColor: '#10B981',
+          timer: 2000
+        });
+      } else {
+        throw new Error(result.error || 'PDF generation failed');
+      }
+    } catch (error) {
+      console.error('Contract PDF generation error:', error);
+      Swal.fire({
+        title: 'ত্রুটি!',
+        text: `PDF তৈরি করতে সমস্যা হয়েছে: ${error.message || 'Unknown error'}`,
+        icon: 'error',
+        confirmButtonText: 'ঠিক আছে',
+        confirmButtonColor: '#EF4444'
+      });
+    }
+  };
+
+  const handlePackageSelect = async (packageData) => {
+    if (!haji || !packageData) return;
+    
+    try {
+      // TODO: Implement package assignment API call
+      Swal.fire({
+        icon: 'info',
+        title: 'শীঘ্রই উপলব্ধ',
+        text: 'প্যাকেজ assignment feature coming soon',
+        confirmButtonColor: '#3b82f6',
+      });
+      setShowPackagePicker(false);
+    } catch (error) {
+      console.error('Error assigning package:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'প্যাকেজ যোগ করতে সমস্যা হয়েছে',
+        confirmButtonColor: '#EF4444',
+      });
+    }
   };
 
   const sendDueSms = async () => {
@@ -811,104 +1006,386 @@ const HajiDetails = () => {
     </div>
   );
 
-  const renderRelations = () => (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">সম্পর্ক</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">এই প্রোফাইলের সাথে লিঙ্ক করা হাজি নির্ধারণ বা দেখুন।</p>
-          </div>
-          <button
-            onClick={() => setShowRelationPicker(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            সম্পর্কযুক্ত হাজি নির্ধারণ করুন
-          </button>
-        </div>
-        {relationsState.length > 0 ? (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {relationsState.map((relation, idx) => (
-              <div key={idx} className="py-3 flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900 dark:text-white">{relation.name || 'N/A'}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">ID: {relation.customerId || relation._id || 'N/A'}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    // TODO: Implement delete relation
-                    setRelationsState(relationsState.filter((_, i) => i !== idx));
-                  }}
-                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-sm text-gray-600 dark:text-gray-400 py-6">
-            এখনও কোনো সম্পর্ক যোগ করা হয়নি।
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const renderRelations = () => {
+    const relationTypeOptions = [
+      { value: 'mother', label: 'মা' },
+      { value: 'father', label: 'বাবা' },
+      { value: 'wife', label: 'স্ত্রী' },
+      { value: 'husband', label: 'স্বামী' },
+      { value: 'brother', label: 'ভাই' },
+      { value: 'sister', label: 'বোন' },
+      { value: 'son', label: 'ছেলে' },
+      { value: 'daughter', label: 'মেয়ে' },
+      { value: 'relative', label: 'আত্মীয়' },
+      { value: 'other', label: 'অন্যান্য' }
+    ];
 
-  const renderTransactionHistory = () => {
-    if (isUmrah) {
-      return (
-        <div className="p-6 text-center">
-          <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">লেনদেনের ইতিহাস শুধুমাত্র হাজি প্রোফাইলের জন্য উপলব্ধ।</p>
-        </div>
-      );
-    }
+    const handleRelationSelect = async (selected) => {
+      if (!selected) return;
+      // TODO: Implement relation adding API
+      const newRelation = {
+        relatedHajiId: selected.id || selected._id || selected.customerId,
+        name: selected.name,
+        mobile: selected.mobile || selected.phone,
+        relationType: selectedRelationType || 'relative'
+      };
+      setRelationsState((prev) => [...prev, newRelation]);
+      setShowRelationPicker(false);
+      setSelectedRelationType('relative');
+      Swal.fire({
+        icon: 'success',
+        title: 'সম্পর্ক যুক্ত হয়েছে!',
+        text: `${selected.name} এর সাথে সম্পর্ক যুক্ত করা হয়েছে।`,
+        confirmButtonColor: '#3b82f6',
+        timer: 2000,
+      });
+    };
+
+    const handleDeleteRelation = async (index) => {
+      const relation = relationsState[index];
+      const result = await Swal.fire({
+        title: 'নিশ্চিত করুন',
+        text: `আপনি কি ${relation.name || 'এই সম্পর্ক'} মুছে ফেলতে চান?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'হ্যাঁ, মুছে ফেলুন',
+        cancelButtonText: 'বাতিল',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+      });
+
+      if (result.isConfirmed) {
+        // TODO: Implement relation delete API
+        setRelationsState(relationsState.filter((_, i) => i !== index));
+        Swal.fire({
+          icon: 'success',
+          title: 'মুছে ফেলা হয়েছে!',
+          text: 'সম্পর্ক সফলভাবে মুছে ফেলা হয়েছে।',
+          confirmButtonColor: '#3b82f6',
+          timer: 2000,
+        });
+      }
+    };
+
+    const filteredHajiList = hajiList.filter((item) => {
+      const query = relationSearch.trim().toLowerCase();
+      if (!query) return true;
+      const name = (item.name || '').toLowerCase();
+      const mobile = (item.mobile || item.phone || '').toLowerCase();
+      const customerId = String(item.customerId || item._id || '').toLowerCase();
+      return name.includes(query) || mobile.includes(query) || customerId.includes(query);
+    });
 
     return (
       <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">সম্পর্ক</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">এই প্রোফাইলের সাথে লিঙ্ক করা হাজি নির্ধারণ বা দেখুন।</p>
+            </div>
+            <button
+              onClick={() => setShowRelationPicker(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              সম্পর্কযুক্ত হাজি নির্ধারণ করুন
+            </button>
+          </div>
+          {relationsState.length > 0 ? (
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {relationsState.map((relation, idx) => (
+                <div key={idx} className="py-3 flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 dark:text-white">{relation.name || 'N/A'}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">ID: {relation.relatedHajiId || relation._id || 'N/A'}</p>
+                    {relation.relationType && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {relationTypeOptions.find(opt => opt.value === relation.relationType)?.label || relation.relationType}
+                        {relation.mobile && ` • ${relation.mobile}`}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleDeleteRelation(idx)}
+                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-sm text-gray-600 dark:text-gray-400 py-6">
+              এখনও কোনো সম্পর্ক যোগ করা হয়নি।
+            </div>
+          )}
+        </div>
+
+        <Modal
+          isOpen={showRelationPicker}
+          onClose={() => {
+            setShowRelationPicker(false);
+            setRelationSearch('');
+          }}
+          title="সম্পর্ক নির্ধারণ করুন"
+          description="লিঙ্ক করার জন্য হাজি যাত্রী খুঁজুন এবং নির্বাচন করুন।"
+          size="lg"
+        >
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={relationSearch}
+              onChange={(e) => setRelationSearch(e.target.value)}
+              placeholder="নাম, মোবাইল বা আইডি দিয়ে খুঁজুন"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">সম্পর্কের ধরন</label>
+              <select
+                value={selectedRelationType}
+                onChange={(e) => setSelectedRelationType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                {relationTypeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredHajiList.length === 0 ? (
+                <div className="p-4 text-sm text-gray-600 dark:text-gray-400 text-center">কোন হাজি যাত্রী পাওয়া যায়নি।</div>
+              ) : (
+                filteredHajiList
+                  .filter((item) => {
+                    const itemId = String(item.id || item._id || item.customerId || '');
+                    const currentId = String(id || '');
+                    return itemId !== currentId;
+                  })
+                  .map((item) => {
+                    const itemId = item.id || item._id || item.customerId;
+                    const alreadyLinked = relationsState.some(
+                      (r) => String(r.relatedHajiId || r._id || r.id || '') === String(itemId || '')
+                    );
+                    return (
+                      <div key={itemId} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                            {item.name}
+                            {alreadyLinked && (
+                              <span className="ml-2 text-xs text-green-600 dark:text-green-400 font-normal">(যুক্ত করা হয়েছে)</span>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            আইডি: {itemId || 'N/A'} • {item.mobile || item.phone || 'ফোন নেই'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRelationSelect(item)}
+                          disabled={alreadyLinked}
+                          className={`px-4 py-2 rounded-lg text-sm ${
+                            alreadyLinked
+                              ? 'bg-gray-400 text-white cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {alreadyLinked ? 'যুক্ত করা হয়েছে' : 'নির্বাচন করুন'}
+                        </button>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
+  };
+
+  const renderTransactionHistory = () => {
+    const formatAmount = (amount) => {
+      return `৳${Number(amount || 0).toLocaleString('bn-BD')}`;
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Summary Cards */}
+        {Object.keys(transactionSummary).length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">মোট লেনদেন</p>
+              <p className="text-xl font-bold text-gray-900 dark:text-white">
+                {transactionSummary.totalTransactions || 0}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">মোট ক্রেডিট</p>
+              <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                {formatAmount(transactionSummary.totalCredit)}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">মোট ডেবিট</p>
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                {formatAmount(transactionSummary.totalDebit)}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">নিট পরিমাণ</p>
+              <p className={`text-xl font-bold ${
+                (transactionSummary.netAmount || 0) >= 0 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatAmount(transactionSummary.netAmount)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">ফিল্টার</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">শুরুর তারিখ</label>
+              <input
+                type="date"
+                value={transactionFilters.fromDate}
+                onChange={(e) => setTransactionFilters({ ...transactionFilters, fromDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">শেষ তারিখ</label>
+              <input
+                type="date"
+                value={transactionFilters.toDate}
+                onChange={(e) => setTransactionFilters({ ...transactionFilters, toDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">লেনদেনের ধরন</label>
+              <select
+                value={transactionFilters.transactionType}
+                onChange={(e) => setTransactionFilters({ ...transactionFilters, transactionType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">সব ধরন</option>
+                <option value="credit">ক্রেডিট</option>
+                <option value="debit">ডেবিট</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setTransactionFilters({ fromDate: '', toDate: '', transactionType: '' });
+                  setTransactionPage(1);
+                }}
+                className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                ফিল্টার সাফ করুন
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Transaction List */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">লেনদেনের ইতিহাস</h3>
           {transactions.length === 0 ? (
             <div className="text-center py-8">
               <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600 dark:text-gray-400">কোনো লেনদেন পাওয়া যায়নি</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">কোন লেনদেন পাওয়া যায়নি</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">তারিখ</th>
-                    <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">ধরন</th>
-                    <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">পরিমাণ</th>
-                    <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">নোট</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx._id} className="border-b border-gray-200 dark:border-gray-700">
-                      <td className="py-3 px-2 text-sm text-gray-900 dark:text-white">{formatDate(tx.date)}</td>
-                      <td className="py-3 px-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          tx.transactionType === 'credit'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                        }`}>
-                          {tx.transactionType === 'credit' ? 'ক্রেডিট' : 'ডেবিট'}
-                        </span>
-                      </td>
-                      <td className={`py-3 px-2 text-sm font-semibold ${
-                        tx.transactionType === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {tx.transactionType === 'credit' ? '+' : '-'}৳{Number(tx.amount || 0).toLocaleString('bn-BD')}
-                      </td>
-                      <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400">{tx.notes || 'N/A'}</td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">তারিখ</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">ধরন</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">পরিমাণ</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">ক্যাটাগরি</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">পেমেন্ট মেথড</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">নোট</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {transactions.map((tx) => (
+                      <tr key={tx._id || tx.transactionId} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="py-3 px-2 text-sm text-gray-900 dark:text-white">
+                          {formatDate(tx.date)}
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            tx.transactionType === 'credit'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                          }`}>
+                            {tx.transactionType === 'credit' ? (
+                              <ArrowUp className="w-3 h-3" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3" />
+                            )}
+                            {tx.transactionType === 'credit' ? 'ক্রেডিট' : 'ডেবিট'}
+                          </span>
+                        </td>
+                        <td className={`py-3 px-2 text-sm font-semibold ${
+                          tx.transactionType === 'credit'
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {tx.transactionType === 'credit' ? '+' : '-'}{formatAmount(tx.amount || tx.paymentDetails?.amount || 0)}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400">
+                          {tx.serviceCategory || 'N/A'}
+                          {tx.subCategory && (
+                            <span className="text-gray-500 dark:text-gray-500"> • {tx.subCategory}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400 capitalize">
+                          {tx.paymentMethod || 'N/A'}
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title={tx.notes || ''}>
+                          {tx.notes || 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {transactionPagination.totalPages > 1 && (
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    পৃষ্ঠা {transactionPagination.page} এর {transactionPagination.totalPages} (মোট {transactionPagination.total})
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setTransactionPage(prev => Math.max(1, prev - 1))}
+                      disabled={transactionPagination.page <= 1}
+                      className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      আগের
+                    </button>
+                    <button
+                      onClick={() => setTransactionPage(prev => Math.min(transactionPagination.totalPages, prev + 1))}
+                      disabled={transactionPagination.page >= transactionPagination.totalPages}
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      পরের
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -955,7 +1432,14 @@ const HajiDetails = () => {
               <p className="text-gray-600 dark:text-gray-400">হাজি-এর সম্পূর্ণ তথ্য</p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-wrap gap-2">
+            <button
+              onClick={() => setShowPackagePicker(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              <Package className="w-4 h-4" />
+              <span>প্যাকেজ যোগ করুন</span>
+            </button>
             <button
               onClick={handleDownloadCardPDF}
               disabled={isGeneratingCardPdf}
@@ -963,6 +1447,20 @@ const HajiDetails = () => {
             >
               <Download className="w-4 h-4" />
               <span>{isGeneratingCardPdf ? 'তৈরি হচ্ছে...' : 'নামপ্লেট'}</span>
+            </button>
+            <button
+              onClick={handleIdCardClick}
+              className="flex items-center space-x-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>আইডি কার্ড</span>
+            </button>
+            <button
+              onClick={handleChuktiPattroClick}
+              className="flex items-center space-x-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+            >
+              <FileText className="w-4 h-4" />
+              <span>চুক্তি পত্র</span>
             </button>
             <Link
               href={`/hajj-umrah/hajj/haji/${id}/edit`}
@@ -1001,6 +1499,62 @@ const HajiDetails = () => {
         <div className="min-h-[600px]">
           {renderTabContent()}
         </div>
+
+        {/* Package Picker Modal */}
+        <Modal
+          isOpen={showPackagePicker}
+          onClose={() => {
+            setShowPackagePicker(false);
+            setPackageSearch('');
+          }}
+          title="প্যাকেজ নির্বাচন করুন"
+          size="lg"
+        >
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={packageSearch}
+              onChange={(e) => setPackageSearch(e.target.value)}
+              placeholder="নাম, টাইপ, বছর দিয়ে খুঁজুন..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+            <div className="max-h-96 overflow-y-auto divide-y divide-gray-200 dark:divide-gray-700">
+              {packages.length === 0 ? (
+                <div className="p-6 text-center text-sm text-gray-600 dark:text-gray-400">কোন প্যাকেজ পাওয়া যায়নি।</div>
+              ) : (
+                packages
+                  .filter((p) => {
+                    const q = packageSearch.toLowerCase();
+                    if (!q) return true;
+                    const name = (p.packageName || p.name || '').toLowerCase();
+                    const type = (p.packageType || '').toLowerCase();
+                    return name.includes(q) || type.includes(q);
+                  })
+                  .map((p) => (
+                    <div key={p.id || p._id} className="flex items-center justify-between p-4 border-l-2 border-l-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-semibold text-gray-900 dark:text-white truncate">{p.packageName || p.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                          {p.packageType || 'N/A'} • {p.packageYear || '-'}
+                        </p>
+                        {p.price && (
+                          <p className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                            মূল্য: ৳{Number(p.price || 0).toLocaleString('bn-BD')}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handlePackageSelect(p)}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors"
+                      >
+                        নির্বাচন করুন
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </Modal>
       </div>
     </DashboardLayout>
   );

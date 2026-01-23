@@ -221,21 +221,59 @@ const UmrahHajiDetails = () => {
     if (id) {
       fetchTransactions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, transactionPage, transactionFilters]);
 
   const fetchTransactions = async () => {
     try {
-      // TODO: Replace with actual API endpoint
-      // const response = await fetch(`/api/hajj-umrah/umrahs/${id}/transactions?page=${transactionPage}&limit=20&...`);
-      // const data = await response.json();
-      // setTransactions(data.transactions || []);
-      // setTransactionSummary(data.summary || {});
-      // setTransactionPagination(data.pagination || {});
+      const queryParams = new URLSearchParams({
+        partyType: 'umrah',
+        partyId: id,
+        page: transactionPage.toString(),
+        limit: '20',
+        ...(transactionFilters.fromDate && { fromDate: transactionFilters.fromDate }),
+        ...(transactionFilters.toDate && { toDate: transactionFilters.toDate }),
+        ...(transactionFilters.transactionType && { transactionType: transactionFilters.transactionType }),
+      });
+
+      const response = await fetch(`/api/transactions?${queryParams}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setTransactions(data.transactions || data.data || []);
+        setTransactionPagination(data.pagination || {
+          page: transactionPage,
+          limit: 20,
+          total: data.totalCount || 0,
+          totalPages: Math.ceil((data.totalCount || 0) / 20)
+        });
+
+        // Calculate summary from all transactions (not just current page)
+        // Note: For accurate summary, we might need a separate API call
+        // For now, calculate from current page transactions
+        const txs = data.transactions || data.data || [];
+        const totalCredit = txs
+          .filter(tx => tx.transactionType === 'credit')
+          .reduce((sum, tx) => sum + (Number(tx.amount || tx.paymentDetails?.amount || 0)), 0);
+        const totalDebit = txs
+          .filter(tx => tx.transactionType === 'debit')
+          .reduce((sum, tx) => sum + (Number(tx.amount || tx.paymentDetails?.amount || 0)), 0);
+        const netAmount = totalCredit - totalDebit;
+
+        setTransactionSummary({
+          totalTransactions: txs.length,
+          totalCredit,
+          totalDebit,
+          netAmount
+        });
+      } else {
+        throw new Error(data.error || 'Failed to fetch transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
       setTransactions([]);
       setTransactionSummary({});
       setTransactionPagination({});
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
     }
   };
 
@@ -1343,7 +1381,7 @@ const UmrahHajiDetails = () => {
                   </thead>
                   <tbody>
                     {transactions.map((tx) => (
-                      <tr key={tx._id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <tr key={tx._id || tx.transactionId} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="py-3 px-2 text-sm text-gray-900 dark:text-white">
                           {formatDate(tx.date)}
                         </td>
@@ -1366,7 +1404,7 @@ const UmrahHajiDetails = () => {
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {tx.transactionType === 'credit' ? '+' : '-'}{formatAmount(tx.amount)}
+                          {tx.transactionType === 'credit' ? '+' : '-'}{formatAmount(tx.amount || tx.paymentDetails?.amount || 0)}
                         </td>
                         <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400">
                           {tx.serviceCategory || 'N/A'}

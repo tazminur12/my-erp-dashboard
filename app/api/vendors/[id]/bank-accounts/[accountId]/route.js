@@ -2,6 +2,85 @@ import { NextResponse } from 'next/server';
 import { getDb } from '../../../../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+// GET single bank account
+export async function GET(request, { params }) {
+  try {
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id, accountId } = resolvedParams;
+
+    if (!id || !accountId) {
+      return NextResponse.json(
+        { error: 'Vendor ID and Account ID are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { error: 'Invalid vendor ID format' },
+        { status: 400 }
+      );
+    }
+
+    const db = await getDb();
+    const vendorsCollection = db.collection('vendors');
+
+    // Check if vendor exists
+    const vendor = await vendorsCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!vendor) {
+      return NextResponse.json(
+        { error: 'Vendor not found' },
+        { status: 404 }
+      );
+    }
+
+    const bankAccounts = vendor.bankAccounts || [];
+    const account = bankAccounts.find(acc => {
+      const accId = acc._id?.toString() || acc.id?.toString() || '';
+      const compareId = accountId.toString();
+      return accId === compareId;
+    });
+
+    if (!account) {
+      return NextResponse.json(
+        { error: 'Bank account not found' },
+        { status: 404 }
+      );
+    }
+
+    const formattedAccount = {
+      id: account._id?.toString() || accountId,
+      _id: account._id?.toString() || accountId,
+      bankName: account.bankName || '',
+      accountNumber: account.accountNumber || '',
+      accountType: account.accountType || 'Savings',
+      branchName: account.branchName || '',
+      accountHolder: account.accountHolder || '',
+      accountTitle: account.accountTitle || account.accountHolder || '',
+      initialBalance: account.initialBalance || 0,
+      currentBalance: account.currentBalance || account.initialBalance || 0,
+      currency: account.currency || 'BDT',
+      contactNumber: account.contactNumber || '',
+      isPrimary: account.isPrimary || false,
+      notes: account.notes || '',
+      created_at: account.created_at ? account.created_at.toISOString() : new Date().toISOString(),
+      updated_at: account.updated_at ? account.updated_at.toISOString() : new Date().toISOString(),
+    };
+
+    return NextResponse.json(
+      { bankAccount: formattedAccount, data: formattedAccount },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Error fetching vendor bank account:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch vendor bank account', message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT update bank account
 export async function PUT(request, { params }) {
   try {
@@ -77,7 +156,13 @@ export async function PUT(request, { params }) {
       acc => {
         const accId = acc._id?.toString() || acc.id?.toString() || '';
         const compareId = accountId.toString();
-        return accId === compareId || (ObjectId.isValid(accId) && ObjectId.isValid(compareId) && accId === compareId);
+        // Try direct string comparison first
+        if (accId === compareId) return true;
+        // Try ObjectId comparison if both are valid ObjectIds
+        if (ObjectId.isValid(accId) && ObjectId.isValid(compareId)) {
+          return new ObjectId(accId).equals(new ObjectId(compareId));
+        }
+        return false;
       }
     );
 
@@ -185,7 +270,13 @@ export async function DELETE(request, { params }) {
       acc => {
         const accId = acc._id?.toString() || acc.id?.toString() || '';
         const compareId = accountId.toString();
-        return accId === compareId || (ObjectId.isValid(accId) && ObjectId.isValid(compareId) && accId === compareId);
+        // Try direct string comparison first
+        if (accId === compareId) return true;
+        // Try ObjectId comparison if both are valid ObjectIds
+        if (ObjectId.isValid(accId) && ObjectId.isValid(compareId)) {
+          return new ObjectId(accId).equals(new ObjectId(compareId));
+        }
+        return false;
       }
     );
 

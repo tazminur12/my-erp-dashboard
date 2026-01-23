@@ -434,7 +434,7 @@ const HajiList = () => {
   }).length;
   const totalPackageAmount = hajis.reduce((sum, h) => sum + (Number(h.totalAmount) || 0), 0);
   const totalPaidAmount = hajis.reduce((sum, h) => sum + (Number(h.paidAmount) || 0), 0);
-  const totalDueAmount = totalPackageAmount - totalPaidAmount;
+  const totalDueAmount = Math.max(0, totalPackageAmount - totalPaidAmount);
 
   if (loading) {
     return (
@@ -863,7 +863,7 @@ const HajiList = () => {
                     <div>
                       <label className="text-sm text-gray-600 dark:text-gray-400">বাকি পরিমাণ</label>
                       <p className="text-gray-900 dark:text-white">
-                        ৳{Number((selectedHaji.totalAmount || 0) - (selectedHaji.paidAmount || 0)).toLocaleString('bn-BD')}
+                        ৳{Number(Math.max(0, (selectedHaji.totalAmount || 0) - (selectedHaji.paidAmount || 0))).toLocaleString('bn-BD')}
                       </p>
                     </div>
                   </div>

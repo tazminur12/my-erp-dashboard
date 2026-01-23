@@ -437,7 +437,7 @@ const UmrahHajiList = () => {
   }).length;
   const totalPackageAmount = umrahs.reduce((sum, u) => sum + (Number(u.totalAmount) || 0), 0);
   const totalPaidAmount = umrahs.reduce((sum, u) => sum + (Number(u.paidAmount) || 0), 0);
-  const totalDueAmount = totalPackageAmount - totalPaidAmount;
+  const totalDueAmount = Math.max(0, totalPackageAmount - totalPaidAmount);
 
   if (loading) {
     return (
