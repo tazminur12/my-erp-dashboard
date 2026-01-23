@@ -1,0 +1,288 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from '../hooks/useSession';
+import {
+  Menu,
+  Search,
+  Bell,
+  User,
+  Settings,
+  LogOut,
+  ChevronDown,
+  Sun,
+  Moon,
+  HelpCircle,
+  MessageSquare
+} from 'lucide-react';
+
+const Topbar = ({ onMenuClick }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const router = useRouter();
+  const { user, session } = useSession();
+
+  const notifications = [
+    {
+      id: 1,
+      title: 'New order received',
+      message: 'Order #12345 has been placed',
+      time: '2 minutes ago',
+      type: 'order',
+      read: false,
+    },
+    {
+      id: 2,
+      title: 'Payment received',
+      message: 'Payment of $1,500 received',
+      time: '15 minutes ago',
+      type: 'payment',
+      read: false,
+    },
+    {
+      id: 3,
+      title: 'System update',
+      message: 'System maintenance scheduled',
+      time: '1 hour ago',
+      type: 'system',
+      read: true,
+    },
+  ];
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleLogout = () => {
+    router.push('/login');
+  };
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    // TODO: Implement dark mode toggle
+  };
+
+  return (
+    <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
+        {/* Left Section */}
+        <div className="flex items-center space-x-4 flex-1">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+
+          {/* Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-lg">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search users, orders, reports..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section */}
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Help/Support */}
+          <button
+            className="hidden sm:flex items-center justify-center p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+            aria-label="Help"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+
+          {/* Messages */}
+          <button
+            className="hidden sm:flex items-center justify-center p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 relative"
+            aria-label="Messages"
+          >
+            <MessageSquare className="h-5 w-5" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+
+          {/* Notifications */}
+          <div className="relative">
+            <button
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="flex items-center justify-center p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 relative"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-medium rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown */}
+            {notificationsOpen && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Notifications
+                    </h3>
+                    {unreadCount > 0 && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No notifications
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer ${
+                          !notification.read
+                            ? 'bg-blue-50 dark:bg-blue-900/20'
+                            : ''
+                        }`}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div
+                            className={`w-2 h-2 rounded-full mt-2 ${
+                              !notification.read
+                                ? 'bg-blue-600 dark:bg-blue-400'
+                                : 'bg-transparent'
+                            }`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              {notification.time}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+                  <Link
+                    href="/notifications"
+                    className="block text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    View all notifications
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="hidden sm:flex items-center justify-center p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+          </button>
+
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+            >
+              <div className="w-8 h-8 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
+                <User className="h-4 w-4 text-white" />
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.name || session?.user?.name || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {user?.role || session?.user?.role || 'user'}
+                </p>
+              </div>
+              <ChevronDown className="hidden sm:block h-4 w-4 text-gray-500 dark:text-gray-400" />
+            </button>
+
+            {/* User Dropdown */}
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user?.name || session?.user?.name || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {user?.email || session?.user?.email || 'user@example.com'}
+                  </p>
+                </div>
+                <div className="py-2">
+                  <Link
+                    href="/profile"
+                    className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
+                </div>
+                <div className="border-t border-gray-200 dark:border-gray-700 py-2">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Close dropdowns when clicking outside */}
+      {(userMenuOpen || notificationsOpen) && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => {
+            setUserMenuOpen(false);
+            setNotificationsOpen(false);
+          }}
+        />
+      )}
+    </header>
+  );
+};
+
+export default Topbar;
