@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Loader2, XCircle } from 'lucide-react';
-import DashboardLayout from '../../../../../component/DashboardLayout';
+import DashboardLayout from '../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 
 const EditCustomer = () => {

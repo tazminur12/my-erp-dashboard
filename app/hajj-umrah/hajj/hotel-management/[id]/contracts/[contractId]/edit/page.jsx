@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardLayout from '../../../../../../component/DashboardLayout';
+import DashboardLayout from '../../../../../../../component/DashboardLayout';
 import { ArrowLeft, Save, X, FileText } from 'lucide-react';
 import Swal from 'sweetalert2';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../component/DashboardLayout';
@@ -1432,4 +1432,18 @@ const AddHaji = () => {
   );
 };
 
-export default AddHaji;
+const AddHajiWrapper = () => {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="p-6 flex items-center justify-center min-h-screen">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      </DashboardLayout>
+    }>
+      <AddHaji />
+    </Suspense>
+  );
+};
+
+export default AddHajiWrapper;
