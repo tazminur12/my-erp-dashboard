@@ -2,31 +2,39 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import DashboardLayout from '../../component/DashboardLayout';
-import { Calendar, RefreshCw, Loader2, AlertCircle, ArrowLeft, ArrowRight, Eye, Download, X } from 'lucide-react';
+import Modal from '../../component/Modal';
+import { Calendar, RefreshCw, Loader2, AlertCircle, ArrowLeft, ArrowRight, Eye, Download } from 'lucide-react';
 import { generateSalmaReceiptPDF } from '../../utils/pdfGenerator';
 import Swal from 'sweetalert2';
 
 const ITEMS_PER_PAGE = 20;
 
-// Helper function to format date
+// Convert English digits to Bengali digits
+const toBengaliNumeral = (num) => {
+  const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return String(num).replace(/\d/g, (digit) => bengaliDigits[parseInt(digit)]);
+};
+
+// Helper function to format date with Bengali numerals
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    });
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear());
+    return `${toBengaliNumeral(day)}/${toBengaliNumeral(month)}/${toBengaliNumeral(year)}`;
   } catch (e) {
     return dateString;
   }
 };
 
-// Helper function to format currency
+// Helper function to format currency with Bengali numerals
 const formatCurrency = (amount = 0) => {
   const numericValue = Number(amount) || 0;
-  return `৳${numericValue.toLocaleString('en-US')}`;
+  // Format with commas first, then convert digits to Bengali
+  const formatted = numericValue.toLocaleString('en-US');
+  return `৳${toBengaliNumeral(formatted)}`;
 };
 
 const getCustomerName = (t) => {
@@ -150,9 +158,8 @@ const TodayTransactions = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [totalPages, setTotalPages] = useState(1);
-  const [cashAccount, setCashAccount] = useState(null);
-  const [isCashLoading, setIsCashLoading] = useState(false);
-  const [cashError, setCashError] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
   const [apiCategories, setApiCategories] = useState([]);
   const [categoriesWithSubs, setCategoriesWithSubs] = useState([]);
 
@@ -189,28 +196,23 @@ const TodayTransactions = () => {
     fetchTransactions();
   }, [page]);
 
-  // Fetch cash account balance
+  // Fetch dashboard data for balance — same as main Dashboard
   useEffect(() => {
-    const fetchCashAccount = async () => {
+    const fetchDashboard = async () => {
       try {
-        setIsCashLoading(true);
-        setCashError(null);
-        const response = await fetch('/api/bank-accounts/691349c9dd00549f2b8fccab');
-        if (response.ok) {
-          const data = await response.json();
-          setCashAccount(data.bankAccount || data.data);
-        } else {
-          setCashError('Failed to fetch cash account');
-        }
+        setDashboardLoading(true);
+        const res = await fetch('/api/dashboard');
+        const data = await res.json();
+        if (res.ok) setDashboardData(data);
+        else setDashboardData(null);
       } catch (err) {
-        console.error('Error fetching cash account:', err);
-        setCashError(err.message);
+        console.error('Error fetching dashboard:', err);
+        setDashboardData(null);
       } finally {
-        setIsCashLoading(false);
+        setDashboardLoading(false);
       }
     };
-
-    fetchCashAccount();
+    fetchDashboard();
   }, []);
 
   // Fetch categories (optional - can work without)
@@ -254,12 +256,11 @@ const TodayTransactions = () => {
   }, [transactions]);
 
   const currentBalanceDisplay = useMemo(() => {
-    if (isCashLoading) return '...';
-    if (cashError || !cashAccount) return '—';
-    return `${cashAccount.currency || 'BDT'} ${Number(
-      cashAccount.currentBalance || 0
-    ).toLocaleString('bn-BD')}`;
-  }, [isCashLoading, cashError, cashAccount]);
+    if (dashboardLoading) return '...';
+    const total = dashboardData?.financial?.bankAccounts?.totalBalance ?? dashboardData?.financial?.accounts?.totalBalance ?? 0;
+    const formatted = Number(total).toLocaleString('en-US');
+    return `BDT ${toBengaliNumeral(formatted)}`;
+  }, [dashboardLoading, dashboardData?.financial?.bankAccounts?.totalBalance, dashboardData?.financial?.accounts?.totalBalance]);
 
   const todayInfo = useMemo(() => {
     const now = new Date();
@@ -639,7 +640,7 @@ const TodayTransactions = () => {
 
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 rounded-b-xl">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                পেজ {page} / {totalPages || 1}
+                পেজ {toBengaliNumeral(page)} / {toBengaliNumeral(totalPages || 1)}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -664,106 +665,99 @@ const TodayTransactions = () => {
         </div>
 
         {/* Transaction Details Modal */}
-        {showTransactionModal && selectedTransaction && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    লেনদেনের বিবরণ
-                  </h3>
-                  <button
-                    onClick={() => setShowTransactionModal(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
+        <Modal
+          isOpen={!!(showTransactionModal && selectedTransaction)}
+          onClose={() => setShowTransactionModal(false)}
+          title="লেনদেনের বিবরণ"
+          size="lg"
+        >
+          {selectedTransaction ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    Transaction ID
+                  </label>
+                  <p className="text-gray-900 dark:text-white font-mono">{selectedTransaction.transactionId || selectedTransaction._id}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    স্ট্যাটাস
+                  </label>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    {selectedTransaction.status || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    কাস্টমারের নাম
+                  </label>
+                  <p className="text-gray-900 dark:text-white">{getCustomerName(selectedTransaction)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    ফোন নম্বর
+                  </label>
+                  <p className="text-gray-900 dark:text-white">
+                    {selectedTransaction.customerPhone || selectedTransaction.customer?.phone || selectedTransaction.party?.phone
+                      ? toBengaliNumeral(selectedTransaction.customerPhone || selectedTransaction.customer?.phone || selectedTransaction.party?.phone)
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    লেনদেনের ধরন
+                  </label>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    selectedTransaction.transactionType === 'credit'
+                      ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  }`}>
+                    {selectedTransaction.transactionType === 'credit' ? 'ক্রেডিট' : 'ডেবিট'}
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    ক্যাটাগরি
+                  </label>
+                  <p className="text-gray-900 dark:text-white">{getCategory(selectedTransaction)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    পেমেন্ট মেথড
+                  </label>
+                  <p className="text-gray-900 dark:text-white">{getPaymentMethodLabel(selectedTransaction.paymentMethod)}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    পরিমাণ
+                  </label>
+                  <p className={`font-semibold ${
+                    selectedTransaction.transactionType === 'credit'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatCurrency(getAmount(selectedTransaction))}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    তারিখ
+                  </label>
+                  <p className="text-gray-900 dark:text-white">{formatDate(selectedTransaction.date)}</p>
                 </div>
               </div>
-              
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      Transaction ID
-                    </label>
-                    <p className="text-gray-900 dark:text-white font-mono">{selectedTransaction.transactionId || selectedTransaction._id}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      স্ট্যাটাস
-                    </label>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                      {selectedTransaction.status || 'N/A'}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      কাস্টমারের নাম
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{getCustomerName(selectedTransaction)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      ফোন নম্বর
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{selectedTransaction.customerPhone || selectedTransaction.customer?.phone || selectedTransaction.party?.phone || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      লেনদেনের ধরন
-                    </label>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedTransaction.transactionType === 'credit'
-                        ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                        : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                    }`}>
-                      {selectedTransaction.transactionType === 'credit' ? 'ক্রেডিট' : 'ডেবিট'}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      ক্যাটাগরি
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{getCategory(selectedTransaction)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      পেমেন্ট মেথড
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{getPaymentMethodLabel(selectedTransaction.paymentMethod)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      পরিমাণ
-                    </label>
-                    <p className={`font-semibold ${
-                      selectedTransaction.transactionType === 'credit' 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {formatCurrency(getAmount(selectedTransaction))}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      তারিখ
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{formatDate(selectedTransaction.date)}</p>
-                  </div>
+
+              {selectedTransaction.notes ? (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                    নোট
+                  </label>
+                  <p className="text-gray-900 dark:text-white">{selectedTransaction.notes}</p>
                 </div>
-                
-                {selectedTransaction.notes && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                      নোট
-                    </label>
-                    <p className="text-gray-900 dark:text-white">{selectedTransaction.notes}</p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+              ) : null}
+
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="mb-4 p-3 rounded-lg border bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -777,7 +771,6 @@ const TodayTransactions = () => {
                     </span>
                   </label>
                 </div>
-                
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => handleDownloadPDFBangla(selectedTransaction, showHeader)}
@@ -796,8 +789,8 @@ const TodayTransactions = () => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : null}
+        </Modal>
       </div>
     </DashboardLayout>
   );

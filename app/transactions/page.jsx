@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '../component/DashboardLayout';
 import Image from 'next/image';
 import { 
@@ -42,6 +43,7 @@ const formatDate = (dateString) => {
 
 const TransactionsList = () => {
   const isDark = false; // Default theme - can be enhanced later
+  const searchParams = useSearchParams();
   
   // State management
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +77,14 @@ const TransactionsList = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  // Read search query from URL on mount
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
+
   // Fetch transactions
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -85,7 +95,7 @@ const TransactionsList = () => {
         const queryParams = new URLSearchParams({
           page: currentPage.toString(),
           limit: itemsPerPage.toString(),
-          ...(searchTerm && { search: searchTerm }),
+          ...(searchTerm && { q: searchTerm }),
           ...(filters.transactionType && { transactionType: filters.transactionType }),
           ...(filters.category && { category: filters.category }),
           ...(filters.paymentMethod && { paymentMethod: filters.paymentMethod }),
@@ -678,7 +688,7 @@ const TransactionsList = () => {
         const queryParams = new URLSearchParams({
           page: currentPage.toString(),
           limit: itemsPerPage.toString(),
-          ...(searchTerm && { search: searchTerm }),
+          ...(searchTerm && { q: searchTerm }),
           ...(filters.transactionType && { transactionType: filters.transactionType }),
         });
         const refetchResponse = await fetch(`/api/transactions?${queryParams.toString()}`);

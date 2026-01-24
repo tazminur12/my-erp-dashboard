@@ -121,6 +121,21 @@ const Topbar = ({ onMenuClick }) => {
     router.push('/login');
   };
 
+  // Handle search submit
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  // Handle Enter key in search input
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit(e);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
@@ -137,16 +152,17 @@ const Topbar = ({ onMenuClick }) => {
 
           {/* Search Bar */}
           <div className="hidden md:flex flex-1 max-w-lg">
-            <div className="relative w-full">
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search users, orders, reports..."
+                placeholder="Search transactions, users, orders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 text-sm"
               />
-            </div>
+            </form>
           </div>
         </div>
 

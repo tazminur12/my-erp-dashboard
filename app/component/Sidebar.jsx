@@ -1,23 +1,27 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { signOut as nextAuthSignOut } from 'next-auth/react';
 import { navigation } from './navigation';
 import { X, ChevronRight, ChevronDown } from 'lucide-react';
+import { useRoleAccess } from '../hooks/useRoleAccess';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const pathname = usePathname();
-  const router = useRouter();
   const [expandedItems, setExpandedItems] = useState({});
+  const { moduleAccess, loading: accessLoading, hasModuleAccess } = useRoleAccess();
 
-  // Check if text contains Bengali characters
-  const containsBengali = (text) => {
-    const bengaliRegex = /[\u0980-\u09FF]/;
-    return bengaliRegex.test(text);
-  };
+  /** Filter nav by role's moduleAccess. Items without `module` (Profile, Logout) always show. */
+  const filteredNavigation = useMemo(() => {
+    if (accessLoading) return navigation;
+    return navigation.filter((item) => {
+      if (!item.module) return true;
+      return hasModuleAccess(item.module);
+    });
+  }, [accessLoading, moduleAccess, hasModuleAccess]);
 
   // Check if a navigation item or any of its children matches the current path
   const isActive = (item) => {
@@ -37,7 +41,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   // Auto-expand parent items if current path matches a child
   useEffect(() => {
     const newExpandedItems = {};
-    navigation.forEach((item, index) => {
+    filteredNavigation.forEach((item, index) => {
       if (item.children) {
         const hasActiveChild = item.children.some((child) => {
           if (child.href === pathname) return true;
@@ -63,7 +67,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       }
     });
     setExpandedItems(newExpandedItems);
-  }, [pathname]);
+  }, [pathname, filteredNavigation]);
 
   const toggleExpand = (key) => {
     setExpandedItems((prev) => ({
@@ -229,9 +233,9 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation — filtered by role's moduleAccess */}
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-          {navigation.map((item, index) => renderNavItem(item, index))}
+          {filteredNavigation.map((item, index) => renderNavItem(item, index))}
         </nav>
       </aside>
     </>

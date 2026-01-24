@@ -49,16 +49,30 @@ import {
   FolderOpen
 } from 'lucide-react';
 
+/** Module IDs for access control. Sidebar filters by role's moduleAccess. */
+export const MODULES = {
+  dashboard: 'dashboard',
+  transactions: 'transactions',
+  customers: 'customers',
+  agents: 'agents',
+  ledger: 'ledger',
+  reports: 'reports',
+  audit: 'audit',
+  settings: 'settings',
+};
+
 export const navigation = [
   {
     name: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
+    module: MODULES.dashboard,
     current: true
   },
   {
     name: 'Transactions',
     icon: CreditCard,
+    module: MODULES.transactions,
     children: [
       { name: 'Transactions List', href: '/transactions', icon: List },
       { name: 'New Transaction', href: '/transactions/new', icon: Plus },
@@ -68,6 +82,7 @@ export const navigation = [
   {
     name: 'Vendors',
     icon: Building2,
+    module: MODULES.customers,
     children: [
       { name: 'Vendor Dashboard', href: '/vendors/dashboard', icon: LayoutDashboard },
       { name: 'Vendor List', href: '/vendors', icon: List },
@@ -77,6 +92,7 @@ export const navigation = [
   {
     name: 'Hajj & Umrah',
     icon: '🕋',
+    module: MODULES.customers,
     children: [
       { name: 'Dashboard', href: '/hajj-umrah/dashboard', icon: LayoutDashboard },
       {
@@ -112,6 +128,7 @@ export const navigation = [
   {
     name: 'Air Ticketing',
     icon: Plane,
+    module: MODULES.customers,
     children: [
       { name: 'Dashboard', href: '/air-ticketing/dashboard', icon: LayoutDashboard },
       { name: 'Passenger List', href: '/air-ticketing/passengers', icon: Users },
@@ -134,6 +151,7 @@ export const navigation = [
   {
     name: 'Additional Services',
     icon: Package,
+    module: MODULES.customers,
     children: [
       { name: 'Dashboard', href: '/additional-services/dashboard', icon: LayoutDashboard },
       { name: 'Customer List', href: '/additional-services/customer-list', icon: Users },
@@ -146,6 +164,7 @@ export const navigation = [
   {
     name: 'স্বল্পমেয়াদী লেনদেন',
     icon: Calculator,
+    module: MODULES.ledger,
     children: [
       { name: 'ড্যাশবোর্ড', href: '/loan/dashboard', icon: LayoutDashboard },
       { name: 'ঋণ গ্রহণ', href: '/loan/receiving-list', icon: TrendingUp },
@@ -170,6 +189,7 @@ export const navigation = [
   {
     name: 'Miraj Industries',
     icon: Building,
+    module: MODULES.reports,
     children: [
       { name: 'ড্যাশবোর্ড', href: '/miraj-industries/dashboard', icon: LayoutDashboard },
       { name: 'গবাদি পশু ব্যবস্থাপনা', href: '/miraj-industries/cattle-management', icon: Users },
@@ -184,6 +204,7 @@ export const navigation = [
   {
     name: 'Account',
     icon: Wallet,
+    module: MODULES.ledger,
     children: [
       { name: 'Bank Accounts', href: '/account/bank-accounts', icon: CreditCard },
       {
@@ -200,6 +221,7 @@ export const navigation = [
   {
     name: 'Personal',
     icon: User,
+    module: MODULES.ledger,
     children: [
       { name: 'Personal Expense', href: '/personal/expense', icon: TrendingDown },
       { name: 'Family Assets', href: '/personal/family-assets', icon: Building },
@@ -208,6 +230,7 @@ export const navigation = [
   {
     name: 'Office Management',
     icon: Home,
+    module: MODULES.ledger,
     children: [
       {
         name: 'HR Management',
@@ -224,6 +247,7 @@ export const navigation = [
   {
     name: 'Money Exchange',
     icon: Globe,
+    module: MODULES.ledger,
     children: [
       { name: 'Dashboard', href: '/money-exchange/dashboard', icon: LayoutDashboard },
       { name: 'New Exchange', href: '/money-exchange/new', icon: Plus },
@@ -234,6 +258,7 @@ export const navigation = [
   {
     name: 'Marketing Zone',
     icon: Megaphone,
+    module: MODULES.reports,
     children: [
       { name: 'SMS Marketing', href: '/marketing/sms-marketing', icon: MessageSquare },
       { name: 'All Contacts', href: '/marketing/contacts', icon: Users },
@@ -244,20 +269,25 @@ export const navigation = [
   {
     name: 'Settings',
     icon: Settings,
+    module: MODULES.settings,
     children: [
       { name: 'User Management', href: '/settings/users', icon: Users },
-     {name : 'Branch Management', href: '/settings/branch', icon: Building2},
+      { name: 'Branch Management', href: '/settings/branch', icon: Building2 },
+      { name: 'Permission Management', href: '/settings/permissions', icon: Shield },
+      { name: 'Module Access', href: '/settings/module-access', icon: Eye },
     ]
   },
   {
     name: 'Profile',
     href: '/profile',
     icon: UserCircle
+    // no module: always visible
   },
   {
     name: 'Logout',
     href: null,
     icon: LogOut,
     action: 'logout'
+    // no module: always visible
   }
 ];
