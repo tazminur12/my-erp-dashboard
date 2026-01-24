@@ -224,6 +224,7 @@ export const navigation = [
     icon: User,
     module: MODULES.ledger,
     children: [
+      { name: 'Personal Dashboard', href: '/personal/dashboard', icon: LayoutDashboard },
       { name: 'Personal Expense', href: '/personal/expense', icon: TrendingDown },
       { name: 'Family Assets', href: '/personal/family-assets', icon: Building },
     ]
@@ -233,6 +234,7 @@ export const navigation = [
     icon: Home,
     module: MODULES.ledger,
     children: [
+      { name: 'Office Dashboard', href: '/office-management/dashboard', icon: LayoutDashboard },
       {
         name: 'HR Management',
         icon: Users,
