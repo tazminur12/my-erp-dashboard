@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -13,8 +13,6 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Sun,
-  Moon,
   HelpCircle,
   MessageSquare
 } from 'lucide-react';
@@ -23,46 +21,104 @@ const Topbar = ({ onMenuClick }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const router = useRouter();
   const { user, session } = useSession();
 
-  const notifications = [
-    {
-      id: 1,
-      title: 'New order received',
-      message: 'Order #12345 has been placed',
-      time: '2 minutes ago',
-      type: 'order',
-      read: false,
-    },
-    {
-      id: 2,
-      title: 'Payment received',
-      message: 'Payment of $1,500 received',
-      time: '15 minutes ago',
-      type: 'payment',
-      read: false,
-    },
-    {
-      id: 3,
-      title: 'System update',
-      message: 'System maintenance scheduled',
-      time: '1 hour ago',
-      type: 'system',
-      read: true,
-    },
-  ];
+  // Fetch notifications from backend
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setNotificationsLoading(true);
+      const response = await fetch('/api/notifications?limit=50');
+      const data = await response.json();
+      
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Update local state
+        setNotifications((prev) =>
+          prev.map((notif) =>
+            notif.id === notificationId ? { ...notif, read: true } : notif
+          )
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ markAllAsRead: true }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setNotifications((prev) =>
+          prev.map((notif) => ({ ...notif, read: true }))
+        );
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Handle notification click
+  const handleNotificationClick = (notification) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+    if (notification.link) {
+      router.push(notification.link);
+      setNotificationsOpen(false);
+    }
+  };
+
+  // Fetch notifications on mount and set up polling
+  useEffect(() => {
+    fetchNotifications();
+
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const handleLogout = () => {
     router.push('/login');
-  };
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    // TODO: Implement dark mode toggle
   };
 
   return (
@@ -136,15 +192,30 @@ const Topbar = ({ onMenuClick }) => {
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                       Notifications
                     </h3>
-                    {unreadCount > 0 && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400">
-                        {unreadCount} new
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <>
+                          <span className="text-xs text-blue-600 dark:text-blue-400">
+                            {unreadCount} new
+                          </span>
+                          <button
+                            onClick={markAllAsRead}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                          >
+                            Mark all read
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {notifications.length === 0 ? (
+                  {notificationsLoading ? (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      Loading notifications...
+                    </div>
+                  ) : notifications.length === 0 ? (
                     <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                       No notifications
                     </div>
@@ -152,6 +223,7 @@ const Topbar = ({ onMenuClick }) => {
                     notifications.map((notification) => (
                       <div
                         key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
                         className={`px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 cursor-pointer ${
                           !notification.read
                             ? 'bg-blue-50 dark:bg-blue-900/20'
@@ -160,7 +232,7 @@ const Topbar = ({ onMenuClick }) => {
                       >
                         <div className="flex items-start space-x-3">
                           <div
-                            className={`w-2 h-2 rounded-full mt-2 ${
+                            className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                               !notification.read
                                 ? 'bg-blue-600 dark:bg-blue-400'
                                 : 'bg-transparent'
@@ -194,19 +266,6 @@ const Topbar = ({ onMenuClick }) => {
               </div>
             )}
           </div>
-
-          {/* Dark Mode Toggle */}
-          <button
-            onClick={toggleDarkMode}
-            className="hidden sm:flex items-center justify-center p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-            aria-label="Toggle dark mode"
-          >
-            {darkMode ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </button>
 
           {/* User Menu */}
           <div className="relative">

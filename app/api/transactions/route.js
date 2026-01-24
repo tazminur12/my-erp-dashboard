@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb, getClient } from '../../../lib/mongodb';
 import { generateTransactionId, triggerFamilyRecomputeForHaji, triggerFamilyRecomputeForUmrah } from '../../../lib/transactionHelpers';
+import { createNotification } from '../../../lib/notificationHelpers';
 
 // ✅ POST: Create new transaction
 export async function POST(request) {
@@ -1238,6 +1239,34 @@ export async function POST(request) {
       console.log('💾 Committing transaction...');
       await session.commitTransaction();
       console.log('✅ Transaction committed successfully');
+
+      // Create real-time notification for new transaction
+      try {
+        const notifType = transactionType === 'transfer' ? 'transfer' : 'transaction';
+        const amountStr = Number(numericAmount).toLocaleString('bn-BD');
+        const ref = transactionData.reference || transactionData.transactionId || '';
+        let title = '';
+        let message = '';
+        if (transactionType === 'transfer') {
+          title = 'Account transfer';
+          message = `৳${amountStr} transferred. ${ref ? `Ref: ${ref}` : ''}`;
+        } else if (transactionType === 'credit') {
+          title = 'Credit transaction';
+          message = `৳${amountStr} received. ${finalServiceCategory ? `Category: ${finalServiceCategory}. ` : ''}${ref ? `Ref: ${ref}` : ''}`;
+        } else {
+          title = 'Debit transaction';
+          message = `৳${amountStr} paid. ${finalServiceCategory ? `Category: ${finalServiceCategory}. ` : ''}${ref ? `Ref: ${ref}` : ''}`;
+        }
+        await createNotification({
+          title,
+          message: message.trim(),
+          type: notifType,
+          link: '/transactions',
+          metadata: { transactionId: transactionData.transactionId, amount: numericAmount }
+        });
+      } catch (notifErr) {
+        console.warn('Notification create failed:', notifErr?.message);
+      }
 
       // Include account details in response for better frontend display
       const responseTransaction = { ...transactionData, _id: transactionResult.insertedId };
