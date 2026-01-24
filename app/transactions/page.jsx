@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../component/DashboardLayout';
+import Image from 'next/image';
 import { 
   CreditCard, 
   Search, 
@@ -290,6 +291,22 @@ const TransactionsList = () => {
       return t.party.mobile || t.party.phone || t.party.mobileNumber || t.party.contactNo || t.party.contactPhone || '';
     }
     return t.partyPhone || '';
+  };
+
+  const getCustomerImage = (t) => {
+    // For vendor transactions
+    if (t.partyType === 'vendor' && t.party) {
+      return t.party.logo || t.party.image || t.party.profileImage || null;
+    }
+    // For customer transactions
+    if (t.customer) {
+      return t.customer.customerImage || t.customer.image || t.customer.profileImage || t.customer.avatar || null;
+    }
+    // For party transactions
+    if (t.party) {
+      return t.party.customerImage || t.party.image || t.party.profileImage || t.party.avatar || t.party.logo || null;
+    }
+    return null;
   };
 
   const getCategory = (t) => {
@@ -1414,9 +1431,22 @@ const TransactionsList = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center">
-                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
+                            {getCustomerImage(transaction) ? (
+                              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 dark:border-gray-700 flex-shrink-0">
+                                <Image
+                                  src={getCustomerImage(transaction)}
+                                  alt={getCustomerName(transaction) || 'Customer'}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                  unoptimized
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center flex-shrink-0">
+                                <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                            )}
                             <div className="ml-3">
                               <div className="text-sm font-semibold text-gray-900 dark:text-white">
                                 {getCustomerName(transaction)}

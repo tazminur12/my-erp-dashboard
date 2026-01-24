@@ -1501,20 +1501,28 @@ export async function GET(request) {
           }
         }
         
-        // Populate vendor name if partyType is vendor
+        // Populate vendor (name + logo/image) if partyType is vendor
         if (item.partyType === 'vendor' && item.partyId) {
           const vendorsCollection = db.collection('vendors');
+          let vendor = null;
           if (ObjectId.isValid(item.partyId)) {
-            const vendor = await vendorsCollection.findOne({ _id: new ObjectId(item.partyId) });
-            if (vendor) {
-              enriched.party = {
-                ...enriched.party,
-                tradeName: vendor.tradeName || null,
-                vendorName: vendor.vendorName || null,
-                ownerName: vendor.ownerName || null,
-                name: vendor.tradeName || vendor.vendorName || vendor.ownerName || vendor.name || null
-              };
-            }
+            vendor = await vendorsCollection.findOne({ _id: new ObjectId(item.partyId) });
+          }
+          if (!vendor) {
+            vendor = await vendorsCollection.findOne({ vendorId: String(item.partyId) });
+          }
+          if (vendor) {
+            const vendorImage = vendor.logo || vendor.image || vendor.profileImage || vendor.avatar || vendor.photo || vendor.photoUrl || vendor.profilePicture || null;
+            enriched.party = {
+              ...enriched.party,
+              tradeName: vendor.tradeName || null,
+              vendorName: vendor.vendorName || null,
+              ownerName: vendor.ownerName || null,
+              name: vendor.tradeName || vendor.vendorName || vendor.ownerName || vendor.name || null,
+              logo: vendorImage,
+              image: vendorImage,
+              profileImage: vendorImage
+            };
           }
         }
         
