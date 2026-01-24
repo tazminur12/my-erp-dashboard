@@ -13,7 +13,7 @@ export async function GET(request) {
     const exchangesCollection = db.collection('money_exchanges');
 
     // Build query
-    const query = {};
+    const query = { isActive: { $ne: false } };
     
     if (currencyCode) {
       query.currencyCode = currencyCode;
@@ -32,8 +32,8 @@ export async function GET(request) {
     const exchanges = await exchangesCollection.find(query).toArray();
 
     // Calculate summary
-    const buyExchanges = exchanges.filter(e => e.type === 'Buy' && e.isActive !== false);
-    const sellExchanges = exchanges.filter(e => e.type === 'Sell' && e.isActive !== false);
+    const buyExchanges = exchanges.filter(e => e.type === 'Buy');
+    const sellExchanges = exchanges.filter(e => e.type === 'Sell');
 
     const totalPurchaseCost = buyExchanges.reduce((sum, e) => sum + (Number(e.amount_bdt) || 0), 0);
     const totalSaleRevenue = sellExchanges.reduce((sum, e) => sum + (Number(e.amount_bdt) || 0), 0);
@@ -42,50 +42,106 @@ export async function GET(request) {
     const totalRealizedProfitLoss = totalSaleRevenue - totalPurchaseCost;
     
     // For unrealized, we'd need current exchange rates and inventory
-    // This is simplified - you might want to track inventory separately
     const totalUnrealizedProfitLoss = 0;
     
-    // Calculate current reserve value (inventory of foreign currencies)
-    const currencyReserves = {};
+    // Calculate per-currency statistics
+    const currencyStats = {};
+    
     buyExchanges.forEach(e => {
       const code = e.currencyCode;
-      if (!currencyReserves[code]) {
-        currencyReserves[code] = { quantity: 0, cost: 0 };
+      if (!code) return;
+      
+      if (!currencyStats[code]) {
+        currencyStats[code] = {
+          currencyCode: code,
+          currencyName: e.currencyName || code,
+          totalBought: 0,
+          totalSold: 0,
+          currentReserve: 0,
+          totalPurchaseCost: 0,
+          totalSaleRevenue: 0,
+          totalCost: 0,
+          totalQuantity: 0
+        };
       }
-      currencyReserves[code].quantity += Number(e.quantity) || 0;
-      currencyReserves[code].cost += Number(e.amount_bdt) || 0;
+      
+      const quantity = Number(e.quantity) || 0;
+      const amountBDT = Number(e.amount_bdt) || 0;
+      
+      currencyStats[code].totalBought += quantity;
+      currencyStats[code].totalPurchaseCost += amountBDT;
+      currencyStats[code].totalCost += amountBDT;
+      currencyStats[code].totalQuantity += quantity;
     });
     
     sellExchanges.forEach(e => {
       const code = e.currencyCode;
-      if (!currencyReserves[code]) {
-        currencyReserves[code] = { quantity: 0, cost: 0 };
+      if (!code) return;
+      
+      if (!currencyStats[code]) {
+        currencyStats[code] = {
+          currencyCode: code,
+          currencyName: e.currencyName || code,
+          totalBought: 0,
+          totalSold: 0,
+          currentReserve: 0,
+          totalPurchaseCost: 0,
+          totalSaleRevenue: 0,
+          totalCost: 0,
+          totalQuantity: 0
+        };
       }
-      currencyReserves[code].quantity -= Number(e.quantity) || 0;
-      // Cost reduction proportional to quantity sold
-      if (currencyReserves[code].quantity > 0) {
-        const avgCost = currencyReserves[code].cost / (currencyReserves[code].quantity + Number(e.quantity));
-        currencyReserves[code].cost = currencyReserves[code].quantity * avgCost;
-      } else {
-        currencyReserves[code].cost = 0;
-      }
+      
+      const quantity = Number(e.quantity) || 0;
+      const amountBDT = Number(e.amount_bdt) || 0;
+      
+      currencyStats[code].totalSold += quantity;
+      currencyStats[code].totalSaleRevenue += amountBDT;
+      currencyStats[code].totalQuantity -= quantity;
     });
 
-    const totalCurrentReserveValue = Object.values(currencyReserves).reduce(
-      (sum, reserve) => sum + (Number(reserve.cost) || 0), 
+    // Calculate final stats for each currency
+    const dashboardItems = Object.values(currencyStats).map(stat => {
+      stat.currentReserve = stat.totalQuantity;
+      
+      // Calculate weighted average purchase price
+      const weightedAveragePurchasePrice = stat.totalBought > 0 
+        ? stat.totalPurchaseCost / stat.totalBought 
+        : 0;
+      
+      // Calculate realized profit/loss for this currency
+      const realizedProfitLoss = stat.totalSaleRevenue - stat.totalPurchaseCost;
+      
+      return {
+        currencyCode: stat.currencyCode,
+        currencyName: stat.currencyName,
+        totalBought: stat.totalBought,
+        totalSold: stat.totalSold,
+        currentReserve: stat.currentReserve,
+        weightedAveragePurchasePrice: weightedAveragePurchasePrice,
+        realizedProfitLoss: realizedProfitLoss,
+        totalPurchaseCost: stat.totalPurchaseCost,
+        totalSaleRevenue: stat.totalSaleRevenue
+      };
+    }).filter(item => item.totalBought > 0 || item.totalSold > 0);
+
+    // Calculate total current reserve value
+    const totalCurrentReserveValue = dashboardItems.reduce(
+      (sum, item) => sum + (item.currentReserve * item.weightedAveragePurchasePrice), 
       0
     );
 
     return NextResponse.json({
+      success: true,
+      data: dashboardItems,
       summary: {
         totalRealizedProfitLoss,
         totalUnrealizedProfitLoss,
         totalPurchaseCost,
         totalSaleRevenue,
         totalCurrentReserveValue,
-        totalCurrencies: Object.keys(currencyReserves).length,
-      },
-      currencyReserves,
+        totalCurrencies: dashboardItems.length,
+      }
     }, { status: 200 });
   } catch (error) {
     console.error('Error fetching exchange dashboard:', error);

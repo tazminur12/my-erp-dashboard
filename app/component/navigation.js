@@ -78,7 +78,7 @@ export const navigation = [
     name: 'Hajj & Umrah',
     icon: '🕋',
     children: [
-      { name: 'Dashboard', href: '/hajj-umrah', icon: LayoutDashboard },
+      { name: 'Dashboard', href: '/hajj-umrah/dashboard', icon: LayoutDashboard },
       {
         name: 'Hajj',
         icon: Users,

@@ -1,12 +1,14 @@
 import "./globals.css";
 import SessionProvider from "./providers/SessionProvider";
+import { getSession } from "@/lib/auth";
 
 export const metadata = {
   title: "BIN Rashid Group ERP",
   description: "BIN Rashid Group ERP - বিস্তৃত ব্যবসায়িক সমাধানের শীর্ষস্থানীয় প্রদানকারী",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const session = await getSession();
   return (
     <html lang="bn" suppressHydrationWarning>
       <head>
@@ -22,7 +24,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="antialiased">
-        <SessionProvider>
+        <SessionProvider session={session}>
           {children}
         </SessionProvider>
       </body>

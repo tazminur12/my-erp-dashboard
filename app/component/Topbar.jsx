@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession } from '../hooks/useSession';
 import {
@@ -213,14 +214,29 @@ const Topbar = ({ onMenuClick }) => {
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center space-x-2 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
             >
-              <div className="w-8 h-8 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
-                <User className="h-4 w-4 text-white" />
-              </div>
+              {/* User Avatar/Image */}
+              {user?.image || session?.user?.image ? (
+                <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-blue-500 dark:border-blue-400 shadow-sm">
+                  <Image
+                    src={user?.image || session?.user?.image}
+                    alt={user?.name || session?.user?.name || 'User'}
+                    width={36}
+                    height={36}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-sm border-2 border-white dark:border-gray-700">
+                  <span className="text-white font-semibold text-sm">
+                    {(user?.name || session?.user?.name || 'U').charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {user?.name || session?.user?.name || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {user?.role || session?.user?.role || 'user'}
                 </p>
               </div>
@@ -229,14 +245,39 @@ const Topbar = ({ onMenuClick }) => {
 
             {/* User Dropdown */}
             {userMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user?.name || session?.user?.name || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                    {user?.email || session?.user?.email || 'user@example.com'}
-                  </p>
+                  <div className="flex items-center space-x-3">
+                    {/* Dropdown Avatar */}
+                    {user?.image || session?.user?.image ? (
+                      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-blue-500 flex-shrink-0">
+                        <Image
+                          src={user?.image || session?.user?.image}
+                          alt={user?.name || session?.user?.name || 'User'}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-lg">
+                          {(user?.name || session?.user?.name || 'U').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                        {user?.name || session?.user?.name || 'User'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {user?.email || session?.user?.email || 'user@example.com'}
+                      </p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 mt-1 capitalize">
+                        {user?.role || session?.user?.role || 'user'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div className="py-2">
                   <Link

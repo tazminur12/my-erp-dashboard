@@ -1,11 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { useSession } from '../hooks/useSession';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar';
+import { Loader2, LogIn } from 'lucide-react';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { loading, authenticated } = useSession();
+  const [sessionReady, setSessionReady] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // Wait for session to fully load before rendering
+    if (!loading) {
+      const timer = setTimeout(() => setSessionReady(true), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    // When unauthenticated, redirect to login so user can sign in again (fixes refresh loop)
+    if (!loading && sessionReady && !authenticated) {
+      const callbackUrl = pathname ? encodeURIComponent(pathname) : '/dashboard';
+      router.replace(`/login?callbackUrl=${callbackUrl}`);
+    }
+  }, [loading, sessionReady, authenticated, pathname, router]);
+
+  // Show loading state while session is loading
+  if (loading || !sessionReady) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show sign-in prompt while redirect runs (avoids "refresh" dead-end)
+  if (!authenticated) {
+    const callbackUrl = pathname ? encodeURIComponent(pathname) : '/dashboard';
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Session expired. Please sign in again.</p>
+          <Link
+            href={`/login?callbackUrl=${callbackUrl}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <LogIn className="w-4 h-4" />
+            Sign in again
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
