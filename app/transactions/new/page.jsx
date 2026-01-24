@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '../../component/DashboardLayout';
 import { 
   CreditCard, 
@@ -176,10 +177,13 @@ const NewTransaction = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             scope: 'personal-expense',
+            transactionType: 'debit',
+            partyType: 'personal-expense',
+            partyId: data.personalExpenseProfileId,
+            personalExpenseProfileId: data.personalExpenseProfileId,
             type: 'expense',
             date: data.date,
             amount: data.amount,
-            categoryId: data.categoryId,
             description: data.description,
             tags: data.tags || []
           })
@@ -224,9 +228,9 @@ const NewTransaction = () => {
   const categoriesLoading = false;
   const categoriesError = null;
   const transactionsData = { transactions: [] }; // Empty transactions for balance calculation
-  // Personal expense categories - empty
-  const personalExpenseCategories = [];
-  const personalCatsLoading = false;
+  // Personal expense profiles
+  const [personalExpenseProfiles, setPersonalExpenseProfiles] = useState([]);
+  const [personalCatsLoading, setPersonalCatsLoading] = useState(false);
   
   // Haji and Umrah - state for data
   const [hajiData, setHajiData] = useState({ data: [] });
@@ -390,6 +394,7 @@ const NewTransaction = () => {
     customerType: 'customer', // 'customer', 'vendor', 'agent', 'haji', 'umrah'
     customerId: '',
     uniqueId: '',
+    personalExpenseProfileId: '',
     linkedCustomerId: null, // For haji/umrah: linked customer profile ID for syncing
     customerName: '',
     customerPhone: '',
@@ -810,6 +815,22 @@ const NewTransaction = () => {
         fetchMirajData();
       } else if (selectedType === 'officeExpenses') {
         fetchOperatingExpenseCategories();
+      } else if (selectedType === 'personalExpense') {
+        const fetchPersonalExpenseProfiles = async () => {
+          try {
+            setPersonalCatsLoading(true);
+            const res = await fetch('/api/personal-expense?limit=1000');
+            const data = await res.json();
+            if (res.ok) {
+              setPersonalExpenseProfiles(data.items || data.data || []);
+            }
+          } catch (err) {
+            console.error('Error fetching personal expense profiles:', err);
+          } finally {
+            setPersonalCatsLoading(false);
+          }
+        };
+        fetchPersonalExpenseProfiles();
       } else if (selectedType === 'investment') {
         fetchInvestments();
       }
@@ -1348,8 +1369,10 @@ const NewTransaction = () => {
         name: customer.name || customer.categoryName || '',
         categoryName: customer.name || customer.categoryName || ''
       } : undefined,
-      // Store category name for personal expense
-      ...(resolvedType === 'personal-expense' && customer.category ? { category: customer.category } : {}),
+    // Store personal profile id for personal expense
+    ...(resolvedType === 'personal-expense' && customer.personalExpenseProfileId
+      ? { personalExpenseProfileId: customer.personalExpenseProfileId }
+      : {}),
       moneyExchangeInfo: resolvedType === 'money-exchange'
         ? (customer.moneyExchangeInfo || null)
         : null,
@@ -1765,11 +1788,9 @@ const NewTransaction = () => {
             }
             break;
           case 3:
-            // For personal expense, Miraj Industries, or investment flow, customer selection is not required
-            if (selectedSearchType !== 'personal' && selectedSearchType !== 'miraj' && selectedSearchType !== 'investment') {
-              if (!formData.customerId) {
-                newErrors.customerId = 'কাস্টমার নির্বাচন করুন';
-              }
+            // For personal expense, customer selection is required (profile)
+            if (!formData.customerId) {
+              newErrors.customerId = 'কাস্টমার নির্বাচন করুন';
             }
             break;
           case 4:
@@ -2073,26 +2094,23 @@ const NewTransaction = () => {
         return;
       }
 
-      // Resolve selected personal category id by name
-      const selectedPersonalCat = (personalExpenseCategories || []).find(c => String(c.name) === String(formData.category));
-      const categoryId = selectedPersonalCat?.id ? String(selectedPersonalCat.id) : '';
-      if (!categoryId) {
-        setErrors(prev => ({ ...prev, category: 'ব্যক্তিগত ব্যয়ের জন্য ক্যাটাগরি নির্বাচন করুন' }));
+      if (!formData.personalExpenseProfileId) {
+        setErrors(prev => ({ ...prev, customerId: 'ব্যক্তিগত প্রোফাইল নির্বাচন করুন' }));
         return;
       }
 
       const payload = {
         date: formData.date,
         amount: amountNum,
-        categoryId,
-        description: formData.notes || '',
+        personalExpenseProfileId: formData.personalExpenseProfileId,
+        description: formData.notes || formData.customerName || 'Personal Expense',
         tags: [],
       };
 
       createPersonalExpenseTxV2.mutate(payload, {
         onSuccess: (transactionData) => {
           // Also create a bank account transaction to update balance
-          const description = `Personal Expense - ${formData.category || 'N/A'}`;
+          const description = `Personal Expense - ${formData.customerName || 'N/A'}`;
           const reference = formData.paymentDetails?.reference || `PE-${Date.now()}`;
           
           // Note: Category invalidation is handled in the mutation's onSuccess callback
@@ -2102,7 +2120,7 @@ const NewTransaction = () => {
               id: formData.sourceAccount.id,
               transactionType: 'debit',
               amount: amountNum,
-              // Include category so Transactions list shows selected personal category
+              // Include description for bank account transaction
               category: formData.category || undefined,
               // Also embed under paymentDetails for broader compatibility with list renderers
               paymentDetails: { ...(formData.paymentDetails || {}), category: formData.category || undefined },
@@ -2703,6 +2721,7 @@ const NewTransaction = () => {
       customerName: '',
       customerPhone: '',
       customerEmail: '',
+      personalExpenseProfileId: '',
       customerBankAccount: {
         bankName: '',
         accountNumber: ''
@@ -4014,6 +4033,7 @@ const NewTransaction = () => {
                               customerName: '',
                               customerPhone: '',
                               customerEmail: '',
+                              personalExpenseProfileId: '',
                               customerAddress: '',
                               customerType: type.value === 'airCustomer' ? 'customer' : type.value
                             }));
@@ -5190,85 +5210,71 @@ const NewTransaction = () => {
                         );
                       })()
                     ) : effectiveSearchType === 'personal' ? (
-                      // Personal Expense Categories - show as selectable cards
+                      // Personal Expense Profiles - show as selectable cards
                       (() => {
-                        const filteredCategories = (personalExpenseCategories || []).filter(cat => {
+                        const filteredProfiles = (personalExpenseProfiles || []).filter(profile => {
                           if (!searchTerm) return true;
                           const term = searchTerm.toLowerCase();
-                          return (cat.name || '').toLowerCase().includes(term) || 
-                                 (cat.description || '').toLowerCase().includes(term);
+                          return (profile.name || '').toLowerCase().includes(term) ||
+                                 (profile.mobile || '').includes(searchTerm) ||
+                                 (profile.relationship || '').toLowerCase().includes(term);
                         });
 
-                        return filteredCategories.length > 0 ? (
-                          filteredCategories.map((cat) => {
-                            // Get icon component
-                            const iconMap = {
-                              DollarSign: DollarSign,
-                              Utensils: Utensils || DollarSign,
-                              Car: Car || DollarSign,
-                              ShoppingCart: ShoppingCart || DollarSign,
-                              Gamepad2: Gamepad2 || DollarSign,
-                              Heart: Heart || DollarSign,
-                              Book: Book || DollarSign,
-                              Home: Home || DollarSign
-                            };
-                            const IconComponent = iconMap[cat.icon] || DollarSign;
-                            
-                            return (
-                              <button
-                                key={cat.id}
-                                type="button"
-                                onClick={() => handleCustomerSelect({
-                                  id: cat.id,
-                                  name: cat.name,
-                                  customerType: 'personal-expense',
-                                  category: cat.name
-                                })}
-                                className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 hover:scale-[1.02] ${
-                                  formData.customerId === cat.id
-                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                    : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                                }`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      formData.customerId === cat.id
-                                        ? 'bg-blue-100 dark:bg-blue-800'
-                                        : 'bg-pink-100 dark:bg-pink-900/20'
-                                    }`}>
-                                      <IconComponent className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                                        formData.customerId === cat.id
-                                          ? 'text-blue-600 dark:text-blue-400'
-                                          : 'text-pink-600 dark:text-pink-400'
-                                      }`} />
-                                    </div>
-                                    <div className="text-left min-w-0 flex-1">
-                                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                        {cat.name || 'Unnamed'}
-                                      </h3>
-                                      {cat.description && (
-                                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
-                                          {cat.description}
-                                        </p>
-                                      )}
-                                      {cat.totalAmount !== undefined && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                          মোট: ৳{Number(cat.totalAmount || 0).toLocaleString('bn-BD')}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {formData.customerId === cat.id && (
-                                    <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                        return filteredProfiles.length > 0 ? (
+                          filteredProfiles.map((profile) => (
+                            <button
+                              key={profile.id || profile._id}
+                              type="button"
+                              onClick={() => handleCustomerSelect({
+                                id: profile.id || profile._id,
+                                name: profile.name,
+                                customerType: 'personal-expense',
+                                personalExpenseProfileId: profile.id || profile._id
+                              })}
+                              className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 hover:scale-[1.02] ${
+                                formData.customerId === (profile.id || profile._id)
+                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                  : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${
+                                  formData.customerId === (profile.id || profile._id)
+                                    ? 'bg-blue-100 dark:bg-blue-800'
+                                    : 'bg-pink-100 dark:bg-pink-900/20'
+                                }`}>
+                                  {profile.photo ? (
+                                    <img src={profile.photo} alt={profile.name || 'Profile'} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <User className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                                      formData.customerId === (profile.id || profile._id)
+                                        ? 'text-blue-600 dark:text-blue-400'
+                                        : 'text-pink-600 dark:text-pink-400'
+                                    }`} />
                                   )}
                                 </div>
-                              </button>
-                            );
-                          })
+                                <div className="text-left min-w-0 flex-1">
+                                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
+                                    {profile.name || 'Unnamed'}
+                                  </h3>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    {profile.mobile || '—'}
+                                  </p>
+                                  {profile.relationship && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-1">
+                                      সম্পর্ক: {profile.relationship}
+                                    </p>
+                                  )}
+                                </div>
+                                {formData.customerId === (profile.id || profile._id) && (
+                                  <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))
                         ) : (
                           <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-                            {searchTerm ? 'কোন ক্যাটাগরি পাওয়া যায়নি' : 'কোন ক্যাটাগরি নেই'}
+                            {searchTerm ? 'কোন প্রোফাইল পাওয়া যায়নি' : 'কোন প্রোফাইল নেই'}
                           </div>
                         );
                       })()
@@ -8646,9 +8652,17 @@ const NewTransaction = () => {
 
           <button
             onClick={nextStep}
-            disabled={currentStep === (formData.transactionType === 'credit' ? ((formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 6 : 6) : 5)}
+            disabled={currentStep === (formData.transactionType === 'transfer'
+              ? 5
+              : formData.transactionType === 'debit'
+                ? 5
+                : 6)}
             className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
-              currentStep === (formData.transactionType === 'credit' ? ((formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 6 : 6) : 5)
+              currentStep === (formData.transactionType === 'transfer'
+                ? 5
+                : formData.transactionType === 'debit'
+                  ? 5
+                  : 6)
                 ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}

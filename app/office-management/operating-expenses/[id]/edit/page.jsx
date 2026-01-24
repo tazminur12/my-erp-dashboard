@@ -31,6 +31,9 @@ const EditCategory = () => {
     banglaName: '',
     description: '',
     iconKey: 'FileText',
+    expenseType: '',
+    frequency: '',
+    monthlyAmount: ''
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +61,9 @@ const EditCategory = () => {
             banglaName: cat.banglaName || '',
             description: cat.description || '',
             iconKey: cat.iconKey || 'FileText',
+            expenseType: cat.expenseType || '',
+            frequency: cat.frequency || '',
+            monthlyAmount: typeof cat.monthlyAmount !== 'undefined' ? String(cat.monthlyAmount || '') : ''
           });
         } else {
           throw new Error(data.error || 'Failed to fetch category');
@@ -93,6 +99,14 @@ const EditCategory = () => {
       setError('Name is required');
       return;
     }
+    if (!form.expenseType) {
+      setError('খরচের ধরন আবশ্যক');
+      return;
+    }
+    if (!form.frequency) {
+      setError('ফ্রিকোয়েন্সি আবশ্যক');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -106,6 +120,9 @@ const EditCategory = () => {
           banglaName: form.banglaName.trim(),
           description: form.description.trim(),
           iconKey: form.iconKey,
+          expenseType: form.expenseType,
+          frequency: form.frequency,
+          monthlyAmount: form.monthlyAmount ? Number(form.monthlyAmount) : 0
         }),
       });
 
@@ -228,6 +245,55 @@ const EditCategory = () => {
                   placeholder="Short description"
                 />
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">খরচের ধরন *</label>
+                  <select
+                    name="expenseType"
+                    value={form.expenseType}
+                    onChange={onChange}
+                    className="w-full px-3 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  >
+                    <option value="">নির্বাচন করুন</option>
+                    <option value="regular">নিয়মিত খরচ</option>
+                    <option value="irregular">অনিয়মিত খরচ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ফ্রিকোয়েন্সি *</label>
+                  <select
+                    name="frequency"
+                    value={form.frequency}
+                    onChange={onChange}
+                    className="w-full px-3 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    required
+                  >
+                    <option value="">নির্বাচন করুন</option>
+                    <option value="monthly">মাসিক</option>
+                    <option value="yearly">বাৎসরিক</option>
+                  </select>
+                </div>
+              </div>
+
+              {form.frequency && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {form.frequency === 'monthly' ? 'মাসিক:' : 'বাৎসরিক:'}
+                  </label>
+                  <input
+                    name="monthlyAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.monthlyAmount}
+                    onChange={onChange}
+                    className="w-full px-3 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                    placeholder={form.frequency === 'monthly' ? 'মাসিক পরিমাণ লিখুন' : 'বাৎসরিক পরিমাণ লিখুন'}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon</label>

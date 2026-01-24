@@ -100,6 +100,19 @@ const OperatingExpenses = () => {
   // Calculate total expenses
   const totalExpenses = expenseCategories.reduce((sum, category) => sum + (Number(category.totalAmount) || 0), 0);
   const avgPerCategory = expenseCategories.length > 0 ? totalExpenses / expenseCategories.length : 0;
+  const totalMonthlyDue = expenseCategories.reduce((sum, c) => {
+    if (c.frequency === 'monthly') {
+      return sum + (Number(c.monthlyAmount) || 0);
+    }
+    return sum;
+  }, 0);
+  const totalYearlyDue = expenseCategories.reduce((sum, c) => {
+    if (c.frequency === 'yearly') {
+      return sum + (Number(c.monthlyAmount) || 0);
+    }
+    return sum;
+  }, 0);
+  const isFirstDay = new Date().getDate() === 1;
 
   const formatCurrency = (amount = 0) => `৳${Number(amount || 0).toLocaleString('bn-BD')}`;
 
@@ -180,7 +193,7 @@ const OperatingExpenses = () => {
                 <DollarSign className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">পরিচালন খরচ</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">অফিস পরিচালন খরচ ব্যবস্থাপনা</h1>
                 <p className="text-gray-600 dark:text-gray-400">ব্যবসায়িক পরিচালন খরচ ব্যবস্থাপনা</p>
               </div>
             </div>
@@ -257,9 +270,9 @@ const OperatingExpenses = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">ক্যাটাগরি প্রতি গড়</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">মাসিক বাকি</p>
                   <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {formatCurrency(avgPerCategory)}
+                    {formatCurrency(totalMonthlyDue)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
@@ -268,6 +281,29 @@ const OperatingExpenses = () => {
               </div>
             </div>
           </div>
+
+          {isFirstDay && (
+            <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-cyan-50 dark:from-purple-900/20 dark:via-blue-900/10 dark:to-cyan-900/10 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    আজ মাসের ১ তারিখ — এই মাসে বাকি পরিশোধযোগ্য
+                  </p>
+                  <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                    {formatCurrency(totalMonthlyDue)}
+                  </p>
+                </div>
+                {totalYearlyDue > 0 && (
+                  <div className="text-right">
+                    <p className="text-xs text-blue-700 dark:text-blue-300">বাৎসরিক বাকি</p>
+                    <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
+                      {formatCurrency(totalYearlyDue)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Categories Table */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -278,8 +314,10 @@ const OperatingExpenses = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ক্যাটাগরি</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">বাংলা নাম</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">বর্ণনা</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ধরন</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ফ্রিকোয়েন্সি</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">মাসিক/বাৎসরিক</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">মোট খরচ</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">আইটেম</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">সর্বশেষ আপডেট</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">অ্যাকশন</th>
                   </tr>
@@ -322,11 +360,19 @@ const OperatingExpenses = () => {
                             {category.description || '—'}
                           </div>
                         </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                            {category.expenseType === 'regular' ? 'নিয়মিত' : category.expenseType === 'irregular' ? 'অনিয়মিত' : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                          {category.frequency === 'monthly' ? 'মাসিক' : category.frequency === 'yearly' ? 'বাৎসরিক' : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                          {category.monthlyAmount ? formatCurrency(category.monthlyAmount) : '—'}
+                        </td>
                         <td className="px-4 py-3 text-sm font-semibold text-blue-600 dark:text-blue-400">
                           {formatCurrency(category.totalAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                          {category.itemCount || 0}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                           {category.lastUpdated ? new Date(category.lastUpdated).toLocaleDateString('bn-BD') : '—'}

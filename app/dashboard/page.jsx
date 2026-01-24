@@ -177,6 +177,11 @@ export default function ProfessionalDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [opExpenseDue, setOpExpenseDue] = useState([]);
+  const [opExpenseLoading, setOpExpenseLoading] = useState(false);
+  const [opExpenseError, setOpExpenseError] = useState(null);
+  const nowDate = new Date();
+  const isYearlyWindow = nowDate.getMonth() === 0;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -221,6 +226,61 @@ export default function ProfessionalDashboard() {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const fetchOperatingExpenses = async () => {
+      try {
+        setOpExpenseLoading(true);
+        setOpExpenseError(null);
+        const [catRes, txRes] = await Promise.all([
+          fetch('/api/operating-expenses/categories'),
+          fetch('/api/transactions?dateRange=month&limit=1000')
+        ]);
+        const catData = await catRes.json();
+        const txData = await txRes.json();
+        if (!catRes.ok) {
+          throw new Error(catData.error || 'Failed to fetch operating expenses');
+        }
+        if (!txRes.ok) {
+          throw new Error(txData.error || 'Failed to fetch transactions');
+        }
+
+        const categories = catData.categories || [];
+        const txItems = txData.data || [];
+        const paidByCategory = txItems.reduce((acc, tx) => {
+          if (!tx.operatingExpenseCategoryId) return acc;
+          const key = String(tx.operatingExpenseCategoryId);
+          const amount = Number(tx.amount || 0);
+          acc[key] = (acc[key] || 0) + amount;
+          return acc;
+        }, {});
+
+        const dueItems = categories
+          .filter((c) => (c.frequency === 'monthly' || (c.frequency === 'yearly' && isYearlyWindow)) && Number(c.monthlyAmount || 0) > 0)
+          .map((c) => {
+            const id = String(c.id || c._id);
+            const expected = Number(c.monthlyAmount || 0);
+            const paid = Number(paidByCategory[id] || 0);
+            const dueAmount = Math.max(0, expected - paid);
+            return {
+              id,
+              name: c.banglaName || c.name || 'Operating Expense',
+              frequency: c.frequency,
+              amount: expected,
+              dueAmount,
+            };
+          })
+          .filter((c) => c.dueAmount > 0);
+        setOpExpenseDue(dueItems);
+      } catch (err) {
+        setOpExpenseError(err.message || 'Failed to load operating expenses');
+      } finally {
+        setOpExpenseLoading(false);
+      }
+    };
+
+    fetchOperatingExpenses();
+  }, [isYearlyWindow]);
 
   const grandTotals = dashboardData?.grandTotals ?? {};
   const financial = dashboardData?.financial ?? {};
@@ -336,6 +396,54 @@ export default function ProfessionalDashboard() {
             </div>
           </div>
         </div>
+
+        {opExpenseDue.length > 0 && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+            <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-cyan-50 dark:from-purple-900/20 dark:via-blue-900/10 dark:to-cyan-900/10 rounded-2xl shadow-sm border border-purple-200 dark:border-purple-800 p-6">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">অপারেটিং ব্যয় বাকি তালিকা</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    এই মাসে যেসব অপারেটিং ব্যয় বাকি আছে, সেগুলোর সারাংশ নিচে
+                  </p>
+                </div>
+                <Link
+                  href="/office-management/operating-expenses"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  অপারেটিং ব্যয় দেখুন
+                </Link>
+              </div>
+
+              {opExpenseLoading ? (
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  লোড হচ্ছে...
+                </div>
+              ) : opExpenseError ? (
+                <p className="text-sm text-red-600 dark:text-red-400">{opExpenseError}</p>
+              ) : opExpenseDue.length === 0 ? (
+                <p className="text-sm text-gray-600 dark:text-gray-400">কোন বাকি অপারেটিং ব্যয় নেই।</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {opExpenseDue.map((item) => (
+                    <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.name}</p>
+                      <div className="flex items-center justify-between mt-2 text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">
+                          {item.frequency === 'yearly' ? 'বাৎসরিক' : 'মাসিক'}
+                        </span>
+                        <span className="font-semibold text-red-700 dark:text-red-300">
+                          {formatCurrency(item.dueAmount)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Hajj & Umrah Summary */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">

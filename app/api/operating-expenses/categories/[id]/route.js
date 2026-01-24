@@ -46,6 +46,9 @@ export async function GET(request, { params }) {
       color: category.color || '',
       bgColor: category.bgColor || '',
       iconColor: category.iconColor || '',
+      expenseType: category.expenseType || '',
+      frequency: category.frequency || '',
+      monthlyAmount: Number(category.monthlyAmount) || 0,
       totalAmount: category.totalAmount || 0,
       itemCount: category.itemCount || 0,
       lastUpdated: category.updatedAt ? category.updatedAt.toISOString() : category.createdAt ? category.createdAt.toISOString() : new Date().toISOString(),
@@ -110,6 +113,11 @@ export async function PUT(request, { params }) {
       color: body.color || category.color || '',
       bgColor: body.bgColor || category.bgColor || '',
       iconColor: body.iconColor || category.iconColor || '',
+      expenseType: body.expenseType || category.expenseType || '',
+      frequency: body.frequency || category.frequency || '',
+      monthlyAmount: typeof body.monthlyAmount !== 'undefined'
+        ? Number(body.monthlyAmount) || 0
+        : Number(category.monthlyAmount) || 0,
       updatedAt: new Date(),
     };
 

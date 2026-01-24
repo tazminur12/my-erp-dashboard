@@ -22,6 +22,7 @@ export async function POST(request) {
       amount,
       branchId,
       createdBy,
+      description,
       notes,
       reference,
       fromAccountId,
@@ -34,13 +35,15 @@ export async function POST(request) {
       customerBankAccount,
       employeeReference,
       operatingExpenseCategoryId,
+      type,
       moneyExchangeInfo,
-      meta: incomingMeta
+      meta: incomingMeta,
+      scope
     } = body;
 
     // Extract values from nested objects if provided
     const finalAmount = amount || paymentDetails?.amount;
-    const finalPartyId = partyId || customerId;
+    const finalPartyId = partyId || customerId || body?.personalExpenseProfileId;
     const finalTargetAccountId = targetAccountId || creditAccount?.id || debitAccount?.id;
     const finalFromAccountId = fromAccountId || debitAccount?.id;
     const finalToAccountId = toAccountId || creditAccount?.id;
@@ -54,6 +57,9 @@ export async function POST(request) {
     
     // Determine final party type
     let finalPartyType = String(partyType || body?.customerType || '').toLowerCase();
+    if (String(scope) === 'personal-expense' || String(body?.customerType || '').toLowerCase() === 'personal-expense') {
+      finalPartyType = 'personal-expense';
+    }
     console.log('🔍 Initial party type detection:', {
       partyType,
       customerType: body?.customerType,
@@ -152,6 +158,7 @@ export async function POST(request) {
     const operatingExpenseCategories = db.collection('operating_expense_categories');
     const invoices = db.collection('invoices');
     const agentPackages = db.collection('agent_packages');
+    const personalExpenseProfiles = db.collection('personal_expense_profiles');
 
     // 2. Validate party (simplified - you'll need to implement full logic)
     let party = null;
@@ -297,6 +304,25 @@ export async function POST(request) {
         if (party) {
           party._isOthersInvestment = true;
           party.name = party.investmentName || 'Investment';
+        }
+      }
+    } else if (finalPartyType === 'personal-expense') {
+      const profileCondition = isValidObjectId
+        ? { _id: new ObjectId(searchPartyId) }
+        : { _id: searchPartyId };
+      party = await personalExpenseProfiles.findOne(profileCondition);
+      if (party) {
+        party.name = party.name || 'Personal Expense';
+      }
+      // Fallback lookup by personalExpenseProfileId
+      if (!party && body?.personalExpenseProfileId) {
+        const profileIdStr = String(body.personalExpenseProfileId);
+        const fallbackCond = ObjectId.isValid(profileIdStr)
+          ? { _id: new ObjectId(profileIdStr) }
+          : { _id: profileIdStr };
+        const fallbackProfile = await personalExpenseProfiles.findOne(fallbackCond);
+        if (fallbackProfile) {
+          party = { ...fallbackProfile, name: fallbackProfile.name || 'Personal Expense' };
         }
       }
     } else if (finalPartyType === 'asset') {
@@ -479,6 +505,8 @@ export async function POST(request) {
       const transactionData = {
         transactionId,
         transactionType,
+        scope: scope || null,
+        type: type || null,
         serviceCategory: finalServiceCategory,
         subCategory: finalSubCategory || null,
         partyType: finalPartyType,
@@ -500,6 +528,9 @@ export async function POST(request) {
           // For vendor transactions
           if (finalPartyType === 'vendor' && party) {
             return party.tradeName || party.vendorName || party.ownerName || party.name || 'Vendor';
+          }
+          if (finalPartyType === 'personal-expense') {
+            return party?.name || body?.customerName || body?.partyName || 'Personal Expense';
           }
           
           // For other party types
@@ -577,10 +608,14 @@ export async function POST(request) {
         amount: numericAmount,
         charge: chargeAmount,
         totalAmount: numericAmount + chargeAmount,
+        categoryName: finalPartyType === 'personal-expense'
+          ? 'Personal Expense'
+          : (finalServiceCategory || ''),
         branchId: branch.branchId,
         branchName: branch.branchName,
         branchCode: branch.branchCode,
         createdBy: createdBy || 'SYSTEM',
+        description: description || '',
         notes: notes || '',
         reference: reference || paymentDetails?.reference || transactionId,
         employeeReference: employeeReference || null,
@@ -1232,6 +1267,18 @@ export async function POST(request) {
         });
       }
 
+      // 8.8 If personal expense profile is provided, update its balance on debit
+      if (transactionType === 'debit' && body?.personalExpenseProfileId) {
+        const profileId = String(body.personalExpenseProfileId);
+        if (ObjectId.isValid(profileId)) {
+          await personalExpenseProfiles.updateOne(
+            { _id: new ObjectId(profileId) },
+            { $inc: { totalTaken: numericAmount }, $set: { updatedAt: new Date() } },
+            { session }
+          );
+        }
+      }
+
       transactionResult = await transactions.insertOne(transactionData, { session });
 
       // 8.12 Update Operating Expense Category balance if applicable
@@ -1413,6 +1460,7 @@ export async function GET(request) {
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
     const dateRange = searchParams.get('dateRange'); // 'today', 'week', 'month', etc.
+    const personalExpenseProfileId = searchParams.get('personalExpenseProfileId');
     const page = parseInt(searchParams.get('page')) || 1;
     const limit = parseInt(searchParams.get('limit')) || 20;
     const q = searchParams.get('q');
@@ -1425,7 +1473,7 @@ export async function GET(request) {
 
     // Special branch: Personal expense transactions
     if (String(scope) === "personal-expense") {
-      const peFilter = { scope: "personal-expense", type: "expense" };
+      const peFilter = {};
       if (fromDate || toDate) {
         peFilter.date = {};
         if (fromDate) peFilter.date.$gte = String(fromDate).slice(0, 10);
@@ -1433,6 +1481,17 @@ export async function GET(request) {
       }
       if (categoryId && ObjectId.isValid(String(categoryId))) {
         peFilter.categoryId = String(categoryId);
+      }
+      if (personalExpenseProfileId) {
+        const profileIdStr = String(personalExpenseProfileId);
+        const partyOr = [{ partyId: profileIdStr }, { personalExpenseProfileId: profileIdStr }];
+        if (ObjectId.isValid(profileIdStr)) {
+          const profileObjId = new ObjectId(profileIdStr);
+          partyOr.push({ partyId: profileObjId }, { personalExpenseProfileId: profileObjId });
+        }
+        peFilter.$or = partyOr;
+      } else {
+        peFilter.$or = [{ scope: "personal-expense" }, { partyType: "personal-expense" }];
       }
 
       const cursor = transactionsCollection
@@ -1481,6 +1540,9 @@ export async function GET(request) {
         { targetAccountId: String(accountId) },
         { fromAccountId: String(accountId) }
       ];
+    }
+    if (categoryId) {
+      filter.operatingExpenseCategoryId = String(categoryId);
     }
 
     // Handle date range filters
@@ -1591,6 +1653,32 @@ export async function GET(request) {
               image: vendorImage,
               profileImage: vendorImage
             };
+          }
+        }
+
+        // Populate personal expense profile if partyType is personal-expense
+        if ((item.partyType === 'personal-expense' || String(item.scope || '').toLowerCase() === 'personal-expense') && item.partyId) {
+          const personalExpenseProfiles = db.collection('personal_expense_profiles');
+          let profile = null;
+          if (ObjectId.isValid(item.partyId)) {
+            profile = await personalExpenseProfiles.findOne({ _id: new ObjectId(item.partyId) });
+          }
+          if (!profile) {
+            profile = await personalExpenseProfiles.findOne({ _id: String(item.partyId) });
+          }
+          if (profile) {
+            enriched.party = {
+              ...enriched.party,
+              name: profile.name || null,
+              mobile: profile.mobile || null,
+              photo: profile.photo || null
+            };
+            if (!enriched.partyName || enriched.partyName === 'Unknown') {
+              enriched.partyName = profile.name || enriched.partyName;
+            }
+            if (!enriched.categoryName) {
+              enriched.categoryName = 'Personal Expense';
+            }
           }
         }
         

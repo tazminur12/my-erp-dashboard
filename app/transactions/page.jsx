@@ -192,20 +192,21 @@ const TransactionsList = () => {
   // Data access helpers
   const isPersonalExpenseTxn = (t) => {
     try {
+      const scope = String(t.scope || '').toLowerCase();
+      const partyType = String(t.partyType || '').toLowerCase();
+      if (scope.includes('personal')) return true;
+      if (partyType.includes('personal')) return true;
+      if (t.personalExpenseProfileId) return true;
       const desc = (t.description || t.details || '').toString();
       if (/^Personal\s+Expense/i.test(desc)) return true;
       if (Array.isArray(t.tags) && t.tags.some(tag => String(tag).toLowerCase().includes('personal'))) return true;
-      if ((t.category === 'Bank Transaction' || !t.category) && t.paymentDetails?.category) return true;
     } catch { /* ignore */ }
     return false;
   };
 
   const getCustomerName = (t) => {
     if (isPersonalExpenseTxn(t)) {
-      const desc = (t.description || t.details || '').toString();
-      const match = desc.match(/Personal\s+Expense\s*-\s*(.+)/i);
-      const fromDescription = match?.[1]?.trim();
-      return t.paymentDetails?.category || fromDescription || 'Personal Expense';
+      return t.partyName || t.party?.name || t.customerName || 'Personal Expense';
     }
     
     // For transfer transactions, use account names
@@ -321,10 +322,7 @@ const TransactionsList = () => {
 
   const getCategory = (t) => {
     if (isPersonalExpenseTxn(t)) {
-      const desc = (t.description || t.details || '').toString();
-      const match = desc.match(/Personal\s+Expense\s*-\s*(.+)/i);
-      const fromDescription = match?.[1]?.trim();
-      return fromDescription || t.paymentDetails?.category || 'Personal Expense';
+      return t.categoryName || t.category || t.serviceCategory || 'Personal Expense';
     }
     
     // Account Transfer – always show category
