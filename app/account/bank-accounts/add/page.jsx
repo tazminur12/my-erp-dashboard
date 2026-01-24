@@ -4,14 +4,12 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '../../../component/DashboardLayout';
 import { ArrowLeft, Upload, Building2, X, Loader2 } from 'lucide-react';
-import { useAccountQueries } from '../../../hooks/useAccountQueries';
 import { CLOUDINARY_CONFIG, validateCloudinaryConfig } from '../../../../config/cloudinary';
 import Swal from 'sweetalert2';
 
 const AddBankAccount = () => {
   const router = useRouter();
-  const { useCreateBankAccount } = useAccountQueries();
-  const createBankAccountMutation = useCreateBankAccount();
+  const [createPending, setCreatePending] = useState(false);
 
   const [formData, setFormData] = useState({
     bankName: '',
@@ -208,6 +206,7 @@ const AddBankAccount = () => {
     }
 
     try {
+      setCreatePending(true);
       const payload = {
         ...formData,
         initialBalance: parseFloat(formData.initialBalance),
@@ -216,7 +215,17 @@ const AddBankAccount = () => {
           : parseFloat(formData.initialBalance), // Default to initialBalance if not provided
       };
 
-      await createBankAccountMutation.mutateAsync(payload);
+      const response = await fetch('/api/bank-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || 'Failed to create bank account');
+      }
       
       // Show success message and redirect
       Swal.fire({
@@ -247,6 +256,8 @@ const AddBankAccount = () => {
           popup: 'rounded-2xl shadow-2xl'
         }
       });
+    } finally {
+      setCreatePending(false);
     }
   };
 
@@ -647,12 +658,12 @@ const AddBankAccount = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={createBankAccountMutation.isPending}
+                  disabled={createPending}
                   className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-200 flex items-center"
                 >
-                  {createBankAccountMutation.isPending ? (
+                  {createPending ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Creating...
                     </>
                   ) : (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../component/DashboardLayout';
 import { 
   CreditCard, 
@@ -11,19 +11,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  DollarSign,
   User,
   Tag,
-  MoreHorizontal,
   X,
   RefreshCw,
   Loader2,
   Edit,
   Trash2,
   Save,
-  FileDown,
-  AlertCircle,
-  CheckCircle
+  FileDown
 } from 'lucide-react';
 import { generateSalmaReceiptPDF } from '../utils/pdfGenerator';
 import Swal from 'sweetalert2';
@@ -38,7 +34,7 @@ const formatDate = (dateString) => {
       month: '2-digit', 
       year: 'numeric' 
     });
-  } catch (e) {
+  } catch {
     return dateString;
   }
 };
@@ -126,6 +122,7 @@ const TransactionsList = () => {
     ],
     category: [
       { value: '', label: 'সব ক্যাটাগরি' },
+      { value: 'Account Transfer', label: 'Account Transfer (একাউন্ট টু একাউন্ট)' },
       { value: 'হাজ্জ প্যাকেজ', label: 'হাজ্জ প্যাকেজ' },
       { value: 'ওমরাহ প্যাকেজ', label: 'ওমরাহ প্যাকেজ' },
       { value: 'এয়ার টিকেট', label: 'এয়ার টিকেট' },
@@ -188,7 +185,7 @@ const TransactionsList = () => {
       if (/^Personal\s+Expense/i.test(desc)) return true;
       if (Array.isArray(t.tags) && t.tags.some(tag => String(tag).toLowerCase().includes('personal'))) return true;
       if ((t.category === 'Bank Transaction' || !t.category) && t.paymentDetails?.category) return true;
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
     return false;
   };
 
@@ -198,6 +195,36 @@ const TransactionsList = () => {
       const match = desc.match(/Personal\s+Expense\s*-\s*(.+)/i);
       const fromDescription = match?.[1]?.trim();
       return t.paymentDetails?.category || fromDescription || 'Personal Expense';
+    }
+    
+    // For transfer transactions, use account names
+    if (t.transactionType === 'transfer') {
+      if (t.fromAccount && t.toAccount) {
+        const fromName = t.fromAccount.bankName || t.fromAccount.accountName || t.fromAccount.name || 'Account';
+        const toName = t.toAccount.bankName || t.toAccount.accountName || t.toAccount.name || 'Account';
+        return `${fromName} → ${toName}`;
+      }
+      if (t.debitAccount && t.creditAccount) {
+        const fromName = t.debitAccount.bankName || t.debitAccount.accountName || t.debitAccount.name || 'Account';
+        const toName = t.creditAccount.bankName || t.creditAccount.accountName || t.creditAccount.name || 'Account';
+        return `${fromName} → ${toName}`;
+      }
+      // Fallback to partyName if set by API
+      if (t.partyName && t.partyName !== 'Unknown') return t.partyName;
+      return 'Account Transfer';
+    }
+    
+    // For account transactions (credit/debit without party)
+    if ((t.transactionType === 'credit' || t.transactionType === 'debit') && !t.partyType && !t.partyId) {
+      if (t.targetAccount) {
+        return t.targetAccount.bankName || t.targetAccount.accountName || t.targetAccount.accountTitle || t.targetAccount.accountHolder || 'Bank Account';
+      }
+      if (t.debitAccount) {
+        return t.debitAccount.bankName || t.debitAccount.accountName || t.debitAccount.name || 'Bank Account';
+      }
+      if (t.creditAccount) {
+        return t.creditAccount.bankName || t.creditAccount.accountName || t.creditAccount.name || 'Bank Account';
+      }
     }
     
     if (t.partyType === 'money-exchange' || t.partyType === 'money_exchange') {
@@ -214,6 +241,14 @@ const TransactionsList = () => {
       if (fullName && fullName !== 'Money Exchange' && fullName !== 'Unknown') return fullName;
     }
     
+    // For vendor transactions
+    if (t.partyType === 'vendor') {
+      const vendorName = t.party?.tradeName || t.party?.vendorName || t.party?.ownerName || t.party?.name || t.partyName;
+      if (vendorName && vendorName !== 'Unknown' && vendorName !== 'N/A') {
+        return vendorName;
+      }
+    }
+    
     // For loan, use loanInfo name
     if (t.partyType === 'loan' && t.loanInfo) {
       return t.loanInfo.name || t.customerName || t.partyName || 'Unknown';
@@ -226,6 +261,8 @@ const TransactionsList = () => {
       t.party?.name ||
       t.customer?.fullName ||
       t.party?.fullName ||
+      t.party?.tradeName ||
+      t.party?.vendorName ||
       '';
     
     if (!name || name.trim() === '' || name.toLowerCase() === 'unknown') {
@@ -261,6 +298,13 @@ const TransactionsList = () => {
       const match = desc.match(/Personal\s+Expense\s*-\s*(.+)/i);
       const fromDescription = match?.[1]?.trim();
       return fromDescription || t.paymentDetails?.category || 'Personal Expense';
+    }
+    
+    // Account Transfer – always show category
+    if (t.transactionType === 'transfer') {
+      const raw = t.category || t.serviceCategory || t.paymentDetails?.category || '';
+      if (raw && typeof raw === 'string' && raw.trim()) return raw;
+      return 'Account Transfer';
     }
     
     if (t.category && typeof t.category === 'object') {

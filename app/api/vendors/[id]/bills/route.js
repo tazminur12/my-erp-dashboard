@@ -18,8 +18,33 @@ export async function GET(request, { params }) {
     const db = await getDb();
     const vendorBillsCollection = db.collection('vendor_bills');
 
+    // Find vendor first to get the correct _id
+    const vendorsCollection = db.collection('vendors');
+    let vendor = null;
+    const isValidObjectId = ObjectId.isValid(id);
+    
+    if (isValidObjectId) {
+      vendor = await vendorsCollection.findOne({ _id: new ObjectId(id) });
+      if (!vendor) {
+        vendor = await vendorsCollection.findOne({ vendorId: id });
+      }
+    } else {
+      vendor = await vendorsCollection.findOne({ vendorId: id });
+      if (!vendor) {
+        vendor = await vendorsCollection.findOne({ _id: id });
+      }
+    }
+
+    // Find bills using vendor's _id (as stored in bills)
+    const vendorIdForQuery = vendor ? vendor._id.toString() : id;
     const bills = await vendorBillsCollection
-      .find({ vendorId: id })
+      .find({ 
+        $or: [
+          { vendorId: vendorIdForQuery },
+          { vendorId: id },
+          { vendorIdString: id }
+        ]
+      })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -64,19 +89,31 @@ export async function POST(request, { params }) {
       );
     }
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: 'Invalid vendor ID format' },
-        { status: 400 }
-      );
-    }
-
     const db = await getDb();
     const vendorsCollection = db.collection('vendors');
     const vendorBillsCollection = db.collection('vendor_bills');
 
-    // Check if vendor exists
-    const vendor = await vendorsCollection.findOne({ _id: new ObjectId(id) });
+    // Check if vendor exists - support both ObjectId and vendorId string
+    let vendor = null;
+    const isValidObjectId = ObjectId.isValid(id);
+    
+    if (isValidObjectId) {
+      // Try with ObjectId first
+      vendor = await vendorsCollection.findOne({ _id: new ObjectId(id) });
+      
+      // If not found, try with vendorId field
+      if (!vendor) {
+        vendor = await vendorsCollection.findOne({ vendorId: id });
+      }
+    } else {
+      // Try with vendorId field for non-ObjectId strings
+      vendor = await vendorsCollection.findOne({ vendorId: id });
+      
+      // Also try with _id as string (in case it's stored as string)
+      if (!vendor) {
+        vendor = await vendorsCollection.findOne({ _id: id });
+      }
+    }
 
     if (!vendor) {
       return NextResponse.json(
@@ -111,7 +148,8 @@ export async function POST(request, { params }) {
     const newBill = {
       billId,
       billNumber: body.billNumber || billId,
-      vendorId: id,
+      vendorId: vendor._id.toString(), // Use the actual MongoDB _id for consistency
+      vendorIdString: vendor.vendorId || id, // Also store the vendorId string if it exists
       vendorName: body.vendorName || vendor.tradeName || '',
       billType: body.billType || '',
       billDate: body.billDate || new Date().toISOString(),
@@ -174,6 +212,32 @@ export async function POST(request, { params }) {
     };
 
     const result = await vendorBillsCollection.insertOne(newBill);
+
+    // Update vendor dues - bill amount increases vendor's due
+    const billAmount = parseFloat(body.totalAmount || body.amount || 0);
+    const paidAmount = parseFloat(body.paidAmount || 0);
+    const dueAmount = billAmount - paidAmount;
+
+    if (dueAmount > 0) {
+      // Update vendor's totalDue
+      await vendorsCollection.updateOne(
+        { _id: vendor._id },
+        { 
+          $inc: { 
+            totalDue: dueAmount,
+            // If it's a Hajj/Umrah bill, also update specific dues
+            ...(body.billType === 'hajj' || body.billType?.toLowerCase().includes('hajj') ? { hajDue: dueAmount } : {}),
+            ...(body.billType === 'umrah' || body.billType?.toLowerCase().includes('umrah') ? { umrahDue: dueAmount } : {})
+          },
+          $set: { updatedAt: new Date() }
+        }
+      );
+      console.log('✅ Updated vendor dues:', {
+        vendorId: vendor._id.toString(),
+        dueAmount,
+        billType: body.billType
+      });
+    }
 
     // Fetch created bill
     const createdBill = await vendorBillsCollection.findOne({

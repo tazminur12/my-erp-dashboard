@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut as nextAuthSignOut } from 'next-auth/react';
 import { navigation } from './navigation';
@@ -95,11 +96,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <div key={key} className="mb-1">
           <button
             onClick={() => toggleExpand(key)}
-            className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`w-full flex items-center justify-between px-4 py-3 text-sm rounded-lg transition-all duration-200 ${
               active
                 ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
+            style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700 }}
           >
             <div className="flex items-center space-x-3">
               {typeof item.icon === 'string' ? (
@@ -107,7 +109,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
               ) : (
                 <item.icon className="h-5 w-5" />
               )}
-              <span className={containsBengali(item.name) ? 'bengali' : ''}>{item.name}</span>
+              <span className="sidebar-nav-text">{item.name}</span>
             </div>
             {isExpanded ? (
               <ChevronDown className="h-4 w-4" />
@@ -133,18 +135,19 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         <button
           key={key}
           onClick={() => handleNavClick(item)}
-          className={`w-full flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+          className={`w-full flex items-center space-x-3 px-4 py-3 text-sm rounded-lg transition-all duration-200 ${
             active
               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
           }`}
+          style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700 }}
         >
           {typeof item.icon === 'string' ? (
             <span className="text-xl">{item.icon}</span>
           ) : (
             <item.icon className="h-5 w-5" />
           )}
-          <span className="bengali">{item.name}</span>
+          <span className="sidebar-nav-text">{item.name}</span>
         </button>
       );
     }
@@ -155,18 +158,19 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         key={key}
         href={item.href}
         onClick={() => handleNavClick(item)}
-        className={`flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+        className={`flex items-center space-x-3 px-4 py-3 text-sm rounded-lg transition-all duration-200 ${
           active
             ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
         }`}
+        style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700 }}
       >
         {typeof item.icon === 'string' ? (
           <span className="text-xl">{item.icon}</span>
         ) : (
           <item.icon className="h-5 w-5" />
         )}
-        <span className="bengali">{item.name}</span>
+        <span className="sidebar-nav-text">{item.name}</span>
       </Link>
     );
   };
@@ -185,47 +189,50 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       <aside
         className={`fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 flex flex-col shadow-lg font-english`}
+        } lg:translate-x-0 flex flex-col shadow-lg`}
+        style={{ fontFamily: "'Google Sans', sans-serif" }}
       >
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-600 dark:bg-blue-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">BR</span>
+        <div className="px-4 py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+          <div className="flex items-center justify-between">
+            {/* Logo and Text Container */}
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {/* Logo */}
+              <div className="flex-shrink-0">
+                <Image
+                  src="/All_Logo/BIN-RASHID-LOGO.png"
+                  alt="Bin Rashid Group Logo"
+                  width={50}
+                  height={50}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white truncate" style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 700, lineHeight: '1.2' }}>
+                  Bin Rashid ERP
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" style={{ fontFamily: "'Google Sans', sans-serif", fontWeight: 500 }}>
+                  Dashboard
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                BIN Rashid Group ERP
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Dashboard</p>
-            </div>
+            {/* Close button for mobile */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden flex-shrink-0 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-200 ml-2"
+              aria-label="Close sidebar"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          {/* Close button for mobile */}
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors duration-200"
-            aria-label="Close sidebar"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
           {navigation.map((item, index) => renderNavItem(item, index))}
         </nav>
-
-        {/* Sidebar Footer */}
-        <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-800">
-          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              © 2026 BIN Rashid Group
-            </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-1">
-              Version 1.0.0
-            </p>
-          </div>
-        </div>
       </aside>
     </>
   );

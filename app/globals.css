@@ -42,3 +42,9 @@ body {
 body * {
   font-family: var(--font-english), var(--font-bengali);
 }
+
+/* Sidebar nav: Google Sans bold (overrides .bengali etc.) */
+.sidebar-nav-text {
+  font-family: var(--font-english) !important;
+  font-weight: 700 !important;
+}

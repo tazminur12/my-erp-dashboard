@@ -658,22 +658,23 @@ const NewTransaction = () => {
       }
     };
 
-    // Fetch Loans
+    // Fetch Loans - Receiving and Giving
     const fetchLoans = async () => {
       try {
         setLoansSearchLoading(true);
         // Fetch giving loans
-        const givingResponse = await fetch('/api/loan/giving?limit=10000');
+        const givingResponse = await fetch('/api/loans/giving?limit=10000');
         const givingData = givingResponse.ok ? await givingResponse.json() : { loans: [] };
         // Fetch receiving loans
-        const receivingResponse = await fetch('/api/loan/receiving?limit=10000');
+        const receivingResponse = await fetch('/api/loans/receiving?limit=10000');
         const receivingData = receivingResponse.ok ? await receivingResponse.json() : { loans: [] };
         
         const allLoans = [
-          ...(givingData.loans || givingData.data || []).map(loan => ({ ...loan, loanDirection: 'giving' })),
-          ...(receivingData.loans || receivingData.data || []).map(loan => ({ ...loan, loanDirection: 'receiving' }))
+          ...(givingData.loans || givingData.data || []).map(loan => ({ ...loan, loanDirection: 'giving', direction: 'giving' })),
+          ...(receivingData.loans || receivingData.data || []).map(loan => ({ ...loan, loanDirection: 'receiving', direction: 'receiving' }))
         ];
         setLoansSearch(allLoans);
+        console.log('✅ Fetched loans:', { giving: givingData.loans?.length || 0, receiving: receivingData.loans?.length || 0, total: allLoans.length });
       } catch (error) {
         console.error('Error fetching loans:', error);
       } finally {
@@ -681,19 +682,68 @@ const NewTransaction = () => {
       }
     };
 
-    // Fetch Money Exchange
+    // Fetch Money Exchange - fetch actual money exchange transactions
     const fetchMoneyExchange = async () => {
       try {
         setMoneyExchangeLoading(true);
-        const response = await fetch('/api/money-exchange/dealer?limit=10000');
+        const response = await fetch('/api/money-exchange?limit=10000');
         if (response.ok) {
           const data = await response.json();
-          setMoneyExchangeList(data.dealers || data.data || []);
+          // Use exchanges or data array from the response
+          setMoneyExchangeList(data.exchanges || data.data || []);
         }
       } catch (error) {
         console.error('Error fetching money exchange:', error);
       } finally {
         setMoneyExchangeLoading(false);
+      }
+    };
+
+    // Fetch Miraj Industries: কর্মচারী, আয়, খরচ
+    const fetchMirajData = async () => {
+      setMirajEmployeesLoading(true);
+      setMirajIncomesLoading(true);
+      setMirajExpensesLoading(true);
+      try {
+        const [empRes, incRes, expRes] = await Promise.all([
+          fetch('/api/miraj-industries/farm-employees?limit=1000'),
+          fetch('/api/miraj-industries/farm-incomes'),
+          fetch('/api/miraj-industries/farm-expenses')
+        ]);
+        if (empRes.ok) {
+          const d = await empRes.json();
+          setMirajEmployees(d.employees || []);
+        }
+        if (incRes.ok) {
+          const d = await incRes.json();
+          setMirajIncomes(d.incomes || d.data || []);
+        }
+        if (expRes.ok) {
+          const d = await expRes.json();
+          setMirajExpenses(d.expenses || d.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching Miraj data:', error);
+      } finally {
+        setMirajEmployeesLoading(false);
+        setMirajIncomesLoading(false);
+        setMirajExpensesLoading(false);
+      }
+    };
+
+    // Fetch Operating Expense Categories
+    const fetchOperatingExpenseCategories = async () => {
+      setOpExLoading(true);
+      try {
+        const response = await fetch('/api/operating-expenses/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setOpExCategories(data.categories || []);
+        }
+      } catch (error) {
+        console.error('Error fetching operating expense categories:', error);
+      } finally {
+        setOpExLoading(false);
       }
     };
 
@@ -716,6 +766,10 @@ const NewTransaction = () => {
         fetchLoans();
       } else if (selectedType === 'moneyExchange') {
         fetchMoneyExchange();
+      } else if (selectedType === 'mirajIndustries') {
+        fetchMirajData();
+      } else if (selectedType === 'officeExpenses') {
+        fetchOperatingExpenseCategories();
       }
     }
   }, [currentStep, formData.selectedCustomerType]);
@@ -873,19 +927,17 @@ const NewTransaction = () => {
 
   // Loans search - using state (declared above)
   
-  // Miraj Industries finance lists - empty data
-  const mirajExpenses = [];
-  const mirajExpensesLoading = false;
-  const mirajIncomes = [];
-  const mirajIncomesLoading = false;
+  // Miraj Industries: employees, আয়, খরচ
+  const [mirajEmployees, setMirajEmployees] = useState([]);
+  const [mirajEmployeesLoading, setMirajEmployeesLoading] = useState(false);
+  const [mirajIncomes, setMirajIncomes] = useState([]);
+  const [mirajIncomesLoading, setMirajIncomesLoading] = useState(false);
+  const [mirajExpenses, setMirajExpenses] = useState([]);
+  const [mirajExpensesLoading, setMirajExpensesLoading] = useState(false);
   
-  // Miraj Industries employees - empty data
-  const mirajEmployees = [];
-  const mirajEmployeesLoading = false;
-  
-  // Office expenses categories - empty data
-  const opExCategories = [];
-  const opExLoading = false;
+  // Office expenses categories
+  const [opExCategories, setOpExCategories] = useState([]);
+  const [opExLoading, setOpExLoading] = useState(false);
   
   // Money exchange listings - using state (declared above)
   
@@ -1875,6 +1927,8 @@ const NewTransaction = () => {
       const transferCharge = rawCharge > 0 ? -rawCharge : 0; // Transfer charge is negative
 
       const transferPayload = {
+        transactionType: 'transfer',
+        serviceCategory: 'Account Transfer',
         fromAccountId: formData.debitAccount.id,
         toAccountId: formData.creditAccount.id,
         amount: transferAmount,
@@ -4144,7 +4198,7 @@ const NewTransaction = () => {
                           : effectiveSearchType === 'asset'
                           ? 'সম্পদ খুঁজুন... (নাম/টাইপ)'
                           : effectiveSearchType === 'miraj'
-                          ? 'কর্মচারী খুঁজুন... (নাম/পদ/মোবাইল)'
+                          ? 'কর্মচারী, আয় বা খরচ খুঁজুন... (নাম/পদ/মোবাইল/ভেন্ডর/সোর্স)'
                           : 'Miraj Industries – ক্যাটাগরি/অপশন খুঁজুন'
                       }
                       value={searchTerm}
@@ -4170,7 +4224,7 @@ const NewTransaction = () => {
                     (effectiveSearchType === 'personal' && (personalCatsLoading || searchLoading)) ||
                     (effectiveSearchType === 'investment' && (investmentLoading || searchLoading)) ||
                     (effectiveSearchType === 'asset' && (assetsLoading || searchLoading)) ||
-                    (effectiveSearchType === 'miraj' && (mirajEmployeesLoading || searchLoading)) ? (
+                    (effectiveSearchType === 'miraj' && (mirajEmployeesLoading || mirajIncomesLoading || mirajExpensesLoading || searchLoading)) ? (
                       <div className="flex items-center justify-center py-6 sm:py-8">
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-blue-500" />
                         <span className="ml-2 text-gray-600 dark:text-gray-400 text-sm sm:text-base">
@@ -4180,7 +4234,7 @@ const NewTransaction = () => {
                            effectiveSearchType === 'haji' ? 'হাজি লোড হচ্ছে...' :
                            effectiveSearchType === 'umrah' ? 'উমরাহ লোড হচ্ছে...' :
                            effectiveSearchType === 'personal' ? 'ক্যাটাগরি লোড হচ্ছে...' :
-                           effectiveSearchType === 'miraj' ? 'কর্মচারী লোড হচ্ছে...' :
+                           effectiveSearchType === 'miraj' ? 'কর্মচারী, আয় ও খরচ লোড হচ্ছে...' :
                            effectiveSearchType === 'office' ? 'অফিস খরচ ক্যাটাগরি লোড হচ্ছে...' :
                            effectiveSearchType === 'moneyExchange' ? 'মানি এক্সচেঞ্জ ডেটা লোড হচ্ছে...' :
                            effectiveSearchType === 'investment' ? 'বিনিয়োগ লোড হচ্ছে...' :
@@ -4189,12 +4243,18 @@ const NewTransaction = () => {
                         </span>
                       </div>
                     ) : effectiveSearchType === 'office' ? (
-                      // Office Expenses categories list (show names only)
-                      (opExCategories || []).filter(c => {
-                        if (!searchTerm) return true;
-                        const t = searchTerm.toLowerCase();
-                        return c.name.toLowerCase().includes(t);
-                      }).map((cat) => (
+                      // Office Expenses categories list
+                      (() => {
+                        const filteredCategories = (opExCategories || []).filter(c => {
+                          if (!searchTerm) return true;
+                          const t = searchTerm.toLowerCase();
+                          return (c.name || '').toLowerCase().includes(t) ||
+                                 (c.banglaName || '').toLowerCase().includes(t) ||
+                                 (c.description || '').toLowerCase().includes(t);
+                        });
+
+                        return filteredCategories.length > 0 ? (
+                          filteredCategories.map((cat) => (
                         <button
                           key={`office-${cat.id}`}
                           onClick={() => handleCustomerSelect({
@@ -4222,17 +4282,39 @@ const NewTransaction = () => {
                             </div>
                             <div className="text-left min-w-0 flex-1">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                {cat.name || 'Unnamed'}
+                                {cat.name || cat.banglaName || 'Unnamed'}
                               </h3>
-                              {cat.banglaName && (
+                              {cat.banglaName && cat.name !== cat.banglaName && (
                                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
                                   {cat.banglaName}
                                 </p>
                               )}
+                              {cat.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-1">
+                                  {cat.description}
+                                </p>
+                              )}
+                              {cat.totalAmount !== undefined && (
+                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                  মোট: ৳{Number(cat.totalAmount || 0).toLocaleString('bn-BD')}
+                                  {cat.itemCount !== undefined && cat.itemCount > 0 && (
+                                    <span className="ml-2">({cat.itemCount} টি)</span>
+                                  )}
+                                </p>
+                              )}
                             </div>
+                            {formData.customerId === cat.id && (
+                              <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                            )}
                           </div>
                         </button>
-                      ))
+                          ))
+                        ) : (
+                          <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
+                            {searchTerm ? 'কোন অফিস ব্যয় ক্যাটাগরি পাওয়া যায়নি' : 'কোন অফিস ব্যয় ক্যাটাগরি নেই। নতুন ক্যাটাগরি যোগ করুন।'}
+                          </div>
+                        );
+                      })()
                     ) : effectiveSearchType === 'moneyExchange' ? (
                       moneyExchangeList.length > 0 ? (
                         moneyExchangeList.map((exchange) => (
@@ -4286,7 +4368,7 @@ const NewTransaction = () => {
                         ))
                       ) : (
                         <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-                          {exchangeTypeFilter ? 'কোন মানি এক্সচেঞ্জ ডেটা নেই' : 'লেনদেনের ধরন নির্বাচন করুন' }
+                          {moneyExchangeList.length === 0 ? 'কোন মানি এক্সচেঞ্জ ডেটা নেই' : 'লেনদেনের ধরন নির্বাচন করুন' }
                         </div>
                       )
                     ) : effectiveSearchType === 'haji' ? (
@@ -4624,8 +4706,40 @@ const NewTransaction = () => {
                                       {(loan.loanDirection || loan.direction) === 'giving' ? 'Giving' : 'Receiving'}
                                     </span>
                                   </div>
+                                  {loan.loanId && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 truncate mt-1">
+                                      ID: {loan.loanId}
+                                    </p>
+                                  )}
+                                  {(loan.contactPhone || loan.customerPhone || loan.phone) && (
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                                      📞 {loan.contactPhone || loan.customerPhone || loan.phone || loan.mobile || loan.mobileNumber || 'N/A'}
+                                    </p>
+                                  )}
+                                  {(loan.totalAmount !== undefined || loan.totalDue !== undefined || loan.paidAmount !== undefined) && (
+                                    <div className="flex items-center gap-2 mt-1 text-xs">
+                                      {loan.totalAmount !== undefined && (
+                                        <span className="text-gray-500 dark:text-gray-500">
+                                          মোট: ৳{Number(loan.totalAmount || 0).toLocaleString('bn-BD')}
+                                        </span>
+                                      )}
+                                      {loan.paidAmount !== undefined && (
+                                        <span className="text-green-600 dark:text-green-400">
+                                          পরিশোধ: ৳{Number(loan.paidAmount || 0).toLocaleString('bn-BD')}
+                                        </span>
+                                      )}
+                                      {loan.totalDue !== undefined && (
+                                        <span className="text-red-600 dark:text-red-400">
+                                          বাকি: ৳{Number(loan.totalDue || 0).toLocaleString('bn-BD')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
+                              {(formData.loanInfo?.id && (formData.loanInfo.id === (loan._id || loan.id || loan.loanId))) && (
+                                <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                              )}
                             </div>
                           </button>
                         ))
@@ -4786,9 +4900,10 @@ const NewTransaction = () => {
                         const filteredExpenses = mirajExpenses.filter(item => {
                           if (!searchTerm) return true;
                           const term = searchTerm.toLowerCase();
-                          const name = item.vendor || '';
+                          const name = item.vendor || item.category || '';
                           return name.toLowerCase().includes(term) ||
-                                 (item.description || '').toLowerCase().includes(term);
+                                 (item.description || '').toLowerCase().includes(term) ||
+                                 (item.category || '').toLowerCase().includes(term);
                         });
 
                         const hasEmployees = filteredEmployees.length > 0;
@@ -4798,7 +4913,7 @@ const NewTransaction = () => {
                         if (!hasEmployees && !hasIncomes && !hasExpenses) {
                           return (
                             <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
-                              {searchTerm ? 'কোন ডেটা পাওয়া যায়নি' : 'কোন ডেটা নেই'}
+                              {searchTerm ? 'কোন আয়, খরচ বা কর্মচারী পাওয়া যায়নি' : 'কোন আয়, খরচ বা কর্মচারী নেই। মিরাজ ইন্ডাস্ট্রিজ থেকে যোগ করুন।'}
                             </div>
                           );
                         }
@@ -4809,7 +4924,7 @@ const NewTransaction = () => {
                             {hasEmployees && (
                               <>
                                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                                  কর্মচারী
+                                  কর্মচারী ব্যবস্থাপনা
                                 </div>
                                 {filteredEmployees.map((employee) => (
                                   <button
@@ -4881,7 +4996,7 @@ const NewTransaction = () => {
                               <>
                                 {(hasEmployees || hasExpenses) && (
                                   <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4">
-                                    খামারের আয়
+                                    আয়-খরচ (আয়)
                                   </div>
                                 )}
                                 {filteredIncomes.map((item) => (
@@ -4943,7 +5058,7 @@ const NewTransaction = () => {
                               <>
                                 {(hasEmployees || hasIncomes) && (
                                   <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mt-4">
-                                    খামারের খরচ
+                                    আয়-খরচ (খরচ)
                                   </div>
                                 )}
                                 {filteredExpenses.map((item) => (
@@ -5155,8 +5270,8 @@ const NewTransaction = () => {
                          effectiveSearchType === 'haji' ? (searchTerm ? 'কোন হাজি পাওয়া যায়নি' : 'কোন হাজি নেই') :
                           effectiveSearchType === 'umrah' ? (searchTerm ? 'কোন উমরাহ পাওয়া যায়নি' : 'কোন উমরাহ নেই') :
                           effectiveSearchType === 'loans' ? (searchTerm ? 'কোন লোন পাওয়া যায়নি' : 'কোন লোন নেই') :
-                          effectiveSearchType === 'miraj' ? (searchTerm ? 'কোন কর্মচারী পাওয়া যায়নি' : 'কোন কর্মচারী নেই') :
-                          effectiveSearchType === 'moneyExchange' ? (exchangeTypeFilter ? 'কোন মানি এক্সচেঞ্জ ডেটা নেই' : 'লেনদেনের ধরন নির্বাচন করুন') :
+                          effectiveSearchType === 'miraj' ? (searchTerm ? 'কোন আয়, খরচ বা কর্মচারী পাওয়া যায়নি' : 'কোন আয়, খরচ বা কর্মচারী নেই। মিরাজ ইন্ডাস্ট্রিজ থেকে যোগ করুন।') :
+                          effectiveSearchType === 'moneyExchange' ? (moneyExchangeList.length === 0 ? 'কোন মানি এক্সচেঞ্জ ডেটা নেই' : 'লেনদেনের ধরন নির্বাচন করুন') :
                          'কোন ডেটা নেই'}
                       </div>
                     )}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSession } from '../hooks/useSession';
 import Topbar from './Topbar';
@@ -77,6 +78,21 @@ const DashboardLayout = ({ children }) => {
           {children}
         </main>
       </div>
+
+      {/* Tawk.to Live Chat Script */}
+      <Script id="tawk-to-script" strategy="afterInteractive">
+        {`
+          var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+          (function(){
+          var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+          s1.async=true;
+          s1.src='https://embed.tawk.to/63626c7edaff0e1306d55022/1jceegqfr';
+          s1.charset='UTF-8';
+          s1.setAttribute('crossorigin','*');
+          s0.parentNode.insertBefore(s1,s0);
+          })();
+        `}
+      </Script>
     </div>
   );
 };

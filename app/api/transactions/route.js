@@ -43,7 +43,7 @@ export async function POST(request) {
     const finalTargetAccountId = targetAccountId || creditAccount?.id || debitAccount?.id;
     const finalFromAccountId = fromAccountId || debitAccount?.id;
     const finalToAccountId = toAccountId || creditAccount?.id;
-    const finalServiceCategory = serviceCategory || category;
+    const finalServiceCategory = serviceCategory || category || (transactionType === 'transfer' ? 'Account Transfer' : undefined);
     const finalSubCategory = typeof body?.subCategory !== 'undefined' ? String(body.subCategory || '').trim() : undefined;
     const finalOperatingExpenseCategoryId = operatingExpenseCategoryId || body?.operatingExpenseCategory?.id;
     const meta = (incomingMeta && typeof incomingMeta === 'object') ? { ...incomingMeta } : {};
@@ -61,6 +61,12 @@ export async function POST(request) {
     if (body?.customerType === 'asset') {
       finalPartyType = 'asset';
     }
+    // Ensure vendor is correctly identified
+    if ((partyType && String(partyType).toLowerCase() === 'vendor') || 
+        (body?.customerType && String(body.customerType).toLowerCase() === 'vendor')) {
+      finalPartyType = 'vendor';
+      console.log('✅ Vendor party type confirmed:', finalPartyType);
+    }
 
     // 1. Validation
     console.log('📥 Transaction Payload:', JSON.stringify({
@@ -69,14 +75,27 @@ export async function POST(request) {
       finalPartyType,
       partyId: finalPartyId,
       serviceCategory: finalServiceCategory,
-      amount: finalAmount
+      amount: finalAmount,
+      fromAccountId: finalFromAccountId,
+      toAccountId: finalToAccountId
     }, null, 2));
 
-    if (!transactionType || !finalAmount || !finalPartyId) {
-      return NextResponse.json({
-        success: false,
-        message: "Missing required fields: transactionType, amount, and partyId"
-      }, { status: 400 });
+    // For transfer transactions, partyId is not required, but fromAccountId and toAccountId are required
+    if (transactionType === 'transfer') {
+      if (!finalAmount || !finalFromAccountId || !finalToAccountId) {
+        return NextResponse.json({
+          success: false,
+          message: "Missing required fields for transfer: amount, fromAccountId, and toAccountId"
+        }, { status: 400 });
+      }
+    } else {
+      // For credit/debit transactions, partyId is required
+      if (!transactionType || !finalAmount || !finalPartyId) {
+        return NextResponse.json({
+          success: false,
+          message: "Missing required fields: transactionType, amount, and partyId"
+        }, { status: 400 });
+      }
     }
 
     if (!['credit', 'debit', 'transfer'].includes(transactionType)) {
@@ -120,7 +139,8 @@ export async function POST(request) {
     const vendors = db.collection('vendors');
     const haji = db.collection('hajis');
     const umrah = db.collection('umrahs');
-    const loans = db.collection('loans');
+    const loansGiving = db.collection('loans_giving');
+    const loansReceiving = db.collection('loans_receiving');
     const exchanges = db.collection('money_exchanges');
     const iataAirlinesCapping = db.collection('iata_airlines_capping');
     const othersInvestments = db.collection('others_investments');
@@ -182,10 +202,29 @@ export async function POST(request) {
         : { $or: [{ agentId: searchPartyId }, { _id: searchPartyId }], isActive: { $ne: false } };
       party = await agents.findOne(agentCondition);
     } else if (finalPartyType === 'vendor') {
-      const vendorCondition = isValidObjectId
+      // Try with isActive: true first
+      let vendorCondition = isValidObjectId
         ? { $or: [{ vendorId: searchPartyId }, { _id: new ObjectId(searchPartyId) }], isActive: true }
         : { $or: [{ vendorId: searchPartyId }, { _id: searchPartyId }], isActive: true };
       party = await vendors.findOne(vendorCondition);
+      
+      // If not found with isActive: true, try without isActive filter
+      if (!party) {
+        console.log('⚠️ Vendor not found with isActive: true, trying without isActive filter...');
+        vendorCondition = isValidObjectId
+          ? { $or: [{ vendorId: searchPartyId }, { _id: new ObjectId(searchPartyId) }] }
+          : { $or: [{ vendorId: searchPartyId }, { _id: searchPartyId }] };
+        party = await vendors.findOne(vendorCondition);
+      }
+      
+      console.log('🔍 Vendor found:', !!party, party ? { 
+        _id: party._id, 
+        vendorId: party.vendorId, 
+        tradeName: party.tradeName,
+        isActive: party.isActive,
+        totalPaid: party.totalPaid,
+        totalDue: party.totalDue
+      } : null);
     } else if (finalPartyType === 'haji') {
       console.log('🔍 Looking up haji with ID:', searchPartyId, 'isValidObjectId:', isValidObjectId);
       // Try with isActive: true first
@@ -218,10 +257,30 @@ export async function POST(request) {
         : { $or: [{ customerId: searchPartyId }, { _id: searchPartyId }] };
       party = await umrah.findOne(umrahCondition);
     } else if (finalPartyType === 'loan') {
+      // Try to find loan in both giving and receiving collections
       const loanCondition = isValidObjectId
-        ? { $or: [{ loanId: searchPartyId }, { _id: new ObjectId(searchPartyId) }], isActive: { $ne: false } }
-        : { $or: [{ loanId: searchPartyId }, { _id: searchPartyId }], isActive: { $ne: false } };
-      party = await loans.findOne(loanCondition);
+        ? { $or: [{ loanId: searchPartyId }, { _id: new ObjectId(searchPartyId) }] }
+        : { $or: [{ loanId: searchPartyId }, { _id: searchPartyId }] };
+      
+      // First try giving loans
+      party = await loansGiving.findOne(loanCondition);
+      if (party) {
+        party.loanDirection = 'giving';
+        party.direction = 'giving';
+        console.log('✅ Found loan in loans_giving:', party.loanId || party._id);
+      } else {
+        // Then try receiving loans
+        party = await loansReceiving.findOne(loanCondition);
+        if (party) {
+          party.loanDirection = 'receiving';
+          party.direction = 'receiving';
+          console.log('✅ Found loan in loans_receiving:', party.loanId || party._id);
+        }
+      }
+      
+      if (!party) {
+        console.warn('⚠️ Loan not found in either collection:', searchPartyId);
+      }
     } else if (finalPartyType === 'money-exchange' || finalPartyType === 'money_exchange') {
       const exchangeCondition = isValidObjectId
         ? { _id: new ObjectId(searchPartyId), isActive: { $ne: false } }
@@ -423,7 +482,28 @@ export async function POST(request) {
         subCategory: finalSubCategory || null,
         partyType: finalPartyType,
         partyId: finalPartyId,
-        partyName: party?.name || party?.customerName || party?.firstName || (party?.firstName && party?.lastName ? `${party.firstName} ${party.lastName}` : null) || party?.agentName || party?.tradeName || party?.vendorName || party?.fullName || party?.currencyName || (finalPartyType === 'loan' ? (party?.fullName || party?.businessName || 'Unknown') : 'Unknown'),
+        partyName: (() => {
+          // For transfer transactions, use account names
+          if (transactionType === 'transfer') {
+            if (fromAccount && toAccount) {
+              return `Transfer: ${fromAccount.bankName || fromAccount.accountName || 'Account'} → ${toAccount.bankName || toAccount.accountName || 'Account'}`;
+            }
+            return 'Account Transfer';
+          }
+          
+          // For account transactions without party, use account name
+          if ((transactionType === 'credit' || transactionType === 'debit') && !party && account) {
+            return account.bankName || account.accountName || account.accountTitle || account.accountHolder || 'Bank Account';
+          }
+          
+          // For vendor transactions
+          if (finalPartyType === 'vendor' && party) {
+            return party.tradeName || party.vendorName || party.ownerName || party.name || 'Vendor';
+          }
+          
+          // For other party types
+          return party?.name || party?.customerName || party?.firstName || (party?.firstName && party?.lastName ? `${party.firstName} ${party.lastName}` : null) || party?.agentName || party?.tradeName || party?.vendorName || party?.fullName || party?.currencyName || (finalPartyType === 'loan' ? (party?.fullName || party?.businessName || 'Unknown') : 'Unknown');
+        })(),
         partyPhone: party?.phone || party?.customerPhone || party?.contactNo || party?.mobile || party?.mobileNumber || party?.whatsappNo || (finalPartyType === 'loan' ? (party?.contactPhone || party?.emergencyPhone || null) : null),
         partyEmail: party?.email || party?.customerEmail || (finalPartyType === 'loan' ? (party?.contactEmail || null) : null),
         invoiceId,
@@ -472,6 +552,26 @@ export async function POST(request) {
           customerId: body?.loanInfo?.customerId || party?.customerId || party?.relatedCustomerId || party?.linkedCustomerId || null,
           customerPhone: body?.loanInfo?.customerPhone || body?.customerPhone || party?.contactPhone || party?.customerPhone || party?.phone || party?.mobile || party?.mobileNumber || party?.contactNo || party?.borrowerPhone || party?.borrowerMobile || party?.emergencyPhone || null,
           customerEmail: body?.loanInfo?.customerEmail || body?.customerEmail || party?.contactEmail || party?.customerEmail || party?.email || party?.borrowerEmail || null
+        } : null,
+        // Account info for account transactions
+        accountInfo: (transactionType === 'credit' || transactionType === 'debit' || transactionType === 'transfer') && account ? {
+          id: account._id?.toString() || null,
+          bankName: account.bankName || null,
+          accountName: account.accountName || account.accountTitle || account.accountHolder || null,
+          accountNumber: account.accountNumber || null
+        } : (transactionType === 'transfer' && fromAccount && toAccount) ? {
+          fromAccount: {
+            id: fromAccount._id?.toString() || null,
+            bankName: fromAccount.bankName || null,
+            accountName: fromAccount.accountName || fromAccount.accountTitle || fromAccount.accountHolder || null,
+            accountNumber: fromAccount.accountNumber || null
+          },
+          toAccount: {
+            id: toAccount._id?.toString() || null,
+            bankName: toAccount.bankName || null,
+            accountName: toAccount.accountName || toAccount.accountTitle || toAccount.accountHolder || null,
+            accountNumber: toAccount.accountNumber || null
+          }
         } : null,
         amount: numericAmount,
         charge: chargeAmount,
@@ -610,6 +710,14 @@ export async function POST(request) {
 
       // 8.2 If party is a vendor, update vendor due amounts atomically (Hajj/Umrah wise)
       if (finalPartyType === 'vendor' && party && party._id) {
+        console.log('💰 Updating vendor payment:', {
+          vendorId: party._id,
+          transactionType,
+          amount: numericAmount,
+          currentTotalPaid: party.totalPaid || 0,
+          currentTotalDue: party.totalDue || 0
+        });
+        
         const categoryText = String(finalServiceCategory || '').toLowerCase();
         const isHajjCategory = categoryText.includes('haj');
         const isUmrahCategory = categoryText.includes('umrah');
@@ -626,10 +734,24 @@ export async function POST(request) {
         // Debit সাধারণত ভেন্ডরকে পেমেন্ট—track totalPaid
         if (transactionType === 'debit') {
           vendorUpdate.$inc.totalPaid = (vendorUpdate.$inc.totalPaid || 0) + numericAmount;
+          console.log('✅ Adding to vendor totalPaid:', numericAmount);
         }
 
-        await vendors.updateOne({ _id: party._id }, vendorUpdate, { session });
+        const updateResult = await vendors.updateOne({ _id: party._id }, vendorUpdate, { session });
+        console.log('📝 Vendor update result:', {
+          matchedCount: updateResult.matchedCount,
+          modifiedCount: updateResult.modifiedCount
+        });
+        
         updatedVendor = await vendors.findOne({ _id: party._id }, { session });
+        console.log('✅ Vendor updated:', {
+          newTotalPaid: updatedVendor?.totalPaid || 0,
+          newTotalDue: updatedVendor?.totalDue || 0
+        });
+      } else if (finalPartyType === 'vendor' && !party) {
+        console.error('❌ Vendor not found for partyId:', finalPartyId, 'partyType:', finalPartyType);
+      } else if (finalPartyType === 'vendor' && party && !party._id) {
+        console.error('❌ Vendor found but missing _id:', party);
       }
 
       // 8.3 If party is a customer, update customer due amounts atomically (Hajj/Umrah wise)
@@ -981,9 +1103,18 @@ export async function POST(request) {
 
       // 8.6 If party is a loan, update loan profile amounts (totalAmount/paidAmount/totalDue)
       if (finalPartyType === 'loan' && party && party._id) {
-        const isReceivingLoan = String(party.loanDirection || '').toLowerCase() === 'receiving';
+        const isReceivingLoan = String(party.loanDirection || party.direction || '').toLowerCase() === 'receiving';
+        const loansCollection = isReceivingLoan ? loansReceiving : loansGiving;
         let dueDelta = 0;
         const loanUpdate = { $set: { updatedAt: new Date() }, $inc: { } };
+
+        console.log('💰 Updating loan balance:', {
+          loanId: party.loanId || party._id.toString(),
+          loanDirection: party.loanDirection || party.direction,
+          isReceivingLoan,
+          transactionType,
+          amount: numericAmount
+        });
 
         if (isReceivingLoan) {
           // Receiving loan perspective: credit = principal in, increases due; debit = repayment
@@ -1006,24 +1137,79 @@ export async function POST(request) {
         }
 
         loanUpdate.$inc.totalDue = dueDelta;
-        await loans.updateOne({ _id: party._id }, loanUpdate, { session });
-        const afterLoan = await loans.findOne({ _id: party._id }, { session });
+        const updateResult = await loansCollection.updateOne({ _id: party._id }, loanUpdate, { session });
+        console.log('📝 Loan update result:', { modifiedCount: updateResult.modifiedCount });
+        
+        const afterLoan = await loansCollection.findOne({ _id: party._id }, { session });
         const clampLoan = {};
-        if ((afterLoan.totalDue || 0) < 0) clampLoan.totalDue = 0;
-        if ((afterLoan.paidAmount || 0) < 0) clampLoan.paidAmount = 0;
-        if ((afterLoan.totalAmount || 0) < 0) clampLoan.totalAmount = 0;
-        if (typeof afterLoan.totalAmount === 'number' && typeof afterLoan.paidAmount === 'number' && afterLoan.paidAmount > afterLoan.totalAmount) {
+        if ((afterLoan?.totalDue || 0) < 0) clampLoan.totalDue = 0;
+        if ((afterLoan?.paidAmount || 0) < 0) clampLoan.paidAmount = 0;
+        if ((afterLoan?.totalAmount || 0) < 0) clampLoan.totalAmount = 0;
+        if (typeof afterLoan?.totalAmount === 'number' && typeof afterLoan?.paidAmount === 'number' && afterLoan.paidAmount > afterLoan.totalAmount) {
           clampLoan.paidAmount = afterLoan.totalAmount;
         }
         if (Object.keys(clampLoan).length) {
           clampLoan.updatedAt = new Date();
-          await loans.updateOne({ _id: party._id }, { $set: clampLoan }, { session });
+          await loansCollection.updateOne({ _id: party._id }, { $set: clampLoan }, { session });
         }
         // Ensure loan is marked Active once any transaction is recorded against it
-        await loans.updateOne({ _id: party._id, status: { $ne: 'Active' } }, { $set: { status: 'Active', updatedAt: new Date() } }, { session });
+        await loansCollection.updateOne({ _id: party._id, status: { $ne: 'Active' } }, { $set: { status: 'Active', updatedAt: new Date() } }, { session });
+        
+        console.log('✅ Loan balance updated:', {
+          loanId: afterLoan?.loanId || afterLoan?._id?.toString(),
+          totalAmount: afterLoan?.totalAmount,
+          paidAmount: afterLoan?.paidAmount,
+          totalDue: afterLoan?.totalDue
+        });
       }
 
       transactionResult = await transactions.insertOne(transactionData, { session });
+
+      // 8.12 Update Operating Expense Category balance if applicable
+      if (finalOperatingExpenseCategoryId && ObjectId.isValid(String(finalOperatingExpenseCategoryId))) {
+        const categoryId = new ObjectId(String(finalOperatingExpenseCategoryId));
+        const category = await operatingExpenseCategories.findOne({ _id: categoryId }, { session });
+        
+        if (category) {
+          console.log('💰 Updating operating expense category balance:', {
+            categoryId: categoryId.toString(),
+            categoryName: category.name,
+            transactionType,
+            amount: numericAmount
+          });
+
+          // For debit: increase totalAmount (expense)
+          // For credit: decrease totalAmount (refund/income)
+          const amountDelta = transactionType === 'debit' ? numericAmount : -numericAmount;
+          
+          const categoryUpdate = {
+            $inc: {
+              totalAmount: amountDelta,
+              itemCount: 1
+            },
+            $set: {
+              updatedAt: new Date()
+            }
+          };
+
+          const updateResult = await operatingExpenseCategories.updateOne(
+            { _id: categoryId },
+            categoryUpdate,
+            { session }
+          );
+
+          const updatedCategory = await operatingExpenseCategories.findOne({ _id: categoryId }, { session });
+          console.log('✅ Operating expense category updated:', {
+            categoryId: categoryId.toString(),
+            categoryName: updatedCategory?.name,
+            newTotalAmount: updatedCategory?.totalAmount,
+            newItemCount: updatedCategory?.itemCount,
+            updateResult: updateResult.modifiedCount
+          });
+        } else {
+          console.warn('⚠️ Operating expense category not found:', categoryId.toString());
+        }
+      }
 
       // 8.13 Final verification: Re-check haji paidAmount before commit
       if (finalPartyType === 'haji' && party && party._id && transactionType === 'credit') {
@@ -1053,9 +1239,38 @@ export async function POST(request) {
       await session.commitTransaction();
       console.log('✅ Transaction committed successfully');
 
+      // Include account details in response for better frontend display
+      const responseTransaction = { ...transactionData, _id: transactionResult.insertedId };
+      
+      // Add account details for credit/debit transactions
+      if ((transactionType === 'credit' || transactionType === 'debit') && account) {
+        responseTransaction.targetAccount = {
+          id: account._id?.toString(),
+          bankName: account.bankName || null,
+          accountName: account.accountName || account.accountTitle || account.accountHolder || null,
+          accountNumber: account.accountNumber || null
+        };
+      }
+      
+      // Add account details for transfer transactions
+      if (transactionType === 'transfer' && fromAccount && toAccount) {
+        responseTransaction.fromAccount = {
+          id: fromAccount._id?.toString(),
+          bankName: fromAccount.bankName || null,
+          accountName: fromAccount.accountName || fromAccount.accountTitle || fromAccount.accountHolder || null,
+          accountNumber: fromAccount.accountNumber || null
+        };
+        responseTransaction.toAccount = {
+          id: toAccount._id?.toString(),
+          bankName: toAccount.bankName || null,
+          accountName: toAccount.accountName || toAccount.accountTitle || toAccount.accountHolder || null,
+          accountNumber: toAccount.accountNumber || null
+        };
+      }
+      
       return NextResponse.json({
         success: true,
-        transaction: { ...transactionData, _id: transactionResult.insertedId },
+        transaction: responseTransaction,
         agent: updatedAgent || null,
         customer: updatedCustomer || null,
         vendor: updatedVendor || null,
@@ -1093,7 +1308,7 @@ export async function GET(request) {
     const partyType = searchParams.get('partyType');
     const partyId = searchParams.get('partyId');
     const transactionType = searchParams.get('transactionType');
-    const serviceCategory = searchParams.get('serviceCategory');
+    const serviceCategory = searchParams.get('serviceCategory') || searchParams.get('category');
     const branchId = searchParams.get('branchId');
     const accountId = searchParams.get('accountId');
     const scope = searchParams.get('scope');
@@ -1212,6 +1427,72 @@ export async function GET(request) {
       transactionsCollection.countDocuments(filter)
     ]);
 
+    // Populate account details for transactions
+    const bankAccountsCollection = db.collection('bank_accounts');
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        const enriched = { ...item };
+        
+        // For transfer transactions, populate fromAccount and toAccount
+        if (item.transactionType === 'transfer' && (item.fromAccountId || item.toAccountId)) {
+          if (item.fromAccountId && ObjectId.isValid(item.fromAccountId)) {
+            const fromAcc = await bankAccountsCollection.findOne({ _id: new ObjectId(item.fromAccountId) });
+            if (fromAcc) {
+              enriched.fromAccount = {
+                id: fromAcc._id?.toString(),
+                bankName: fromAcc.bankName || null,
+                accountName: fromAcc.accountName || fromAcc.accountTitle || fromAcc.accountHolder || null,
+                accountNumber: fromAcc.accountNumber || null
+              };
+            }
+          }
+          if (item.toAccountId && ObjectId.isValid(item.toAccountId)) {
+            const toAcc = await bankAccountsCollection.findOne({ _id: new ObjectId(item.toAccountId) });
+            if (toAcc) {
+              enriched.toAccount = {
+                id: toAcc._id?.toString(),
+                bankName: toAcc.bankName || null,
+                accountName: toAcc.accountName || toAcc.accountTitle || toAcc.accountHolder || null,
+                accountNumber: toAcc.accountNumber || null
+              };
+            }
+          }
+        }
+        
+        // For credit/debit transactions, populate targetAccount
+        if ((item.transactionType === 'credit' || item.transactionType === 'debit') && item.targetAccountId && ObjectId.isValid(item.targetAccountId)) {
+          const targetAcc = await bankAccountsCollection.findOne({ _id: new ObjectId(item.targetAccountId) });
+          if (targetAcc) {
+            enriched.targetAccount = {
+              id: targetAcc._id?.toString(),
+              bankName: targetAcc.bankName || null,
+              accountName: targetAcc.accountName || targetAcc.accountTitle || targetAcc.accountHolder || null,
+              accountNumber: targetAcc.accountNumber || null
+            };
+          }
+        }
+        
+        // Populate vendor name if partyType is vendor
+        if (item.partyType === 'vendor' && item.partyId) {
+          const vendorsCollection = db.collection('vendors');
+          if (ObjectId.isValid(item.partyId)) {
+            const vendor = await vendorsCollection.findOne({ _id: new ObjectId(item.partyId) });
+            if (vendor) {
+              enriched.party = {
+                ...enriched.party,
+                tradeName: vendor.tradeName || null,
+                vendorName: vendor.vendorName || null,
+                ownerName: vendor.ownerName || null,
+                name: vendor.tradeName || vendor.vendorName || vendor.ownerName || vendor.name || null
+              };
+            }
+          }
+        }
+        
+        return enriched;
+      })
+    );
+
     // Calculate totals for the filtered transactions
     const summary = await transactionsCollection.aggregate([
       { $match: filter },
@@ -1223,8 +1504,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      transactions: items,
-      data: items,
+      transactions: enrichedItems,
+      data: enrichedItems,
       summary: {
         totalCharge,
         totalAmount
