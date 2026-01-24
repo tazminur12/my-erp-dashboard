@@ -146,6 +146,7 @@ export const navigation = [
         ]
       },
       { name: 'Airline List', href: '/air-ticketing/airlines', icon: List },
+      { name: 'GDS', href: '/air-ticketing/gds', icon: List },
     ]
   },
   {

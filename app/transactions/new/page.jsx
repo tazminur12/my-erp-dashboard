@@ -658,6 +658,46 @@ const NewTransaction = () => {
       }
     };
 
+    // Fetch Investments - IATA & Airlines Capping and Others Invest
+    const fetchInvestments = async () => {
+      try {
+        setInvestmentLoading(true);
+        // Fetch both types of investments in parallel
+        const [iataResponse, othersResponse] = await Promise.all([
+          fetch('/api/investments/iata-airlines-capping?limit=10000'),
+          fetch('/api/investments/others-invest?limit=10000')
+        ]);
+        
+        const iataData = iataResponse.ok ? await iataResponse.json() : { investments: [], data: [] };
+        const othersData = othersResponse.ok ? await othersResponse.json() : { investments: [], data: [] };
+        
+        // Combine both investment types
+        const iataInvestments = (iataData.investments || iataData.data || []).map(inv => ({
+          ...inv,
+          investmentCategory: 'IATA & Airlines Capping',
+          name: inv.airlineName || 'IATA/Airlines Investment',
+          amount: inv.cappingAmount || 0,
+          type: inv.investmentType || 'IATA'
+        }));
+        
+        const othersInvestments = (othersData.investments || othersData.data || []).map(inv => ({
+          ...inv,
+          investmentCategory: 'Others Invest',
+          name: inv.investmentName || 'Other Investment',
+          amount: inv.investmentAmount || 0,
+          type: inv.investmentType || 'Other'
+        }));
+        
+        // Combine all investments
+        const allInvestments = [...iataInvestments, ...othersInvestments];
+        setInvestmentData({ data: allInvestments });
+      } catch (error) {
+        console.error('Error fetching investments:', error);
+      } finally {
+        setInvestmentLoading(false);
+      }
+    };
+
     // Fetch Loans - Receiving and Giving
     const fetchLoans = async () => {
       try {
@@ -770,6 +810,8 @@ const NewTransaction = () => {
         fetchMirajData();
       } else if (selectedType === 'officeExpenses') {
         fetchOperatingExpenseCategories();
+      } else if (selectedType === 'investment') {
+        fetchInvestments();
       }
     }
   }, [currentStep, formData.selectedCustomerType]);
@@ -941,10 +983,9 @@ const NewTransaction = () => {
   
   // Money exchange listings - using state (declared above)
   
-  // Investment search - empty data
-  const [investmentSearchData, setInvestmentSearchData] = useState([]);
+  // Investment data - similar to haji and umrah
+  const [investmentData, setInvestmentData] = useState({ data: [] });
   const [investmentLoading, setInvestmentLoading] = useState(false);
-  const filteredInvestments = [];
   
   // Asset queries - empty data
   const assetsList = [];
@@ -4750,34 +4791,66 @@ const NewTransaction = () => {
                         );
                       })()
                     ) : effectiveSearchType === 'investment' ? (
-                      // Investment Results
-                      filteredInvestments.length > 0 ? (
-                        filteredInvestments.map((investment) => (
-                          <button
-                            key={`investment-${investment.id || investment._id}`}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleInvestmentSelect(investment);
-                            }}
-                            className={`w-full p-2 sm:p-3 rounded-lg border-2 transition-all duration-200 text-left hover:scale-[1.01] ${
-                              formData.customerId === String(investment.id || investment._id)
-                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                                : (isDark ? 'border-gray-600 bg-gray-800 hover:border-emerald-300' : 'border-gray-200 bg-white hover:border-emerald-300')
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
+                      // Investment Results - similar to haj and umrah
+                      investmentData?.data?.length > 0 ? (
+                        investmentData.data
+                          .filter(investment => 
+                            !searchTerm || 
+                            (investment.name || investment.airlineName || investment.investmentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (investment.type || investment.investmentType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (investment.airlineName || '').toLowerCase().includes(searchTerm.toLowerCase())
+                          )
+                          .map((investment) => (
+                            <button
+                              key={`investment-${investment.id || investment._id}`}
+                              onClick={() => handleCustomerSelect({
+                                id: investment.id || investment._id,
+                                name: investment.name || investment.airlineName || investment.investmentName || 'Investment',
+                                customerType: 'investment',
+                                investmentInfo: investment
+                              })}
+                              className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 hover:scale-[1.02] ${
+                                formData.customerId === String(investment.id || investment._id)
+                                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                                  : 'border-gray-200 dark:border-gray-600 hover:border-emerald-300'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-3 sm:space-x-4">
+                                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden flex-shrink-0 ${
+                                  formData.customerId === String(investment.id || investment._id)
+                                    ? 'bg-emerald-100 dark:bg-emerald-800'
+                                    : 'bg-emerald-100 dark:bg-emerald-800'
+                                }`}>
+                                  {(() => {
+                                    const logoUrl = investment.logo;
+                                    return logoUrl ? (
+                                      <img 
+                                        src={logoUrl} 
+                                        alt={investment.name || 'Investment'} 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null;
+                                  })()}
+                                  <div className={`w-full h-full rounded-full flex items-center justify-center ${
+                                    investment.logo ? 'hidden' : 'flex'
+                                  }`}>
+                                    <TrendingUp className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                                      formData.customerId === String(investment.id || investment._id)
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : 'text-emerald-600 dark:text-emerald-400'
+                                    }`} />
+                                  </div>
                                 </div>
                                 <div className="text-left min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm truncate">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base break-words">
                                       {investment.name || investment.airlineName || investment.investmentName || 'Investment'}
                                     </h3>
-                                    <span className={`inline-block px-1.5 py-0.5 text-xs rounded-full ${
+                                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${
                                       investment.investmentCategory === 'IATA & Airlines Capping'
                                         ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
                                         : 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
@@ -4786,23 +4859,22 @@ const NewTransaction = () => {
                                     </span>
                                   </div>
                                   {investment.type && (
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                                      {investment.type}
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                                      {investment.type || investment.investmentType}
                                     </p>
                                   )}
-                                  {(investment.cappingAmount || investment.investmentAmount) && (
+                                  {(investment.amount || investment.cappingAmount || investment.investmentAmount) && (
                                     <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
-                                      ৳{(investment.cappingAmount || investment.investmentAmount || 0).toLocaleString('bn-BD')}
+                                      ৳{Number(investment.amount || investment.cappingAmount || investment.investmentAmount || 0).toLocaleString('bn-BD')}
                                     </p>
                                   )}
                                 </div>
+                                {formData.customerId === String(investment.id || investment._id) && (
+                                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                                )}
                               </div>
-                              {formData.customerId === String(investment.id || investment._id) && (
-                                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
-                              )}
-                            </div>
-                          </button>
-                        ))
+                            </button>
+                          ))
                       ) : (
                         <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                           {searchTerm ? 'কোন বিনিয়োগ পাওয়া যায়নি' : 'কোন বিনিয়োগ নেই'}
@@ -5272,6 +5344,8 @@ const NewTransaction = () => {
                           effectiveSearchType === 'loans' ? (searchTerm ? 'কোন লোন পাওয়া যায়নি' : 'কোন লোন নেই') :
                           effectiveSearchType === 'miraj' ? (searchTerm ? 'কোন আয়, খরচ বা কর্মচারী পাওয়া যায়নি' : 'কোন আয়, খরচ বা কর্মচারী নেই। মিরাজ ইন্ডাস্ট্রিজ থেকে যোগ করুন।') :
                           effectiveSearchType === 'moneyExchange' ? (moneyExchangeList.length === 0 ? 'কোন মানি এক্সচেঞ্জ ডেটা নেই' : 'লেনদেনের ধরন নির্বাচন করুন') :
+                          effectiveSearchType === 'investment' ? (searchTerm ? 'কোন বিনিয়োগ পাওয়া যায়নি' : 'কোন বিনিয়োগ নেই') :
+                          effectiveSearchType === 'asset' ? (searchTerm ? 'কোন সম্পদ পাওয়া যায়নি' : 'কোন সম্পদ নেই') :
                          'কোন ডেটা নেই'}
                       </div>
                     )}

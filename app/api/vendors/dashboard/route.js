@@ -20,25 +20,56 @@ export async function GET(request) {
     const totalPaid = allBills.reduce((sum, bill) => sum + (Number(bill.paidAmount) || 0), 0);
     const totalDue = Math.max(0, totalAmount - totalPaid);
 
-    // Get recent vendors (last 10)
-    const recentVendors = await vendorsCollection
-      .find({})
-      .sort({ created_at: -1 })
-      .limit(10)
-      .toArray();
+    // Get all vendors (not just recent 10) to calculate bill statistics
+    const allVendors = await vendorsCollection.find({}).toArray();
 
-    // Format recent vendors
-    const formattedRecentVendors = recentVendors.map((vendor) => ({
-      _id: vendor._id.toString(),
-      vendorId: vendor.vendorId || vendor._id.toString(),
-      tradeName: vendor.tradeName || '',
-      tradeLocation: vendor.tradeLocation || '',
-      ownerName: vendor.ownerName || '',
-      contactNo: vendor.contactNo || '',
-      logo: vendor.logo || vendor.photo || vendor.photoUrl || vendor.image || vendor.avatar || vendor.profilePicture || null,
-      status: vendor.status || 'active',
-      created_at: vendor.created_at ? vendor.created_at.toISOString() : new Date().toISOString(),
-    }));
+    // Calculate bill statistics per vendor
+    const vendorBillStats = {};
+    allBills.forEach((bill) => {
+      const vendorId = bill.vendorId?.toString() || bill.vendorIdString?.toString() || '';
+      if (vendorId) {
+        if (!vendorBillStats[vendorId]) {
+          vendorBillStats[vendorId] = {
+            billCount: 0,
+            totalAmount: 0,
+            paidAmount: 0,
+            dueAmount: 0,
+          };
+        }
+        vendorBillStats[vendorId].billCount += 1;
+        vendorBillStats[vendorId].totalAmount += Number(bill.totalAmount) || Number(bill.amount) || 0;
+        vendorBillStats[vendorId].paidAmount += Number(bill.paidAmount) || 0;
+        vendorBillStats[vendorId].dueAmount += Math.max(0, (Number(bill.totalAmount) || Number(bill.amount) || 0) - (Number(bill.paidAmount) || 0));
+      }
+    });
+
+    // Format vendors with bill statistics
+    const formattedRecentVendors = allVendors.map((vendor) => {
+      const vendorId = vendor._id.toString();
+      const vendorIdAlt = vendor.vendorId?.toString() || vendorId;
+      const stats = vendorBillStats[vendorId] || vendorBillStats[vendorIdAlt] || {
+        billCount: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        dueAmount: 0,
+      };
+
+      return {
+        _id: vendorId,
+        vendorId: vendorIdAlt,
+        tradeName: vendor.tradeName || '',
+        tradeLocation: vendor.tradeLocation || '',
+        ownerName: vendor.ownerName || '',
+        contactNo: vendor.contactNo || '',
+        logo: vendor.logo || vendor.photo || vendor.photoUrl || vendor.image || vendor.avatar || vendor.profilePicture || null,
+        status: vendor.status || 'active',
+        created_at: vendor.created_at ? vendor.created_at.toISOString() : new Date().toISOString(),
+        billCount: stats.billCount,
+        totalBillAmount: stats.totalAmount,
+        paidAmount: stats.paidAmount,
+        dueAmount: stats.dueAmount,
+      };
+    });
 
     // Get status distribution
     const activeVendors = await vendorsCollection.countDocuments({ status: 'active' });

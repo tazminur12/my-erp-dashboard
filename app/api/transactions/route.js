@@ -1164,6 +1164,74 @@ export async function POST(request) {
         });
       }
 
+      // 8.7 If party is an investment, update investment profile amounts
+      if (finalPartyType === 'investment' && party && party._id) {
+        const investmentCollection = party._isIataInvestment ? iataAirlinesCapping : othersInvestments;
+        
+        console.log('💰 Updating investment balance:', {
+          investmentId: party._id.toString(),
+          investmentType: party._isIataInvestment ? 'IATA/Airlines' : 'Others',
+          transactionType,
+          amount: numericAmount
+        });
+
+        const investmentUpdate = { $set: { updatedAt: new Date() }, $inc: {} };
+
+        // For credit: payment received, increase paidAmount
+        // For debit: withdrawal/expense, decrease paidAmount (or increase if it's an additional investment)
+        if (transactionType === 'credit') {
+          investmentUpdate.$inc.paidAmount = (investmentUpdate.$inc.paidAmount || 0) + numericAmount;
+          // Also update returnAmount if it exists
+          investmentUpdate.$inc.returnAmount = (investmentUpdate.$inc.returnAmount || 0) + numericAmount;
+        } else if (transactionType === 'debit') {
+          // Debit could be withdrawal or additional investment
+          // For now, we'll treat it as withdrawal (decrease paidAmount)
+          // If you want debit to increase investment, change the sign
+          investmentUpdate.$inc.paidAmount = (investmentUpdate.$inc.paidAmount || 0) - numericAmount;
+        }
+
+        const updateResult = await investmentCollection.updateOne(
+          { _id: party._id },
+          investmentUpdate,
+          { session }
+        );
+
+        console.log('📝 Investment update result:', { modifiedCount: updateResult.modifiedCount });
+
+        const afterInvestment = await investmentCollection.findOne({ _id: party._id }, { session });
+        
+        // Clamp negative values
+        const clampInvestment = {};
+        if ((afterInvestment?.paidAmount || 0) < 0) clampInvestment.paidAmount = 0;
+        if ((afterInvestment?.returnAmount || 0) < 0) clampInvestment.returnAmount = 0;
+        
+        // Calculate due amount: due = investmentAmount - paidAmount
+        const investmentAmount = afterInvestment?.cappingAmount || afterInvestment?.investmentAmount || 0;
+        const paidAmount = Math.max(0, afterInvestment?.paidAmount || 0);
+        const dueAmount = Math.max(0, investmentAmount - paidAmount);
+        
+        if (dueAmount !== (afterInvestment?.dueAmount || 0)) {
+          clampInvestment.dueAmount = dueAmount;
+        }
+
+        if (Object.keys(clampInvestment).length) {
+          clampInvestment.updatedAt = new Date();
+          await investmentCollection.updateOne(
+            { _id: party._id },
+            { $set: clampInvestment },
+            { session }
+          );
+        }
+
+        console.log('✅ Investment balance updated:', {
+          investmentId: afterInvestment?._id?.toString(),
+          investmentAmount: investmentAmount,
+          paidAmount: Math.max(0, afterInvestment?.paidAmount || 0),
+          dueAmount: dueAmount,
+          returnAmount: afterInvestment?.returnAmount || 0
+        });
+      }
+
       transactionResult = await transactions.insertOne(transactionData, { session });
 
       // 8.12 Update Operating Expense Category balance if applicable

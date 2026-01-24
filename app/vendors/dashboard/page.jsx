@@ -71,11 +71,10 @@ const CardWidget = ({
 const VendorDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('tradeName');
+  const [sortBy, setSortBy] = useState('billAmount'); // Default to ranking by bill amount
   const [dashboardData, setDashboardData] = useState(null);
   const [allVendors, setAllVendors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   // Fetch dashboard data
   useEffect(() => {
@@ -95,7 +94,6 @@ const VendorDashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching vendor dashboard:', error);
-      setError(error);
       Swal.fire({
         icon: 'error',
         title: 'লোড ব্যর্থ',
@@ -123,10 +121,10 @@ const VendorDashboard = () => {
   // Extract data from dashboard response
   const statistics = dashboardData?.statistics || {};
   const bills = dashboardData?.bills || {};
-  const recentActivity = dashboardData?.recentActivity || {};
   
   // Get vendors from recent activity and merge with full vendor data to get logos
   const vendors = useMemo(() => {
+    const recentActivity = dashboardData?.recentActivity || {};
     const recentVendors = recentActivity?.vendors || [];
     
     // Create a map of vendor IDs to full vendor data (for logo lookup)
@@ -148,10 +146,14 @@ const VendorDashboard = () => {
         ownerName: v.ownerName || '',
         contactNo: v.contactNo || '',
         logo: v.logo || fullVendor?.logo || v.photo || v.photoUrl || v.image || v.avatar || v.profilePicture || fullVendor?.photo || fullVendor?.photoUrl || fullVendor?.image || fullVendor?.avatar || fullVendor?.profilePicture || null,
-        status: v.status || 'active'
+        status: v.status || 'active',
+        billCount: v.billCount || 0,
+        totalBillAmount: v.totalBillAmount || 0,
+        paidAmount: v.paidAmount || 0,
+        dueAmount: v.dueAmount || 0,
       };
     });
-  }, [recentActivity, allVendors]);
+  }, [dashboardData, allVendors]);
 
   // Filter and sort vendors
   const filteredVendors = useMemo(() => {
@@ -168,6 +170,12 @@ const VendorDashboard = () => {
       switch (sortBy) {
         case 'tradeName':
           return a.tradeName.localeCompare(b.tradeName);
+        case 'billAmount':
+          // Sort by total bill amount (descending - highest first)
+          return (b.totalBillAmount || 0) - (a.totalBillAmount || 0);
+        case 'billCount':
+          // Sort by bill count (descending - highest first)
+          return (b.billCount || 0) - (a.billCount || 0);
         default:
           return 0;
       }
@@ -295,6 +303,8 @@ const VendorDashboard = () => {
                       onChange={(e) => setSortBy(e.target.value)}
                       className="rounded-lg border-2 border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     >
+                      <option value="billAmount">বিল পরিমাণ অনুযায়ী র‍্যাঙ্কিং</option>
+                      <option value="billCount">বিল সংখ্যা অনুযায়ী র‍্যাঙ্কিং</option>
                       <option value="tradeName">নাম অনুযায়ী সাজান</option>
                     </select>
                   </div>
@@ -309,10 +319,24 @@ const VendorDashboard = () => {
                   </div>
                 ) : filteredVendors.length === 0 ? (
                   <div className="p-6 text-center text-purple-600 dark:text-purple-400 font-medium">কোনো ভেন্ডর পাওয়া যায়নি</div>
-                ) : filteredVendors.map((vendor) => (
+                ) : filteredVendors.map((vendor, index) => (
                   <div key={vendor._id || vendor.vendorId} className="p-6 hover:bg-gradient-to-r hover:from-purple-50 hover:to-blue-50 dark:hover:from-purple-900/20 dark:hover:to-blue-900/20 transition-all border-l-4 border-transparent hover:border-purple-500">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
+                        {/* Ranking Badge */}
+                        {(sortBy === 'billAmount' || sortBy === 'billCount') && (
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-md ${
+                            index === 0 
+                              ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white ring-2 ring-yellow-300 dark:ring-yellow-600' 
+                              : index === 1
+                              ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white ring-2 ring-gray-200 dark:ring-gray-600'
+                              : index === 2
+                              ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white ring-2 ring-amber-400 dark:ring-amber-600'
+                              : 'bg-gradient-to-br from-purple-400 to-blue-500 text-white ring-2 ring-purple-200 dark:ring-purple-800'
+                          }`}>
+                            {index + 1}
+                          </div>
+                        )}
                         {vendor.logo ? (
                           <div className="w-14 h-14 rounded-xl overflow-hidden ring-2 ring-purple-200 dark:ring-purple-800 shadow-md">
                             <img 
@@ -327,7 +351,7 @@ const VendorDashboard = () => {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Link 
                               href={`/vendors/${vendor._id || vendor.vendorId}`}
                               className="text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
@@ -342,7 +366,7 @@ const VendorDashboard = () => {
                               {vendor.status === 'active' ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
                             <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
                               <User className="w-4 h-4" />
                               {vendor.ownerName}
@@ -355,6 +379,23 @@ const VendorDashboard = () => {
                               <Phone className="w-4 h-4" />
                               {vendor.contactNo}
                             </span>
+                          </div>
+                          {/* Bill Statistics */}
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400 font-medium">
+                              <Receipt className="w-3.5 h-3.5" />
+                              বিল: {vendor.billCount || 0}টি
+                            </span>
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+                              <Wallet className="w-3.5 h-3.5" />
+                              মোট: ৳{Number(vendor.totalBillAmount || 0).toLocaleString('bn-BD', { maximumFractionDigits: 0 })}
+                            </span>
+                            {(vendor.dueAmount || 0) > 0 && (
+                              <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-medium">
+                                <TrendingDown className="w-3.5 h-3.5" />
+                                বাকি: ৳{Number(vendor.dueAmount || 0).toLocaleString('bn-BD', { maximumFractionDigits: 0 })}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
