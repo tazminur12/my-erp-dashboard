@@ -494,7 +494,11 @@ const AgentPackageCosting = () => {
         saudiCampFeePassengers,
         saudiAlMashayerPassengers,
         saudiOthersPassengers,
-        totals
+        totals,
+        // Explicitly set totalPrice and costingPrice for easier access
+        totalPrice: totals.grandTotal || 0,
+        costingPrice: totals.grandTotal || 0,
+        totalPriceBdt: totals.grandTotal || 0,
       };
       
       // Try /api/packages first, then /api/agent-packages as fallback

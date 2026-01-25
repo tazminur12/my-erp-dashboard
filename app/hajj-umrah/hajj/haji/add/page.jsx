@@ -10,7 +10,6 @@ import {
   Save,
   User,
   Phone,
-  CreditCard,
   Package,
   FileText,
   Upload,
@@ -174,14 +173,13 @@ const AddHaji = () => {
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 7;
+  const totalSteps = 6;
 
   const stepTitles = [
     'ব্যক্তিগত তথ্য',
     'পাসপোর্ট তথ্য',
     'যোগাযোগ তথ্য',
     'প্যাকেজ তথ্য',
-    'আর্থিক তথ্য',
     'অতিরিক্ত তথ্য',
     'ডকুমেন্ট'
   ];
@@ -1228,56 +1226,8 @@ const AddHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 5: Financial Information */}
+          {/* Step 5: Additional Information */}
           {currentStep === 5 && (
-            <FormSection title="আর্থিক তথ্য" icon={CreditCard}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <InputGroup
-                  label="মোট পরিমাণ"
-                  name="totalAmount"
-                  type="number"
-                  readOnly
-                  value={formData.totalAmount}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="পরিশোধিত পরিমাণ"
-                  name="paidAmount"
-                  type="number"
-                  min="0"
-                  max={formData.totalAmount}
-                  value={formData.paidAmount}
-                  onChange={handleInputChange}
-                />
-                <SelectGroup
-                  label="পেমেন্ট পদ্ধতি"
-                  name="paymentMethod"
-                  value={formData.paymentMethod}
-                  onChange={handleInputChange}
-                  options={[
-                    { value: 'cash', label: 'নগদ' },
-                    { value: 'bank_transfer', label: 'ব্যাংক ট্রান্সফার' },
-                    { value: 'mobile_banking', label: 'মোবাইল ব্যাংকিং' },
-                    { value: 'check', label: 'চেক' }
-                  ]}
-                />
-                <SelectGroup
-                  label="পেমেন্ট স্ট্যাটাস"
-                  name="paymentStatus"
-                  value={formData.paymentStatus}
-                  onChange={handleInputChange}
-                  options={[
-                    { value: 'pending', label: 'বিচারাধীন' },
-                    { value: 'partial', label: 'আংশিক' },
-                    { value: 'paid', label: 'পরিশোধিত' }
-                  ]}
-                />
-              </div>
-            </FormSection>
-          )}
-
-          {/* Step 6: Additional Information */}
-          {currentStep === 6 && (
             <FormSection title="অতিরিক্ত তথ্য" icon={FileText}>
               <div className="space-y-4">
                 <div className="flex items-center space-x-6">
@@ -1336,8 +1286,8 @@ const AddHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 7: Document Upload */}
-          {currentStep === 7 && (
+          {/* Step 6: Document Upload */}
+          {currentStep === 6 && (
             <FormSection title="ডকুমেন্ট আপলোড" icon={Upload}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FileUploadGroup

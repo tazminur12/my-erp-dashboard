@@ -159,10 +159,96 @@ export async function PUT(request, { params }) {
     delete updateData._id;
     delete updateData.id;
 
+    // Ensure totalPrice is set from totals.grandTotal if not provided
+    if (body.totals?.grandTotal && !body.totalPrice) {
+      updateData.totalPrice = body.totals.grandTotal;
+      updateData.costingPrice = body.totals.grandTotal;
+    }
+
     await packagesCollection.updateOne(
       { _id: existingPackage._id },
       { $set: updateData }
     );
+
+    // Update agent's financial summary if agentId exists
+    const agentId = existingPackage.agentId || existingPackage.agent_id || body.agentId || body.agent_id;
+    if (agentId) {
+      const agentsCollection = db.collection('agents');
+      try {
+        let agentQuery = {};
+        if (ObjectId.isValid(agentId)) {
+          agentQuery._id = new ObjectId(agentId);
+        } else {
+          agentQuery._id = agentId;
+        }
+        
+        // Get all packages for this agent to recalculate totals
+        const agentPackages = await packagesCollection.find({
+          $or: [
+            { agentId: agentId },
+            { agent_id: agentId },
+            { 'agentInfo.agentId': agentId },
+            { 'agentInfo._id': agentId }
+          ]
+        }).toArray();
+
+        // Calculate totals for hajj and umrah separately
+        let hajjBill = 0, umrahBill = 0;
+        let hajjPaid = 0, umrahPaid = 0;
+        
+        for (const pkg of agentPackages) {
+          const pkgTotal = pkg.totalPrice || pkg.totals?.grandTotal || 0;
+          const pkgPaid = pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0;
+          
+          const isHajj = pkg.packageType === 'Hajj' || 
+                         pkg.packageType === 'হজ্জ' || 
+                         pkg.customPackageType === 'Custom Hajj' ||
+                         pkg.customPackageType === 'Hajj';
+          
+          if (isHajj) {
+            hajjBill += pkgTotal;
+            hajjPaid += pkgPaid;
+          } else {
+            umrahBill += pkgTotal;
+            umrahPaid += pkgPaid;
+          }
+        }
+
+        const totalBilled = hajjBill + umrahBill;
+        const totalPaid = hajjPaid + umrahPaid;
+        const totalDue = Math.max(0, totalBilled - totalPaid);
+        const hajjDue = Math.max(0, hajjBill - hajjPaid);
+        const umrahDue = Math.max(0, umrahBill - umrahPaid);
+
+        await agentsCollection.updateOne(
+          agentQuery,
+          {
+            $set: {
+              totalBilled: totalBilled,
+              totalBill: totalBilled,
+              totalPaid: totalPaid,
+              totalDue: totalDue,
+              hajBill: hajjBill,
+              hajjBill: hajjBill,
+              hajPaid: hajjPaid,
+              hajjPaid: hajjPaid,
+              hajDue: hajjDue,
+              umrahBill: umrahBill,
+              umrahPaid: umrahPaid,
+              umrahDue: umrahDue,
+              updated_at: new Date(),
+            },
+          }
+        );
+        console.log('Updated agent financial summary:', { 
+          agentId, totalBilled, totalPaid, totalDue, 
+          hajjBill, hajjPaid, hajjDue, 
+          umrahBill, umrahPaid, umrahDue 
+        });
+      } catch (err) {
+        console.error('Error updating agent financial summary:', err);
+      }
+    }
 
     // Fetch updated package
     const updatedPackage = await packagesCollection.findOne({ _id: existingPackage._id });

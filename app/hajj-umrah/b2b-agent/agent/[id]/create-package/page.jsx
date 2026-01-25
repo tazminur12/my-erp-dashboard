@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import DashboardLayout from '../../../../component/DashboardLayout';
+import DashboardLayout from '../../../../../component/DashboardLayout';
 import { 
   Save, 
   Calculator, 
@@ -1259,15 +1259,37 @@ const AgentPackageCreation = () => {
               
               {formData.agentId && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">নির্বাচিত এজেন্ট</h3>
+                  <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-3">নির্বাচিত এজেন্ট</h3>
                   {(() => {
                     const selectedAgent = agentsData?.data?.find(agent => agent._id === formData.agentId);
                     return selectedAgent ? (
-                      <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <p><strong>ট্রেড নাম:</strong> {selectedAgent.tradeName}</p>
-                        <p><strong>মালিক:</strong> {selectedAgent.ownerName}</p>
-                        <p><strong>যোগাযোগ:</strong> {selectedAgent.contact}</p>
-                        <p><strong>অবস্থান:</strong> {selectedAgent.location}</p>
+                      <div className="flex items-start gap-4">
+                        {/* Agent Profile Picture */}
+                        <div className="shrink-0">
+                          {selectedAgent.profilePicture || selectedAgent.profileImage || selectedAgent.image ? (
+                            <img 
+                              src={selectedAgent.profilePicture || selectedAgent.profileImage || selectedAgent.image} 
+                              alt={selectedAgent.tradeName || 'Agent'}
+                              className="w-20 h-20 rounded-full object-cover border-2 border-blue-200 dark:border-blue-700"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-20 h-20 rounded-full bg-blue-200 dark:bg-blue-700 flex items-center justify-center ${selectedAgent.profilePicture || selectedAgent.profileImage || selectedAgent.image ? 'hidden' : ''}`}
+                          >
+                            <Users className="w-8 h-8 text-blue-600 dark:text-blue-300" />
+                          </div>
+                        </div>
+                        {/* Agent Info */}
+                        <div className="text-sm text-blue-800 dark:text-blue-200 flex-1">
+                          <p className="font-semibold text-base mb-1">{selectedAgent.tradeName}</p>
+                          <p><strong>মালিক:</strong> {selectedAgent.ownerName}</p>
+                          <p><strong>যোগাযোগ:</strong> {selectedAgent.contact}</p>
+                          <p><strong>অবস্থান:</strong> {selectedAgent.location}</p>
+                        </div>
                       </div>
                     ) : null;
                   })()}

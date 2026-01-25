@@ -361,101 +361,82 @@ const AgentDetails = () => {
     }
   );
 
+  // Calculate financial summary - prioritize packageSummary (calculated from actual packages)
+  // and use agent stored values only as additional reference
+  
+  // Get billed and paid values first
+  const overallBilled = packageSummary.overall.billed || pickNumberFromObject(
+    agent, ['totalBilled', 'totalBill', 'totalBillAmount', 'totalRevenue', 'totalInvoice'], 0
+  );
+  const overallPaid = packageSummary.overall.paid || pickNumberFromObject(
+    agent, ['totalPaid', 'totalDeposit', 'totalReceived', 'totalCollection'], 0
+  );
+  const hajjBilled = packageSummary.hajj.billed || pickNumberFromObject(
+    agent, ['hajBill', 'hajjBill', 'totalHajjBill', 'hajTotalBill'], 0
+  );
+  const hajjPaid = packageSummary.hajj.paid || pickNumberFromObject(
+    agent, ['hajPaid', 'hajjPaid', 'hajjDeposit', 'hajDeposit', 'totalHajjPaid'], 0
+  );
+  const umrahBilled = packageSummary.umrah.billed || pickNumberFromObject(
+    agent, ['umrahBill', 'totalUmrahBill'], 0
+  );
+  const umrahPaid = packageSummary.umrah.paid || pickNumberFromObject(
+    agent, ['umrahPaid', 'umrahDeposit', 'totalUmrahPaid'], 0
+  );
+
   const financialSummary = {
     overall: {
-      customers: pickNumberFromObject(
+      customers: packageSummary.overall.customers || pickNumberFromObject(
         agent,
         ['totalHaji', 'totalHaj', 'totalCustomers', 'totalCustomer', 'customersCount', 'totalHajiCount'],
-        packageSummary.overall.customers
+        0
       ),
-      billed: pickNumberFromObject(
-        agent,
-        ['totalBilled', 'totalBill', 'totalBillAmount', 'totalRevenue', 'totalInvoice'],
-        packageSummary.overall.billed
-      ),
-      paid: pickNumberFromObject(
-        agent,
-        ['totalPaid', 'totalDeposit', 'totalReceived', 'totalCollection'],
-        packageSummary.overall.paid
-      ),
-      due: Math.max(0, pickNumberFromObject(
-        agent,
-        ['totalDue'],
-        packageSummary.overall.due
-      )),
-      advance: pickNumberFromObject(
-        agent,
-        ['totalAdvance'],
-        packageSummary.overall.paid - packageSummary.overall.costingPrice
-      ),
-      profit: pickNumberFromObject(
+      billed: overallBilled,
+      paid: overallPaid,
+      // Due = billed - paid (only positive)
+      due: Math.max(0, overallBilled - overallPaid),
+      // Advance = paid - billed (only when paid > billed, otherwise 0)
+      advance: overallPaid > overallBilled ? (overallPaid - overallBilled) : 0,
+      profit: packageSummary.overall.profit || pickNumberFromObject(
         agent,
         ['totalProfit'],
-        packageSummary.overall.profit
+        0
       ),
     },
     hajj: {
-      customers: pickNumberFromObject(
+      customers: packageSummary.hajj.customers || pickNumberFromObject(
         agent,
         ['hajCustomers', 'hajjCustomers', 'totalHajjCustomers', 'totalHajCustomers'],
-        packageSummary.hajj.customers
+        0
       ),
-      billed: pickNumberFromObject(
-        agent,
-        ['hajBill', 'hajjBill', 'totalHajjBill', 'hajTotalBill'],
-        packageSummary.hajj.billed
-      ),
-      paid: pickNumberFromObject(
-        agent,
-        ['hajPaid', 'hajjPaid', 'hajjDeposit', 'hajDeposit', 'totalHajjPaid'],
-        packageSummary.hajj.paid
-      ),
-      due: Math.max(0, pickNumberFromObject(
-        agent,
-        ['hajDue'],
-        packageSummary.hajj.due
-      )),
-      advance: pickNumberFromObject(
-        agent,
-        ['hajAdvance'],
-        packageSummary.hajj.paid - packageSummary.hajj.costingPrice
-      ),
-      profit: pickNumberFromObject(
+      billed: hajjBilled,
+      paid: hajjPaid,
+      // Due = billed - paid (only positive)
+      due: Math.max(0, hajjBilled - hajjPaid),
+      // Advance = paid - billed (only when paid > billed, otherwise 0)
+      advance: hajjPaid > hajjBilled ? (hajjPaid - hajjBilled) : 0,
+      profit: packageSummary.hajj.profit || pickNumberFromObject(
         agent,
         ['hajProfit'],
-        packageSummary.hajj.profit
+        0
       ),
     },
     umrah: {
-      customers: pickNumberFromObject(
+      customers: packageSummary.umrah.customers || pickNumberFromObject(
         agent,
         ['umrahCustomers', 'totalUmrahCustomers', 'totalUmrahHaji'],
-        packageSummary.umrah.customers
+        0
       ),
-      billed: pickNumberFromObject(
-        agent,
-        ['umrahBill', 'totalUmrahBill'],
-        packageSummary.umrah.billed
-      ),
-      paid: pickNumberFromObject(
-        agent,
-        ['umrahPaid', 'umrahDeposit', 'totalUmrahPaid'],
-        packageSummary.umrah.paid
-      ),
-      due: Math.max(0, pickNumberFromObject(
-        agent,
-        ['umrahDue'],
-        packageSummary.umrah.due
-      )),
-      advance: pickNumberFromObject(
-        agent,
-        ['umrahAdvance'],
-        packageSummary.umrah.paid - packageSummary.umrah.costingPrice
-      ),
-      profit: pickNumberFromObject(
+      billed: umrahBilled,
+      paid: umrahPaid,
+      // Due = billed - paid (only positive)
+      due: Math.max(0, umrahBilled - umrahPaid),
+      // Advance = paid - billed (only when paid > billed, otherwise 0)
+      advance: umrahPaid > umrahBilled ? (umrahPaid - umrahBilled) : 0,
+      profit: packageSummary.umrah.profit || pickNumberFromObject(
         agent,
         ['umrahProfit'],
-        packageSummary.umrah.profit
+        0
       ),
     },
   };
@@ -463,53 +444,53 @@ const AgentDetails = () => {
   const summaryRows = [
     {
       id: 'overall',
-      title: 'Summary Sequence',
+      title: 'সামগ্রিক সারাংশ',
       items: [
-        { label: 'Total Haji', value: formatCount(financialSummary.overall.customers), icon: Users },
-        { label: 'Total Billed', value: formatCurrency(financialSummary.overall.billed), icon: DollarSign },
-        { label: 'Total Paid', value: formatCurrency(financialSummary.overall.paid), icon: Wallet },
-        { label: 'Total Dues', value: formatCurrency(financialSummary.overall.due), icon: Receipt },
+        { label: 'মোট হাজি', value: formatCount(financialSummary.overall.customers), icon: Users },
+        { label: 'মোট বিল', value: formatCurrency(financialSummary.overall.billed), icon: DollarSign },
+        { label: 'মোট পরিশোধ', value: formatCurrency(financialSummary.overall.paid), icon: Wallet },
+        { label: 'মোট বকেয়া', value: formatCurrency(financialSummary.overall.due), icon: Receipt },
         { 
-          label: 'Profit/Loss', 
+          label: 'লাভ/ক্ষতি', 
           value: formatProfitLoss(financialSummary.overall.profit), 
           icon: financialSummary.overall.profit >= 0 ? TrendingUp : TrendingDown,
           isProfit: financialSummary.overall.profit >= 0
         },
-        { label: 'Total Advance', value: formatCurrency(financialSummary.overall.advance), icon: Banknote },
+        { label: 'মোট এডভান্স', value: formatCurrency(financialSummary.overall.advance), icon: Banknote },
       ],
     },
     {
       id: 'hajj',
-      title: 'Hajj Summary',
+      title: 'হজ্জ সারাংশ',
       items: [
-        { label: 'Total Haji (Hajj)', value: formatCount(financialSummary.hajj.customers), icon: Building },
-        { label: 'Hajj Bill', value: formatCurrency(financialSummary.hajj.billed), icon: FileText },
-        { label: 'Hajj Paid', value: formatCurrency(financialSummary.hajj.paid), icon: PiggyBank },
-        { label: 'Hajj Dues', value: formatCurrency(financialSummary.hajj.due), icon: Calculator },
+        { label: 'মোট হাজি (হজ্জ)', value: formatCount(financialSummary.hajj.customers), icon: Building },
+        { label: 'হজ্জ বিল', value: formatCurrency(financialSummary.hajj.billed), icon: FileText },
+        { label: 'হজ্জ পরিশোধ', value: formatCurrency(financialSummary.hajj.paid), icon: PiggyBank },
+        { label: 'হজ্জ বকেয়া', value: formatCurrency(financialSummary.hajj.due), icon: Calculator },
         { 
-          label: 'Profit/Loss', 
+          label: 'লাভ/ক্ষতি', 
           value: formatProfitLoss(financialSummary.hajj.profit), 
           icon: financialSummary.hajj.profit >= 0 ? TrendingUp : TrendingDown,
           isProfit: financialSummary.hajj.profit >= 0
         },
-        { label: 'Hajj Advance', value: formatCurrency(financialSummary.hajj.advance), icon: Banknote },
+        { label: 'হজ্জ এডভান্স', value: formatCurrency(financialSummary.hajj.advance), icon: Banknote },
       ],
     },
     {
       id: 'umrah',
-      title: 'Umrah Summary',
+      title: 'উমরাহ সারাংশ',
       items: [
-        { label: 'Total Haji (Umrah)', value: formatCount(financialSummary.umrah.customers), icon: Globe },
-        { label: 'Umrah Bill', value: formatCurrency(financialSummary.umrah.billed), icon: FileSpreadsheet },
-        { label: 'Umrah Paid', value: formatCurrency(financialSummary.umrah.paid), icon: CreditCard },
-        { label: 'Umrah Dues', value: formatCurrency(financialSummary.umrah.due), icon: AlertTriangle },
+        { label: 'মোট হাজি (উমরাহ)', value: formatCount(financialSummary.umrah.customers), icon: Globe },
+        { label: 'উমরাহ বিল', value: formatCurrency(financialSummary.umrah.billed), icon: FileSpreadsheet },
+        { label: 'উমরাহ পরিশোধ', value: formatCurrency(financialSummary.umrah.paid), icon: CreditCard },
+        { label: 'উমরাহ বকেয়া', value: formatCurrency(financialSummary.umrah.due), icon: AlertTriangle },
         { 
-          label: 'Profit/Loss', 
+          label: 'লাভ/ক্ষতি', 
           value: formatProfitLoss(financialSummary.umrah.profit), 
           icon: financialSummary.umrah.profit >= 0 ? TrendingUp : TrendingDown,
           isProfit: financialSummary.umrah.profit >= 0
         },
-        { label: 'Umrah Advance', value: formatCurrency(financialSummary.umrah.advance), icon: Banknote },
+        { label: 'উমরাহ এডভান্স', value: formatCurrency(financialSummary.umrah.advance), icon: Banknote },
       ],
     },
   ];
@@ -617,8 +598,8 @@ const AgentDetails = () => {
             <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">B2B Haj Agent Details</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Comprehensive agent information & statistics</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">বি২বি হজ্জ এজেন্ট বিবরণ</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">এজেন্টের সম্পূর্ণ তথ্য ও পরিসংখ্যান</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -628,8 +609,8 @@ const AgentDetails = () => {
               fetchAgent();
               Swal.fire({
                 icon: 'success',
-                title: 'Refreshed',
-                text: 'Agent data has been refreshed',
+                title: 'রিফ্রেশ হয়েছে',
+                text: 'এজেন্ট ডেটা রিফ্রেশ হয়েছে',
                 timer: 1500,
                 showConfirmButton: false,
                 toast: true,
@@ -637,30 +618,30 @@ const AgentDetails = () => {
               });
             }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
-            title="Refresh data"
+            title="ডেটা রিফ্রেশ করুন"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+            <RefreshCw className="w-3.5 h-3.5" /> রিফ্রেশ
           </button>
           <button
             type="button"
             onClick={() => router.push(`/hajj-umrah/b2b-agent/agent/${id}/create-package`)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 text-sm"
           >
-            <Package className="w-3.5 h-3.5" /> Create Package
+            <Package className="w-3.5 h-3.5" /> প্যাকেজ তৈরি
           </button>
           <button
             type="button"
             onClick={() => router.push(`/hajj-umrah/b2b-agent/agent/${id}/edit`)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 text-sm"
           >
-            <Pencil className="w-3.5 h-3.5" /> Edit
+            <Pencil className="w-3.5 h-3.5" /> সম্পাদনা
           </button>
           <button
             type="button"
             onClick={() => router.back()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <ArrowLeft className="w-3.5 h-3.5" /> পিছনে
           </button>
         </div>
       </div>
@@ -669,21 +650,21 @@ const AgentDetails = () => {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center space-y-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Loading agent details...</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">এজেন্ট তথ্য লোড হচ্ছে...</p>
           </div>
         </div>
       ) : error ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <p className="text-red-600 dark:text-red-400 mb-2 text-sm">Failed to load agent details</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{error || 'An error occurred'}</p>
+            <p className="text-red-600 dark:text-red-400 mb-2 text-sm">এজেন্ট তথ্য লোড করতে ব্যর্থ</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{error || 'একটি ত্রুটি ঘটেছে'}</p>
           </div>
         </div>
       ) : !agent ? (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600 dark:text-gray-300">No agent found</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">কোনো এজেন্ট পাওয়া যায়নি</p>
           </div>
         </div>
       ) : (
@@ -740,23 +721,23 @@ const AgentDetails = () => {
                       let bgColor = '';
                       let textColor = '';
                       
-                      if (item.label === 'Profit/Loss') {
+                      if (item.label === 'লাভ/ক্ষতি') {
                         bgColor = item.isProfit 
                           ? 'bg-blue-50 dark:bg-blue-900/20' 
                           : 'bg-red-50 dark:bg-red-900/20';
                         textColor = item.isProfit 
                           ? 'text-blue-700 dark:text-blue-300' 
                           : 'text-red-700 dark:text-red-300';
-                      } else if (item.label.includes('Paid') || item.label.includes('Credit')) {
+                      } else if (item.label.includes('পরিশোধ')) {
                         bgColor = 'bg-green-50 dark:bg-green-900/20';
                         textColor = 'text-green-700 dark:text-green-300';
-                      } else if (item.label.includes('Dues') || item.label.includes('Debit')) {
+                      } else if (item.label.includes('বকেয়া')) {
                         bgColor = 'bg-red-50 dark:bg-red-900/20';
                         textColor = 'text-red-700 dark:text-red-300';
-                      } else if (item.label.includes('Advance')) {
+                      } else if (item.label.includes('এডভান্স')) {
                         bgColor = 'bg-orange-50 dark:bg-orange-900/20';
                         textColor = 'text-orange-700 dark:text-orange-300';
-                      } else if (item.label.includes('Billed') || item.label.includes('Bill')) {
+                      } else if (item.label.includes('বিল')) {
                         bgColor = 'bg-blue-50 dark:bg-blue-900/20';
                         textColor = 'text-blue-700 dark:text-blue-300';
                       } else {
@@ -801,39 +782,39 @@ const AgentDetails = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-2 mb-3">
                 <Building className="w-4 h-4 text-purple-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Basic Information</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">মৌলিক তথ্য</h3>
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Trade Name</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ট্রেড নাম</label>
                   <p className="text-5 font-bold text-gray-900 dark:text-white">{agent.tradeName || '-'}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Trade Location</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ট্রেড লোকেশন</label>
                   <p className="text-sm text-gray-900 dark:text-white flex items-center">
                     <MapPin className="w-3 h-3 mr-1" />
                     {agent.tradeLocation || '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Owner Name</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">মালিকের নাম</label>
                   <p className="text-sm text-gray-900 dark:text-white">{agent.ownerName || '-'}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Contact No</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">যোগাযোগ নম্বর</label>
                   <p className="text-sm text-gray-900 dark:text-white flex items-center">
                     <Phone className="w-3 h-3 mr-1" />
                     {agent.contactNo || '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Status</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">স্ট্যাটাস</label>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                     agent.isActive !== false && (agent.status === 'active' || agent.status === 'Active')
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
                       : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                   }`}>
-                    {agent.isActive !== false && (agent.status === 'active' || agent.status === 'Active') ? 'Active' : 'Inactive'}
+                    {agent.isActive !== false && (agent.status === 'active' || agent.status === 'Active') ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
                   </span>
                 </div>
               </div>
@@ -843,33 +824,33 @@ const AgentDetails = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-2 mb-3">
                 <UserCheck className="w-4 h-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Personal Details</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">ব্যক্তিগত তথ্য</h3>
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date of Birth</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">জন্ম তারিখ</label>
                   <p className="text-sm text-gray-900 dark:text-white flex items-center">
                     <Calendar className="w-3 h-3 mr-1" />
-                    {agent.dob ? new Date(agent.dob).toLocaleDateString() : '-'}
+                    {agent.dob ? new Date(agent.dob).toLocaleDateString('bn-BD') : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">NID Number</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">এনআইডি নম্বর</label>
                   <p className="text-sm text-gray-900 dark:text-white">{agent.nid || '-'}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Passport Number</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">পাসপোর্ট নম্বর</label>
                   <p className="text-sm text-gray-900 dark:text-white">{agent.passport || '-'}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Email</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ইমেইল</label>
                   <p className="text-sm text-gray-900 dark:text-white flex items-center">
                     <Mail className="w-3 h-3 mr-1" />
                     {agent.email || '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">License Number</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">লাইসেন্স নম্বর</label>
                   <p className="text-sm text-gray-900 dark:text-white">{agent.licenseNumber || '-'}</p>
                 </div>
               </div>
@@ -879,34 +860,34 @@ const AgentDetails = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-2 mb-3">
                 <DollarSign className="w-4 h-4 text-green-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Financial Information</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">আর্থিক তথ্য</h3>
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Total Revenue</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">মোট রাজস্ব</label>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
                     ৳{Number(agent?.totalRevenue ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Commission Rate</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">কমিশন হার</label>
                   <p className="text-sm text-gray-900 dark:text-white">{Number(agent?.commissionRate ?? 0)}%</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Pending Payments</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">বকেয়া পেমেন্ট</label>
                   <p className="text-sm text-gray-900 dark:text-white">
                     ৳{Number(agent?.pendingPayments ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bank Account</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ব্যাংক অ্যাকাউন্ট</label>
                   <p className="text-sm text-gray-900 dark:text-white flex items-center">
                     <CreditCard className="w-3 h-3 mr-1" />
                     {agent.bankAccount || '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Payment Method</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">পেমেন্ট পদ্ধতি</label>
                   <p className="text-sm text-gray-900 dark:text-white">{agent.paymentMethod || '-'}</p>
                 </div>
               </div>
@@ -917,30 +898,30 @@ const AgentDetails = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-2 mb-3">
               <FileText className="w-4 h-4 text-gray-600" />
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Additional Information</h3>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">অতিরিক্ত তথ্য</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Created At</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">তৈরির তারিখ</label>
                 <p className="text-sm text-gray-900 dark:text-white">
-                  {agent.created_at ? new Date(agent.created_at).toLocaleDateString() : '-'}
+                  {agent.created_at ? new Date(agent.created_at).toLocaleDateString('bn-BD') : '-'}
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Last Updated</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">সর্বশেষ আপডেট</label>
                 <p className="text-sm text-gray-900 dark:text-white">
-                  {agent.updated_at ? new Date(agent.updated_at).toLocaleDateString() : '-'}
+                  {agent.updated_at ? new Date(agent.updated_at).toLocaleDateString('bn-BD') : '-'}
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Last Activity</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">সর্বশেষ কার্যকলাপ</label>
                 <p className="text-sm text-gray-900 dark:text-white">
-                  {agent.lastActivity ? new Date(agent.lastActivity).toLocaleDateString() : '-'}
+                  {agent.lastActivity ? new Date(agent.lastActivity).toLocaleDateString('bn-BD') : '-'}
                 </p>
               </div>
               {agent.agentId && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Agent ID</label>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">এজেন্ট আইডি</label>
                   <p className="text-sm text-gray-900 dark:text-white font-mono">{agent.agentId}</p>
                 </div>
               )}
@@ -952,7 +933,7 @@ const AgentDetails = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Package className="w-5 h-5 text-purple-600" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Yearly Packages</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">বার্ষিক প্যাকেজ</h3>
               </div>
               <div className="flex items-center space-x-2">
                 <select
@@ -968,7 +949,7 @@ const AgentDetails = () => {
                   onClick={() => router.push(`/hajj-umrah/b2b-agent/agent/${id}/create-package`)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 text-sm"
                 >
-                  <Plus className="w-4 h-4" /> Add Package
+                  <Plus className="w-4 h-4" /> প্যাকেজ যোগ
                 </button>
               </div>
             </div>
@@ -977,14 +958,14 @@ const AgentDetails = () => {
               <div className="flex items-center justify-center py-8">
                 <div className="flex flex-col items-center space-y-2">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Loading packages...</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">প্যাকেজ লোড হচ্ছে...</p>
                 </div>
               </div>
             ) : availableYears.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">No packages found</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Create your first package to get started</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">কোনো প্যাকেজ পাওয়া যায়নি</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">শুরু করতে আপনার প্রথম প্যাকেজ তৈরি করুন</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1006,7 +987,7 @@ const AgentDetails = () => {
                           <div>
                             <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{year}</h4>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                              {totalPackages} packages • {yearPackages.hajj.length} Hajj • {yearPackages.umrah.length} Umrah
+                              {totalPackages} প্যাকেজ • {yearPackages.hajj.length} হজ্জ • {yearPackages.umrah.length} উমরাহ
                             </p>
                           </div>
                         </div>
@@ -1016,7 +997,7 @@ const AgentDetails = () => {
                               ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400' 
                               : 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300'
                           }`}>
-                            {year === selectedYear ? 'Current' : 'View'}
+                            {year === selectedYear ? 'বর্তমান' : 'দেখুন'}
                           </span>
                           {isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-gray-500" />
@@ -1033,7 +1014,7 @@ const AgentDetails = () => {
                             <div>
                               <div className="flex items-center space-x-2 mb-3">
                                 <Building className="w-4 h-4 text-green-600" />
-                                <h5 className="text-sm font-semibold text-gray-900 dark:text-white">Hajj Packages ({yearPackages.hajj.length})</h5>
+                                <h5 className="text-sm font-semibold text-gray-900 dark:text-white">হজ্জ প্যাকেজ ({yearPackages.hajj.length})</h5>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {yearPackages.hajj.map((pkg) => {
@@ -1049,12 +1030,12 @@ const AgentDetails = () => {
                                             ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
                                             : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                                         }`}>
-                                          {pkg.isActive ? 'Active' : 'Inactive'}
+                                          {pkg.isActive ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
                                         </span>
                                       </div>
                                       <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                        <p>Total Price: {formatCurrency(profit.packagePrice)}</p>
-                                        <p>Costing: {formatCurrency(profit.costingPrice)}</p>
+                                        <p>মোট মূল্য: {formatCurrency(profit.packagePrice)}</p>
+                                        <p>খরচ: {formatCurrency(profit.costingPrice)}</p>
                                         <p className={`font-semibold ${
                                           profit.isProfit
                                             ? 'text-green-600 dark:text-green-400'
@@ -1062,29 +1043,29 @@ const AgentDetails = () => {
                                             ? 'text-red-600 dark:text-red-400'
                                             : 'text-gray-700 dark:text-gray-300'
                                         }`}>
-                                          {profit.isProfit ? 'Profit' : profit.isLoss ? 'Loss' : 'Break-even'}: {profit.isProfit ? '+' : ''}{formatCurrency(profit.profitValue)} ({formatPercentage(profit.percentage)})
+                                          {profit.isProfit ? 'লাভ' : profit.isLoss ? 'ক্ষতি' : 'সমতা'}: {profit.isProfit ? '+' : ''}{formatCurrency(profit.profitValue)} ({formatPercentage(profit.percentage)})
                                         </p>
-                                        <p>Status: {pkg.status || 'Draft'}</p>
+                                        <p>স্ট্যাটাস: {pkg.status || 'খসড়া'}</p>
                                       </div>
                                       <div className="flex items-center justify-end space-x-1 mt-3">
                                         <button
                                           onClick={() => router.push(`/hajj-umrah/package-list/${pkg._id}`)}
                                           className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                                          title="View Details"
+                                          title="বিস্তারিত দেখুন"
                                         >
                                           <Eye className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={() => router.push(`/hajj-umrah/package-list/${pkg._id}/edit`)}
                                           className="p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400"
-                                          title="Edit Package"
+                                          title="সম্পাদনা করুন"
                                         >
                                           <Edit className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={() => handleDeletePackage(pkg._id, pkg.packageName)}
                                           className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                          title="Delete Package"
+                                          title="মুছে ফেলুন"
                                         >
                                           <Trash2 className="w-3 h-3" />
                                         </button>
@@ -1101,7 +1082,7 @@ const AgentDetails = () => {
                             <div>
                               <div className="flex items-center space-x-2 mb-3">
                                 <Globe className="w-4 h-4 text-blue-600" />
-                                <h5 className="text-sm font-semibold text-gray-900 dark:text-white">Umrah Packages ({yearPackages.umrah.length})</h5>
+                                <h5 className="text-sm font-semibold text-gray-900 dark:text-white">উমরাহ প্যাকেজ ({yearPackages.umrah.length})</h5>
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {yearPackages.umrah.map((pkg) => {
@@ -1117,12 +1098,12 @@ const AgentDetails = () => {
                                             ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
                                             : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
                                         }`}>
-                                          {pkg.isActive ? 'Active' : 'Inactive'}
+                                          {pkg.isActive ? 'সক্রিয়' : 'নিষ্ক্রিয়'}
                                         </span>
                                       </div>
                                       <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                        <p>Total Price: {formatCurrency(profit.packagePrice)}</p>
-                                        <p>Costing: {formatCurrency(profit.costingPrice)}</p>
+                                        <p>মোট মূল্য: {formatCurrency(profit.packagePrice)}</p>
+                                        <p>খরচ: {formatCurrency(profit.costingPrice)}</p>
                                         <p className={`font-semibold ${
                                           profit.isProfit
                                             ? 'text-green-600 dark:text-green-400'
@@ -1130,29 +1111,29 @@ const AgentDetails = () => {
                                             ? 'text-red-600 dark:text-red-400'
                                             : 'text-gray-700 dark:text-gray-300'
                                         }`}>
-                                          {profit.isProfit ? 'Profit' : profit.isLoss ? 'Loss' : 'Break-even'}: {profit.isProfit ? '+' : ''}{formatCurrency(profit.profitValue)} ({formatPercentage(profit.percentage)})
+                                          {profit.isProfit ? 'লাভ' : profit.isLoss ? 'ক্ষতি' : 'সমতা'}: {profit.isProfit ? '+' : ''}{formatCurrency(profit.profitValue)} ({formatPercentage(profit.percentage)})
                                         </p>
-                                        <p>Status: {pkg.status || 'Draft'}</p>
+                                        <p>স্ট্যাটাস: {pkg.status || 'খসড়া'}</p>
                                       </div>
                                       <div className="flex items-center justify-end space-x-1 mt-3">
                                         <button
                                           onClick={() => router.push(`/hajj-umrah/package-list/${pkg._id}`)}
                                           className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                                          title="View Details"
+                                          title="বিস্তারিত দেখুন"
                                         >
                                           <Eye className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={() => router.push(`/hajj-umrah/package-list/${pkg._id}/edit`)}
                                           className="p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400"
-                                          title="Edit Package"
+                                          title="সম্পাদনা করুন"
                                         >
                                           <Edit className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={() => handleDeletePackage(pkg._id, pkg.packageName)}
                                           className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                                          title="Delete Package"
+                                          title="মুছে ফেলুন"
                                         >
                                           <Trash2 className="w-3 h-3" />
                                         </button>
@@ -1168,7 +1149,7 @@ const AgentDetails = () => {
                           {totalPackages === 0 && (
                             <div className="text-center py-6">
                               <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                              <p className="text-sm text-gray-600 dark:text-gray-300">No packages for {year}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">{year} সালের জন্য কোনো প্যাকেজ নেই</p>
                             </div>
                           )}
                         </div>

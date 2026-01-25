@@ -48,38 +48,54 @@ export async function GET(request) {
       .toArray();
 
     // Format packages for frontend
-    const formattedPackages = packages.map((pkg) => ({
-      id: pkg._id.toString(),
-      _id: pkg._id.toString(),
-      packageName: pkg.packageName || pkg.name || '',
-      name: pkg.packageName || pkg.name || '',
-      packageYear: pkg.packageYear || pkg.year || '',
-      year: pkg.packageYear || pkg.year || '',
-      packageMonth: pkg.packageMonth || pkg.month || '',
-      month: pkg.packageMonth || pkg.month || '',
-      packageType: pkg.packageType || '',
-      customPackageType: pkg.customPackageType || '',
-      sarToBdtRate: pkg.sarToBdtRate || 0,
-      status: pkg.status || 'Active',
-      notes: pkg.notes || '',
-      costs: pkg.costs || {},
-      totals: pkg.totals || {},
-      assignedCustomers: pkg.assignedCustomers || [],
-      financialSummary: pkg.financialSummary || {},
-      paymentSummary: pkg.paymentSummary || {},
-      profitLoss: pkg.profitLoss || {},
-      totalPrice: pkg.totalPrice || pkg.totals?.grandTotal || 0,
-      totalPriceBdt: pkg.totalPriceBdt || pkg.totals?.grandTotal || 0,
-      costingPrice: pkg.costingPrice || pkg.totals?.costingPrice || 0,
-      totalPaid: pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0,
-      depositReceived: pkg.depositReceived || 0,
-      receivedAmount: pkg.receivedAmount || 0,
-      isActive: pkg.isActive !== undefined ? pkg.isActive : (pkg.status === 'Active'),
-      agentId: pkg.agentId || pkg.agent_id || '',
-      agent_id: pkg.agentId || pkg.agent_id || '',
-      created_at: pkg.created_at || pkg._id.getTimestamp().toISOString(),
-      updated_at: pkg.updated_at || pkg.created_at || pkg._id.getTimestamp().toISOString(),
-    }));
+    const formattedPackages = packages.map((pkg) => {
+      // Calculate totalPrice from totals if not set
+      const grandTotal = pkg.totals?.grandTotal || 0;
+      const subtotal = pkg.totals?.subtotal || 0;
+      const calculatedTotalPrice = pkg.totalPrice || grandTotal || subtotal || 0;
+      
+      return {
+        id: pkg._id.toString(),
+        _id: pkg._id.toString(),
+        packageName: pkg.packageName || pkg.name || '',
+        name: pkg.packageName || pkg.name || '',
+        packageYear: pkg.packageYear || pkg.year || '',
+        year: pkg.packageYear || pkg.year || '',
+        packageMonth: pkg.packageMonth || pkg.month || '',
+        month: pkg.packageMonth || pkg.month || '',
+        packageType: pkg.packageType || '',
+        customPackageType: pkg.customPackageType || '',
+        sarToBdtRate: pkg.sarToBdtRate || 0,
+        status: pkg.status || 'Active',
+        notes: pkg.notes || '',
+        costs: pkg.costs || {},
+        totals: {
+          ...pkg.totals,
+          grandTotal: grandTotal,
+          subtotal: subtotal,
+        },
+        assignedCustomers: pkg.assignedCustomers || [],
+        financialSummary: {
+          totalBilled: calculatedTotalPrice,
+          totalPaid: pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0,
+          totalDue: Math.max(0, calculatedTotalPrice - (pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0)),
+          ...pkg.financialSummary,
+        },
+        paymentSummary: pkg.paymentSummary || {},
+        profitLoss: pkg.profitLoss || {},
+        totalPrice: calculatedTotalPrice,
+        totalPriceBdt: pkg.totalPriceBdt || calculatedTotalPrice,
+        costingPrice: pkg.costingPrice || grandTotal || 0,
+        totalPaid: pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0,
+        depositReceived: pkg.depositReceived || 0,
+        receivedAmount: pkg.receivedAmount || 0,
+        isActive: pkg.isActive !== undefined ? pkg.isActive : (pkg.status === 'Active'),
+        agentId: pkg.agentId || pkg.agent_id || '',
+        agent_id: pkg.agentId || pkg.agent_id || '',
+        created_at: pkg.created_at || pkg._id.getTimestamp().toISOString(),
+        updated_at: pkg.updated_at || pkg.created_at || pkg._id.getTimestamp().toISOString(),
+      };
+    });
 
     return NextResponse.json(
       {
