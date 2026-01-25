@@ -334,11 +334,15 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Soft delete - set status to inactive instead of deleting
-    await employeesCollection.updateOne(
-      query,
-      { $set: { status: 'inactive', updated_at: new Date() } }
-    );
+    // Hard delete - permanently remove from database
+    const deleteResult = await employeesCollection.deleteOne(query);
+
+    if (deleteResult.deletedCount === 0) {
+      return NextResponse.json(
+        { error: 'Failed to delete employee' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { message: 'Employee deleted successfully' },

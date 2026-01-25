@@ -278,11 +278,15 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Soft delete - set status to inactive instead of deleting
-    await agentsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status: 'inactive', updated_at: new Date() } }
-    );
+    // Hard delete - permanently remove from database
+    const deleteResult = await agentsCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (deleteResult.deletedCount === 0) {
+      return NextResponse.json(
+        { error: 'Failed to delete agent' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       { message: 'Agent deleted successfully' },

@@ -8,7 +8,6 @@ import {
   Users, 
   Package, 
   TrendingUp, 
-  TrendingDown, 
   MapPin,
   UserCheck,
   AlertCircle,
@@ -202,19 +201,31 @@ const HajjUmrahDashboard = () => {
         </div>
       </div>
 
-      {/* Profit/Loss Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ==================== HAJJ SECTION ==================== */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+            <Package className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">হজ্জ সেকশন</h2>
+            <p className="text-blue-100 text-sm">হজ্জ সম্পর্কিত সকল তথ্য</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Hajj Profit/Loss */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-              <Package className="w-5 h-5 mr-2 text-blue-600" />
+              <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
               হজ্জ লাভ/ক্ষতি
             </h3>
             {profitLoss.hajj?.isProfit ? (
-              <TrendingUp className="w-5 h-5 text-green-500" />
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm font-medium rounded-full">লাভ</span>
             ) : (
-              <TrendingDown className="w-5 h-5 text-red-500" />
+              <span className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm font-medium rounded-full">ক্ষতি</span>
             )}
           </div>
           <div className="space-y-3">
@@ -229,7 +240,7 @@ const HajjUmrahDashboard = () => {
             <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">নিট লাভ/ক্ষতি:</span>
-                <span className={`font-bold text-lg ${profitLoss.hajj?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
+                <span className={`font-bold text-xl ${profitLoss.hajj?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(profitLoss.hajj?.profitLoss || 0)}
                 </span>
               </div>
@@ -240,80 +251,8 @@ const HajjUmrahDashboard = () => {
           </div>
         </div>
 
-        {/* Umrah Profit/Loss */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-              <UserCheck className="w-5 h-5 mr-2 text-purple-600" />
-              উমরাহ লাভ/ক্ষতি
-            </h3>
-            {profitLoss.umrah?.isProfit ? (
-              <TrendingUp className="w-5 h-5 text-green-500" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-red-500" />
-            )}
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">মোট আয়:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.umrah?.totalRevenue || 0)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">মোট খরচ:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.umrah?.totalCost || 0)}</span>
-            </div>
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">নিট লাভ/ক্ষতি:</span>
-                <span className={`font-bold text-lg ${profitLoss.umrah?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(profitLoss.umrah?.profitLoss || 0)}
-                </span>
-              </div>
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              প্যাকেজ সংখ্যা: {formatNumber(profitLoss.umrah?.packageCount || 0)}
-            </div>
-          </div>
-        </div>
-
-        {/* Combined Profit/Loss */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-              <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
-              মোট লাভ/ক্ষতি
-            </h3>
-            {profitLoss.combined?.isProfit ? (
-              <TrendingUp className="w-5 h-5 text-green-500" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-red-500" />
-            )}
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">মোট আয়:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.combined?.totalRevenue || 0)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">মোট খরচ:</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.combined?.totalCost || 0)}</span>
-            </div>
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">নিট লাভ/ক্ষতি:</span>
-                <span className={`font-bold text-lg ${profitLoss.combined?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(profitLoss.combined?.profitLoss || 0)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Financial Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Haji Financial */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        {/* Hajj Financial Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <Wallet className="w-5 h-5 mr-2 text-blue-600" />
             হাজি আর্থিক সারাংশ
@@ -330,14 +269,65 @@ const HajjUmrahDashboard = () => {
             <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">মোট বকেয়া:</span>
-                <span className="font-bold text-lg text-red-600">{formatCurrency(financialSummary.haji?.totalDue || 0)}</span>
+                <span className="font-bold text-xl text-red-600">{formatCurrency(financialSummary.haji?.totalDue || 0)}</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Umrah Financial */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+      {/* ==================== UMRAH SECTION ==================== */}
+      <div className="bg-purple-600 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+            <UserCheck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">উমরাহ সেকশন</h2>
+            <p className="text-purple-100 text-sm">উমরাহ সম্পর্কিত সকল তথ্য</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Umrah Profit/Loss */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-purple-500 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-purple-600" />
+              উমরাহ লাভ/ক্ষতি
+            </h3>
+            {profitLoss.umrah?.isProfit ? (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm font-medium rounded-full">লাভ</span>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm font-medium rounded-full">ক্ষতি</span>
+            )}
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">মোট আয়:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.umrah?.totalRevenue || 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">মোট খরচ:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.umrah?.totalCost || 0)}</span>
+            </div>
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">নিট লাভ/ক্ষতি:</span>
+                <span className={`font-bold text-xl ${profitLoss.umrah?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(profitLoss.umrah?.profitLoss || 0)}
+                </span>
+              </div>
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              প্যাকেজ সংখ্যা: {formatNumber(profitLoss.umrah?.packageCount || 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Umrah Financial Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-purple-500 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <Wallet className="w-5 h-5 mr-2 text-purple-600" />
             উমরাহ আর্থিক সারাংশ
@@ -354,22 +344,37 @@ const HajjUmrahDashboard = () => {
             <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">মোট বকেয়া:</span>
-                <span className="font-bold text-lg text-red-600">{formatCurrency(financialSummary.umrah?.totalDue || 0)}</span>
+                <span className="font-bold text-xl text-red-600">{formatCurrency(financialSummary.umrah?.totalDue || 0)}</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Agents Financial */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+      {/* ==================== AGENT SECTION ==================== */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+            <Building2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">এজেন্ট সেকশন</h2>
+            <p className="text-green-100 text-sm">এজেন্ট সম্পর্কিত সকল তথ্য</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Agent Financial Summary */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-green-500 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <Building2 className="w-5 h-5 mr-2 text-green-600" />
+            <Wallet className="w-5 h-5 mr-2 text-green-600" />
             এজেন্ট আর্থিক সারাংশ
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">মোট বকেয়া:</span>
-              <span className="font-bold text-lg text-red-600">{formatCurrency(financialSummary.agents?.totalDue || 0)}</span>
+              <span className="font-bold text-xl text-red-600">{formatCurrency(financialSummary.agents?.totalDue || 0)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">হজ্জ বকেয়া:</span>
@@ -382,12 +387,45 @@ const HajjUmrahDashboard = () => {
             <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">মোট এডভান্স:</span>
-                <span className={`font-bold text-lg ${
+                <span className={`font-bold text-xl ${
                   (agentProfitLoss.reduce((sum, agent) => sum + (agent.totalAdvance || 0), 0)) >= 0 
                     ? 'text-green-600' 
                     : 'text-orange-600'
                 }`}>
                   {formatCurrency(agentProfitLoss.reduce((sum, agent) => sum + (agent.totalAdvance || 0), 0))}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Combined Profit/Loss */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border-l-4 border-green-500 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
+              সামগ্রিক লাভ/ক্ষতি
+            </h3>
+            {profitLoss.combined?.isProfit ? (
+              <span className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm font-medium rounded-full">লাভ</span>
+            ) : (
+              <span className="px-3 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm font-medium rounded-full">ক্ষতি</span>
+            )}
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">মোট আয়:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.combined?.totalRevenue || 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">মোট খরচ:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(profitLoss.combined?.totalCost || 0)}</span>
+            </div>
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">নিট লাভ/ক্ষতি:</span>
+                <span className={`font-bold text-xl ${profitLoss.combined?.isProfit ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(profitLoss.combined?.profitLoss || 0)}
                 </span>
               </div>
             </div>
@@ -399,15 +437,15 @@ const HajjUmrahDashboard = () => {
       {topAgentsByHaji.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
-            <Award className="w-5 h-5 mr-2 text-purple-600" />
+            <Award className="w-5 h-5 mr-2 text-green-600" />
             হাজি সংখ্যা অনুযায়ী শীর্ষ এজেন্ট
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {topAgentsByHaji.slice(0, 9).map((agent, index) => (
-              <div key={agent.agentId || index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+              <div key={agent.agentId || index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border-l-4 border-green-500">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center">
-                    <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                       {index + 1}
                     </div>
                     <div className="ml-3">
@@ -417,7 +455,7 @@ const HajjUmrahDashboard = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400">মোট হাজি</p>
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{formatNumber(agent.hajiCount || 0)}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatNumber(agent.hajiCount || 0)}</p>
                 </div>
               </div>
             ))}
@@ -429,12 +467,12 @@ const HajjUmrahDashboard = () => {
       {agentProfitLoss.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2 text-purple-600" />
+            <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
             এজেন্ট অনুযায়ী লাভ/ক্ষতি
           </h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <thead className="bg-green-50 dark:bg-green-900/20">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     এজেন্ট নাম
@@ -461,8 +499,8 @@ const HajjUmrahDashboard = () => {
                   <tr key={agent.agentId || index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mr-3">
-                          <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <div className="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mr-3">
+                          <Building2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {agent.agentName || 'Unknown'}

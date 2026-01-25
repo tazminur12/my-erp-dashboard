@@ -22,6 +22,7 @@ import {
   Home,
   Utensils,
   Zap,
+  Monitor,
   Globe,
   History,
   BarChart3,
@@ -111,7 +112,8 @@ export const navigation = [
         icon: Users,
         children: [
           { name: 'Umrah Haji List', href: '/hajj-umrah/umrah/haji-list', icon: List },
-          { name: 'Umrah Package', href: '/hajj-umrah/umrah/umrah-package-list', icon: List }
+          { name: 'Umrah Package', href: '/hajj-umrah/umrah/umrah-package-list', icon: List },
+          { name: 'SAR Management (Umrah)', href: '/hajj-umrah/umrah/sar-management', icon: Scale }
         ]
       },
       {
@@ -147,6 +149,7 @@ export const navigation = [
       },
       { name: 'Airline List', href: '/air-ticketing/airlines', icon: List },
       { name: 'GDS', href: '/air-ticketing/gds', icon: List },
+      { name: 'IATA Monitor', href: '/air-ticketing/iata-monitor', icon: Monitor }
     ]
   },
   {

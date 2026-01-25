@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '../../component/DashboardLayout';
 import Swal from 'sweetalert2';
@@ -13,7 +12,6 @@ import {
   Eye,
   Search,
   Filter,
-  Upload,
   Building2,
   Wallet,
   Receipt,
@@ -163,11 +161,25 @@ const Agent = () => {
     }
   };
 
-  // Calculate stats (simplified - just total agents for now)
+  // Calculate stats from agents data
   const totalAgents = agents.length;
-  const totalPaid = 0; // TODO: Calculate from agent transactions
-  const totalBill = 0; // TODO: Calculate from agent bills
-  const totalDue = 0; // TODO: Calculate from agent dues
+  const totalPaid = useMemo(() => {
+    return agents.reduce((sum, agent) => {
+      return sum + (Number(agent.totalPaid) || Number(agent.totalDeposit) || 0);
+    }, 0);
+  }, [agents]);
+  
+  const totalBill = useMemo(() => {
+    return agents.reduce((sum, agent) => {
+      return sum + (Number(agent.totalBilled) || Number(agent.totalBill) || 0);
+    }, 0);
+  }, [agents]);
+  
+  const totalDue = useMemo(() => {
+    return agents.reduce((sum, agent) => {
+      return sum + (Number(agent.totalDue) || 0);
+    }, 0);
+  }, [agents]);
 
   return (
     <DashboardLayout>
@@ -283,16 +295,18 @@ const Agent = () => {
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ট্রেড নাম</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">লোকেশন</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">মালিক</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">যোগাযোগ</th>
+                  <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">মোট বিল</th>
+                  <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">পরিশোধ</th>
+                  <th className="px-3 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">বকেয়া</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
+                    <td colSpan="7" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">Loading agents...</p>
@@ -301,7 +315,7 @@ const Agent = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
+                    <td colSpan="7" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <AlertCircle className="w-12 h-12 text-red-400" />
                         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -316,7 +330,7 @@ const Agent = () => {
                   </tr>
                 ) : filteredAgents.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center">
+                    <td colSpan="7" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Users className="w-12 h-12 text-gray-400" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">No agents found</p>
@@ -326,11 +340,14 @@ const Agent = () => {
                 ) : (
                   filteredAgents.map((agent) => {
                     const agentId = agent._id || agent.id;
+                    const agentBill = Number(agent.totalBilled) || Number(agent.totalBill) || 0;
+                    const agentPaid = Number(agent.totalPaid) || Number(agent.totalDeposit) || 0;
+                    const agentDue = Number(agent.totalDue) || 0;
                     return (
                       <tr key={agentId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10">
+                            <div className="shrink-0 h-8 w-8 sm:h-10 sm:w-10">
                               {agent.profilePicture ? (
                                 /* eslint-disable-next-line @next/next/no-img-element */
                                 <img
@@ -359,9 +376,23 @@ const Agent = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 dark:text-white">{agent.tradeLocation}</td>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 dark:text-white">{agent.ownerName}</td>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 dark:text-white">{agent.contactNo}</td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                          <span className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {formatCurrency(agentBill)}
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                          <span className="text-xs sm:text-sm font-medium text-green-600 dark:text-green-400">
+                            {formatCurrency(agentPaid)}
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                          <span className={`text-xs sm:text-sm font-medium ${agentDue > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                            {formatCurrency(agentDue)}
+                          </span>
+                        </td>
                         <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                             <button

@@ -806,7 +806,7 @@ const AddHaji = () => {
         confirmButtonColor: '#3b82f6',
       }).then(() => {
         if (hajiId) {
-          router.push(`/hajj/haji/${hajiId}`);
+          router.push(`/hajj-umrah/hajj/haji/${hajiId}`);
         } else {
           router.push('/hajj-umrah/hajj/haji-list');
         }

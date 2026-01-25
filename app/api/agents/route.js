@@ -19,8 +19,20 @@ export async function GET(request) {
 
     // Build query with branch filter
     const query = { ...branchFilter };
-    if (status) {
+    
+    // Filter by status - default to active only (exclude deleted/inactive agents)
+    if (status === 'all') {
+      // Show all agents including inactive
+    } else if (status) {
       query.status = status;
+    } else {
+      // Default: only show active agents (hide soft-deleted)
+      query.$or = [
+        { status: 'active' },
+        { status: { $exists: false } }, // Include old records without status
+        { status: null },
+        { status: '' }
+      ];
     }
 
     const agents = await agentsCollection
