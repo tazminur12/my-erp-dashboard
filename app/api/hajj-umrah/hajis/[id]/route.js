@@ -240,7 +240,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE haji
+// DELETE haji (HARD DELETE - permanently removes from database)
 export async function DELETE(request, { params }) {
   try {
     // Handle both sync and async params
@@ -278,14 +278,13 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Soft delete - set is_active to false instead of deleting
-    await hajisCollection.updateOne(
-      query,
-      { $set: { is_active: false, updated_at: new Date() } }
-    );
+    // Hard delete - permanently remove from database
+    await hajisCollection.deleteOne(query);
+
+    console.log(`✅ Haji ${existingHaji.customer_id || id} permanently deleted`);
 
     return NextResponse.json(
-      { message: 'Haji deleted successfully' },
+      { message: 'Haji permanently deleted' },
       { status: 200 }
     );
   } catch (error) {

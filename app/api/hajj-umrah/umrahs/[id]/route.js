@@ -239,7 +239,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE umrah
+// DELETE umrah (HARD DELETE - permanently removes from database)
 export async function DELETE(request, { params }) {
   try {
     // Handle both sync and async params
@@ -277,14 +277,13 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Soft delete - set is_active to false instead of deleting
-    await umrahsCollection.updateOne(
-      query,
-      { $set: { is_active: false, updated_at: new Date() } }
-    );
+    // Hard delete - permanently remove from database
+    await umrahsCollection.deleteOne(query);
+
+    console.log(`✅ Umrah ${existingUmrah.customer_id || id} permanently deleted`);
 
     return NextResponse.json(
-      { message: 'Umrah deleted successfully' },
+      { message: 'Umrah permanently deleted' },
       { status: 200 }
     );
   } catch (error) {

@@ -20,7 +20,7 @@ export async function GET(request) {
     const totalPaid = allBills.reduce((sum, bill) => sum + (Number(bill.paidAmount) || 0), 0);
     const totalDue = Math.max(0, totalAmount - totalPaid);
 
-    // Get all vendors (not just recent 10) to calculate bill statistics
+    // Get all vendors
     const allVendors = await vendorsCollection.find({}).toArray();
 
     // Calculate bill statistics per vendor

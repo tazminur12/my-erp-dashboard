@@ -10,13 +10,10 @@ export async function GET(request) {
     const db = await getDb();
     const vendorsCollection = db.collection('vendors');
 
-    // Build query - default to active vendors only
+    // Build query - show all vendors (deleted vendors are permanently removed)
     const query = {};
     if (status) {
       query.status = status;
-    } else {
-      // Default: show only active vendors
-      query.status = 'active';
     }
 
     const vendors = await vendorsCollection

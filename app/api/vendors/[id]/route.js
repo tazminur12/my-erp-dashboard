@@ -218,7 +218,7 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE vendor
+// DELETE vendor (HARD DELETE - permanently removes vendor and all related data)
 export async function DELETE(request, { params }) {
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
@@ -240,6 +240,7 @@ export async function DELETE(request, { params }) {
 
     const db = await getDb();
     const vendorsCollection = db.collection('vendors');
+    const vendorBillsCollection = db.collection('vendor_bills');
 
     // Find vendor
     const existingVendor = await vendorsCollection.findOne({ _id: new ObjectId(id) });
@@ -251,14 +252,39 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Soft delete - set status to inactive instead of deleting
-    await vendorsCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status: 'inactive', updated_at: new Date() } }
-    );
+    const vendorId = existingVendor._id.toString();
+    const vendorIdAlt = existingVendor.vendorId || vendorId;
+    const vendorTradeName = existingVendor.tradeName || '';
+
+    // Build query to match all possible vendor references
+    const billDeleteQuery = {
+      $or: [
+        { vendorId: vendorId },
+        { vendorId: vendorIdAlt },
+        { vendorId: new ObjectId(id) },
+        { vendorIdString: vendorId },
+        { vendorIdString: vendorIdAlt }
+      ]
+    };
+
+    // Also match by vendor name if tradeName exists
+    if (vendorTradeName) {
+      billDeleteQuery.$or.push({ vendorName: vendorTradeName });
+    }
+
+    // Delete all vendor bills associated with this vendor
+    const deletedBills = await vendorBillsCollection.deleteMany(billDeleteQuery);
+
+    // Hard delete - permanently remove vendor from database
+    await vendorsCollection.deleteOne({ _id: new ObjectId(id) });
+
+    console.log(`✅ Vendor ${vendorIdAlt} permanently deleted with ${deletedBills.deletedCount} bills`);
 
     return NextResponse.json(
-      { message: 'Vendor deleted successfully' },
+      { 
+        message: 'Vendor and all related bills permanently deleted',
+        deletedBills: deletedBills.deletedCount
+      },
       { status: 200 }
     );
   } catch (error) {
