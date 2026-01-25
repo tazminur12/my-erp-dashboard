@@ -411,7 +411,7 @@ const HajPackageList = () => {
                               <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
-                              onClick={() => router.push(`/hajj/package-list/${pkg._id || pkg.id}/edit`)}
+                              onClick={() => router.push(`/hajj-umrah/hajj/package-list/${pkg._id || pkg.id}/edit`)}
                               className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1"
                               title="সম্পাদনা করুন"
                             >

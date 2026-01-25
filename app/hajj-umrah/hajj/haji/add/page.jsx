@@ -932,21 +932,21 @@ const AddHaji = () => {
                   placeholder="ম্যানুয়াল সিরিয়াল নম্বর দিন"
                 />
                 <InputGroup
-                  label="প্রথম নাম"
+                  label="প্রথম নাম (English)"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
                   required
                 />
                 <InputGroup
-                  label="শেষ নাম"
+                  label="শেষ নাম (English)"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
                 />
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    সম্পূর্ণ নাম <span className="text-red-500">*</span>
+                    সম্পূর্ণ নাম (English) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"

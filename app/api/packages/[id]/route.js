@@ -255,17 +255,17 @@ export async function PUT(request, { params }) {
 
     // Fetch agent details if agentId exists
     let agent = null;
-    const agentId = updatedPackage.agentId || updatedPackage.agent_id;
-    if (agentId) {
+    const updatedAgentId = updatedPackage.agentId || updatedPackage.agent_id;
+    if (updatedAgentId) {
       const agentsCollection = db.collection('agents');
       try {
         let agentQuery = {};
-        if (agentId instanceof ObjectId) {
-          agentQuery._id = agentId;
-        } else if (ObjectId.isValid(agentId)) {
-          agentQuery._id = new ObjectId(agentId);
+        if (updatedAgentId instanceof ObjectId) {
+          agentQuery._id = updatedAgentId;
+        } else if (ObjectId.isValid(updatedAgentId)) {
+          agentQuery._id = new ObjectId(updatedAgentId);
         } else {
-          agentQuery._id = agentId;
+          agentQuery._id = updatedAgentId;
         }
         
         const agentDoc = await agentsCollection.findOne(agentQuery);
@@ -297,7 +297,7 @@ export async function PUT(request, { params }) {
       sarToBdtRate: updatedPackage.sarToBdtRate || 0,
       status: updatedPackage.status || 'Active',
       notes: updatedPackage.notes || '',
-      agentId: agentId ? (agentId.toString ? agentId.toString() : String(agentId)) : '',
+      agentId: updatedAgentId ? (updatedAgentId.toString ? updatedAgentId.toString() : String(updatedAgentId)) : '',
       agent: agent,
       costs: updatedPackage.costs || {},
       totals: updatedPackage.totals || {},

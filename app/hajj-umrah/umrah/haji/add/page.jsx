@@ -907,13 +907,13 @@ const AddUmrahHaji = () => {
                   placeholder="ম্যানুয়াল সিরিয়াল নম্বর দিন"
                 />
                 <InputGroup
-                  label="প্রথম নাম"
+                  label="প্রথম নাম (English)"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
                 />
                 <InputGroup
-                  label="শেষ নাম"
+                  label="শেষ নাম (English)"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
