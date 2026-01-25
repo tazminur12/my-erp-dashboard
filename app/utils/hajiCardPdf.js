@@ -105,7 +105,16 @@ export async function generateHajiCardPDF(haji, opts = {}) {
   `;
   const cards = Array.from({ length: Math.max(1, copies) }, () => cardHtml).join('');
   container.innerHTML = `
-    <link href="https://fonts.maateen.me/kalpurush/font.css" rel="stylesheet">
+    <style>
+      @font-face {
+        font-family: 'Kalpurush';
+        font-display: swap;
+        font-style: normal;
+        font-weight: 100 900;
+        src: url('/fonts/Kalpurush.woff2') format('woff2'),
+             url('/fonts/Kalpurush.ttf') format('truetype');
+      }
+    </style>
     <div style="display: flex; flex-direction: column; gap: 14px;">${cards}</div>
   `;
   document.body.appendChild(container);

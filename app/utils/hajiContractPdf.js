@@ -81,7 +81,14 @@ function buildContractHTML(haji, packageData = {}) {
       line-height: 1.8;
     ">
       <style>
-        @import url('https://fonts.maateen.me/kalpurush/font.css');
+        @font-face {
+          font-family: 'Kalpurush';
+          font-display: swap;
+          font-style: normal;
+          font-weight: 100 900;
+          src: url('/fonts/Kalpurush.woff2') format('woff2'),
+               url('/fonts/Kalpurush.ttf') format('truetype');
+        }
       </style>
       
       <!-- Header -->
@@ -337,7 +344,16 @@ export async function generateHajiContractPDF(haji, packageData = {}, opts = {})
     box-sizing: border-box;
   `;
   container.innerHTML = `
-    <link href="https://fonts.maateen.me/kalpurush/font.css" rel="stylesheet">
+    <style>
+      @font-face {
+        font-family: 'Kalpurush';
+        font-display: swap;
+        font-style: normal;
+        font-weight: 100 900;
+        src: url('/fonts/Kalpurush.woff2') format('woff2'),
+             url('/fonts/Kalpurush.ttf') format('truetype');
+      }
+    </style>
     ${contractHtml}
   `;
   document.body.appendChild(container);

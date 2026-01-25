@@ -77,17 +77,13 @@ export default async function RootLayout({ children }) {
       <head>
         {/* Font Preconnect */}
         <link rel="preconnect" href="https://fonts.cdnfonts.com" />
-        <link rel="preconnect" href="https://fonts.maateen.me" />
         
         {/* Google Fonts */}
         <link
           href="https://fonts.cdnfonts.com/css/google-sans"
           rel="stylesheet"
         />
-        <link
-          href="https://fonts.maateen.me/kalpurush/font.css"
-          rel="stylesheet"
-        />
+        {/* Kalpurush font is now self-hosted in /public/fonts/ and loaded via globals.css */}
         
         {/* Favicon */}
         <link rel="icon" type="image/png" href="/All_Logo/BIN-RASHID-LOGO.png" />
