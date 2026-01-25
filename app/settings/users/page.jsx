@@ -82,6 +82,7 @@ export default function UserManagement() {
         branchId: user.branchId || '',
         branchName: user.branchName || '',
         status: user.status || 'active',
+        image: user.image || null,
         createdAt: user.created_at
           ? new Date(user.created_at).toISOString().split('T')[0]
           : 'N/A',
@@ -444,8 +445,20 @@ export default function UserManagement() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-white" />
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-blue-600 dark:bg-blue-500 flex items-center justify-center shrink-0">
+                            {user.image ? (
+                              <img
+                                src={user.image}
+                                alt={user.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.parentElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+                                }}
+                              />
+                            ) : (
+                              <User className="h-5 w-5 text-white" />
+                            )}
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900 dark:text-white">

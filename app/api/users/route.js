@@ -24,6 +24,7 @@ export async function GET() {
       branchId: user.branchId || '',
       branchName: user.branchName || '',
       status: user.status || 'active',
+      image: user.image || user.profileImage || user.avatar || null,
       created_at: user.created_at || user._id.getTimestamp().toISOString(),
     }));
 
