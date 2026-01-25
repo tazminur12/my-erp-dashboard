@@ -1,13 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../../lib/branchHelper';
 
 // GET all categories
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const db = await getDb();
     const categoriesCollection = db.collection('operating_expense_categories');
 
-    const categories = await categoriesCollection.find({}).toArray();
+    // Categories can have branch filter or be shared
+    const categories = await categoriesCollection.find({ ...branchFilter }).toArray();
 
     // Format categories for frontend
     const formattedCategories = categories.map((category) => ({
@@ -46,6 +54,10 @@ export async function GET(request) {
 // POST create new category
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
 
     if (!body.name || !body.name.trim()) {
@@ -84,6 +96,8 @@ export async function POST(request) {
       monthlyAmount: Number(body.monthlyAmount) || 0,
       totalAmount: Number(body.totalAmount) || 0,
       itemCount: Number(body.itemCount) || 0,
+      branchId: branchInfo.branchId,
+      branchName: branchInfo.branchName,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

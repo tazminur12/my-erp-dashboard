@@ -3,12 +3,19 @@ import { ObjectId } from 'mongodb';
 import { getDb, getClient } from '../../../lib/mongodb';
 import { generateTransactionId, triggerFamilyRecomputeForHaji, triggerFamilyRecomputeForUmrah } from '../../../lib/transactionHelpers';
 import { createNotification } from '../../../lib/notificationHelpers';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../lib/branchHelper';
 
 // ✅ POST: Create new transaction
 export async function POST(request) {
-  let session = null;
+  let mongoSession = null;
 
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const userBranchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
     const {
       transactionType,
@@ -339,11 +346,22 @@ export async function POST(request) {
       party.name = party.assetName || party.name || 'Asset';
     }
 
-    // 3. Validate branch
+    // 3. Validate branch - Use logged-in user's branch or fallback
     let branch;
-    if (branchId) {
-      branch = await branches.findOne({ branchId, isActive: true });
-    } else {
+    const userBranchId = userBranchInfo.branchId || branchId;
+    
+    if (userBranchId) {
+      // Try to find by _id first (if it's an ObjectId)
+      if (ObjectId.isValid(userBranchId)) {
+        branch = await branches.findOne({ _id: new ObjectId(userBranchId), isActive: true });
+      }
+      // Then try by branchId field
+      if (!branch) {
+        branch = await branches.findOne({ branchId: userBranchId, isActive: true });
+      }
+    }
+    
+    if (!branch) {
       branch = await branches.findOne({ isActive: true });
     }
 
@@ -414,8 +432,8 @@ export async function POST(request) {
     }
 
     // 5. Start MongoDB session for atomic operations
-    session = client.startSession();
-    session.startTransaction();
+    mongoSession = client.startSession();
+    mongoSession.startTransaction();
 
     let transactionResult;
     let updatedAgent = null;
@@ -666,8 +684,8 @@ export async function POST(request) {
         
         console.log('🤖 Agent Update - Update Object:', JSON.stringify(agentUpdate, null, 2));
         
-        await agents.updateOne({ _id: party._id }, agentUpdate, { session });
-        const afterAgent = await agents.findOne({ _id: party._id }, { session });
+        await agents.updateOne({ _id: party._id }, agentUpdate, { session: mongoSession });
+        const afterAgent = await agents.findOne({ _id: party._id }, { session: mongoSession });
         
         console.log('🤖 Agent Update - After Update:', {
           totalDue: afterAgent.totalDue,
@@ -726,10 +744,10 @@ export async function POST(request) {
             hajPaid,
             umrahPaid
           });
-          await agents.updateOne({ _id: party._id }, { $set: setClampAgent }, { session });
+          await agents.updateOne({ _id: party._id }, { $set: setClampAgent }, { session: mongoSession });
         }
         
-        updatedAgent = await agents.findOne({ _id: party._id }, { session });
+        updatedAgent = await agents.findOne({ _id: party._id }, { session: mongoSession });
         
         console.log('🤖 Agent Update - Final:', {
           totalDue: updatedAgent.totalDue,
@@ -773,13 +791,13 @@ export async function POST(request) {
           console.log('✅ Adding to vendor totalPaid:', numericAmount);
         }
 
-        const updateResult = await vendors.updateOne({ _id: party._id }, vendorUpdate, { session });
+        const updateResult = await vendors.updateOne({ _id: party._id }, vendorUpdate, { session: mongoSession });
         console.log('📝 Vendor update result:', {
           matchedCount: updateResult.matchedCount,
           modifiedCount: updateResult.modifiedCount
         });
         
-        updatedVendor = await vendors.findOne({ _id: party._id }, { session });
+        updatedVendor = await vendors.findOne({ _id: party._id }, { session: mongoSession });
         console.log('✅ Vendor updated:', {
           newTotalPaid: updatedVendor?.totalPaid || 0,
           newTotalDue: updatedVendor?.totalDue || 0
@@ -817,8 +835,8 @@ export async function POST(request) {
         if (isAirCustomer && transactionType === 'debit') {
           customerUpdate.$inc.totalAmount = (customerUpdate.$inc.totalAmount || 0) + numericAmount;
         }
-        await customerCollection.updateOne({ _id: party._id }, customerUpdate, { session });
-        const after = await customerCollection.findOne({ _id: party._id }, { session });
+        await customerCollection.updateOne({ _id: party._id }, customerUpdate, { session: mongoSession });
+        const after = await customerCollection.findOne({ _id: party._id }, { session: mongoSession });
         // Clamp due fields to 0+
         const setClamp = {};
         if ((after.totalDue || 0) < 0) setClamp['totalDue'] = 0;
@@ -830,23 +848,23 @@ export async function POST(request) {
         }
         if (Object.keys(setClamp).length) {
           setClamp.updatedAt = new Date();
-          await customerCollection.updateOne({ _id: party._id }, { $set: setClamp }, { session });
+          await customerCollection.updateOne({ _id: party._id }, { $set: setClamp }, { session: mongoSession });
         }
-        updatedCustomer = await customerCollection.findOne({ _id: party._id }, { session });
+        updatedCustomer = await customerCollection.findOne({ _id: party._id }, { session: mongoSession });
 
         // Additionally, if this customer also exists in the Haji collection by id/customerId, update paidAmount there on credit
         if (transactionType === 'credit') {
           const hajiCond = ObjectId.isValid(finalPartyId)
             ? { $or: [{ customerId: finalPartyId }, { _id: new ObjectId(finalPartyId) }], isActive: { $ne: false } }
             : { $or: [{ customerId: finalPartyId }, { _id: finalPartyId }], isActive: { $ne: false } };
-          const hajiDoc = await haji.findOne(hajiCond, { session });
+          const hajiDoc = await haji.findOne(hajiCond, { session: mongoSession });
           if (hajiDoc && hajiDoc._id) {
             await haji.updateOne(
               { _id: hajiDoc._id },
               { $inc: { paidAmount: numericAmount }, $set: { updatedAt: new Date() } },
               { session }
             );
-            const afterH = await haji.findOne({ _id: hajiDoc._id }, { session });
+            const afterH = await haji.findOne({ _id: hajiDoc._id }, { session: mongoSession });
             const clampH = {};
             if ((afterH.paidAmount || 0) < 0) clampH.paidAmount = 0;
             if (typeof afterH.totalAmount === 'number' && typeof afterH.paidAmount === 'number' && afterH.paidAmount > afterH.totalAmount) {
@@ -854,9 +872,9 @@ export async function POST(request) {
             }
             if (Object.keys(clampH).length) {
               clampH.updatedAt = new Date();
-              await haji.updateOne({ _id: hajiDoc._id }, { $set: clampH }, { session });
+              await haji.updateOne({ _id: hajiDoc._id }, { $set: clampH }, { session: mongoSession });
             }
-            await triggerFamilyRecomputeForHaji(afterH, { session });
+            await triggerFamilyRecomputeForHaji(afterH, { session: mongoSession });
           }
           
           // Additionally, if this customer also exists in the Umrah collection by id/customerId, update paidAmount there on credit
@@ -864,9 +882,9 @@ export async function POST(request) {
           const umrahCond = ObjectId.isValid(finalPartyId)
             ? { $or: [{ customerId: finalPartyId }, { _id: new ObjectId(finalPartyId) }] }
             : { $or: [{ customerId: finalPartyId }, { _id: finalPartyId }] };
-          const umrahDoc = await umrah.findOne(umrahCond, { session });
+          const umrahDoc = await umrah.findOne(umrahCond, { session: mongoSession });
           if (umrahDoc && umrahDoc._id) {
-            const beforeU = await umrah.findOne({ _id: umrahDoc._id }, { session });
+            const beforeU = await umrah.findOne({ _id: umrahDoc._id }, { session: mongoSession });
             const currentPaidAmount = Number(beforeU?.paidAmount || 0);
             const newPaidAmount = currentPaidAmount + numericAmount;
             
@@ -881,7 +899,7 @@ export async function POST(request) {
               },
               { session }
             );
-            const afterU = await umrah.findOne({ _id: umrahDoc._id }, { session });
+            const afterU = await umrah.findOne({ _id: umrahDoc._id }, { session: mongoSession });
             const clampU = {};
             if (afterU && (afterU.paidAmount === undefined || afterU.paidAmount === null || Number(afterU.paidAmount) < 0)) {
               clampU.paidAmount = 0;
@@ -893,7 +911,7 @@ export async function POST(request) {
             }
             if (Object.keys(clampU).length) {
               clampU.updatedAt = new Date();
-              await umrah.updateOne({ _id: umrahDoc._id }, { $set: clampU }, { session });
+              await umrah.updateOne({ _id: umrahDoc._id }, { $set: clampU }, { session: mongoSession });
             }
           }
         }
@@ -917,7 +935,7 @@ export async function POST(request) {
         // Update Haji paidAmount on credit
         if (transactionType === 'credit') {
           console.log(`💰 Updating haji paidAmount: +${numericAmount} for haji ID: ${party._id}`);
-          const beforeHaji = await haji.findOne({ _id: party._id }, { session });
+          const beforeHaji = await haji.findOne({ _id: party._id }, { session: mongoSession });
           console.log('📊 Haji before update:', {
             paidAmount: beforeHaji?.paidAmount,
             totalAmount: beforeHaji?.totalAmount,
@@ -946,7 +964,7 @@ export async function POST(request) {
             { session }
           );
           
-          const afterHaji = await haji.findOne({ _id: party._id }, { session });
+          const afterHaji = await haji.findOne({ _id: party._id }, { session: mongoSession });
           
           console.log('📊 Haji after update:', {
             paidAmount: afterHaji?.paidAmount,
@@ -967,15 +985,15 @@ export async function POST(request) {
           if (Object.keys(setClampHaji).length) {
             console.log('🔧 Clamping haji values:', setClampHaji);
             setClampHaji.updatedAt = new Date();
-            await haji.updateOne({ _id: party._id }, { $set: setClampHaji }, { session });
+            await haji.updateOne({ _id: party._id }, { $set: setClampHaji }, { session: mongoSession });
             // Re-fetch after clamp
-            const afterClamp = await haji.findOne({ _id: party._id }, { session });
+            const afterClamp = await haji.findOne({ _id: party._id }, { session: mongoSession });
             console.log('📊 Haji after clamp:', {
               paidAmount: afterClamp?.paidAmount,
               totalAmount: afterClamp?.totalAmount
             });
           }
-          await triggerFamilyRecomputeForHaji(afterHaji || await haji.findOne({ _id: party._id }, { session }), { session });
+          await triggerFamilyRecomputeForHaji(afterHaji || await haji.findOne({ _id: party._id }, { session: mongoSession }), { session: mongoSession });
           console.log('✅ Haji paidAmount updated successfully');
         } else {
           console.log('⚠️ Transaction type is not credit, skipping haji paidAmount update');
@@ -988,7 +1006,7 @@ export async function POST(request) {
             const customerCond = ObjectId.isValid(linkedCustomerId)
               ? { $or: [{ _id: new ObjectId(linkedCustomerId) }, { customerId: linkedCustomerId }], isActive: { $ne: false } }
               : { $or: [{ _id: linkedCustomerId }, { customerId: linkedCustomerId }], isActive: { $ne: false } };
-            const custDoc = await airCustomers.findOne(customerCond, { session });
+            const custDoc = await airCustomers.findOne(customerCond, { session: mongoSession });
             if (custDoc && custDoc._id) {
               const dueDelta = transactionType === 'debit' ? numericAmount : (transactionType === 'credit' ? -numericAmount : 0);
               const customerUpdate = { $set: { updatedAt: new Date() }, $inc: { totalDue: dueDelta } };
@@ -996,10 +1014,10 @@ export async function POST(request) {
               if (isUmrahCategory) customerUpdate.$inc.umrahDue = (customerUpdate.$inc.umrahDue || 0) + dueDelta;
               if (transactionType === 'credit') customerUpdate.$inc.paidAmount = (customerUpdate.$inc.paidAmount || 0) + numericAmount;
 
-              await airCustomers.updateOne({ _id: custDoc._id }, customerUpdate, { session });
+              await airCustomers.updateOne({ _id: custDoc._id }, customerUpdate, { session: mongoSession });
 
               // Clamp negatives and overpayments
-              const afterCust = await airCustomers.findOne({ _id: custDoc._id }, { session });
+              const afterCust = await airCustomers.findOne({ _id: custDoc._id }, { session: mongoSession });
               const clampCust = {};
               if ((afterCust.totalDue || 0) < 0) clampCust.totalDue = 0;
               if ((afterCust.paidAmount || 0) < 0) clampCust.paidAmount = 0;
@@ -1010,7 +1028,7 @@ export async function POST(request) {
               }
               if (Object.keys(clampCust).length) {
                 clampCust.updatedAt = new Date();
-                await airCustomers.updateOne({ _id: custDoc._id }, { $set: clampCust }, { session });
+                await airCustomers.updateOne({ _id: custDoc._id }, { $set: clampCust }, { session: mongoSession });
               }
             }
           }
@@ -1030,7 +1048,7 @@ export async function POST(request) {
         if (transactionType === 'credit') {
           console.log('💰 Updating umrah paidAmount: +' + numericAmount + ' for umrah ID: ' + party._id);
           
-          const beforeUmrah = await umrah.findOne({ _id: party._id }, { session });
+          const beforeUmrah = await umrah.findOne({ _id: party._id }, { session: mongoSession });
           const currentPaidAmount = Number(beforeUmrah?.paidAmount || 0);
           const newPaidAmount = currentPaidAmount + numericAmount;
           
@@ -1058,7 +1076,7 @@ export async function POST(request) {
             { session }
           );
           
-          const afterUmrah = await umrah.findOne({ _id: party._id }, { session });
+          const afterUmrah = await umrah.findOne({ _id: party._id }, { session: mongoSession });
           
           console.log('📊 Umrah after update:', {
             paidAmount: afterUmrah?.paidAmount,
@@ -1079,9 +1097,9 @@ export async function POST(request) {
           if (Object.keys(setClampUmrah).length) {
             console.log('🔧 Clamping umrah values:', setClampUmrah);
             setClampUmrah.updatedAt = new Date();
-            await umrah.updateOne({ _id: party._id }, { $set: setClampUmrah }, { session });
+            await umrah.updateOne({ _id: party._id }, { $set: setClampUmrah }, { session: mongoSession });
             // Re-fetch after clamp
-            const afterClamp = await umrah.findOne({ _id: party._id }, { session });
+            const afterClamp = await umrah.findOne({ _id: party._id }, { session: mongoSession });
             console.log('📊 Umrah after clamp:', {
               paidAmount: afterClamp?.paidAmount,
               totalAmount: afterClamp?.totalAmount
@@ -1091,14 +1109,14 @@ export async function POST(request) {
           console.log('✅ Umrah paidAmount updated successfully');
           
           // Final verification before commit
-          const finalUmrah = await umrah.findOne({ _id: party._id }, { session });
+          const finalUmrah = await umrah.findOne({ _id: party._id }, { session: mongoSession });
           console.log('🔍 Final umrah check before commit:', {
             _id: finalUmrah?._id,
             paidAmount: finalUmrah?.paidAmount,
             totalAmount: finalUmrah?.totalAmount
           });
           
-          await triggerFamilyRecomputeForUmrah(finalUmrah, { session });
+          await triggerFamilyRecomputeForUmrah(finalUmrah, { session: mongoSession });
         }
 
         // Sync to linked customer (if exists via customerId)
@@ -1108,17 +1126,17 @@ export async function POST(request) {
             const customerCond = ObjectId.isValid(linkedCustomerId)
               ? { $or: [{ _id: new ObjectId(linkedCustomerId) }, { customerId: linkedCustomerId }], isActive: { $ne: false } }
               : { $or: [{ _id: linkedCustomerId }, { customerId: linkedCustomerId }], isActive: { $ne: false } };
-            const custDoc = await airCustomers.findOne(customerCond, { session });
+            const custDoc = await airCustomers.findOne(customerCond, { session: mongoSession });
             if (custDoc && custDoc._id) {
               const dueDelta = transactionType === 'debit' ? numericAmount : (transactionType === 'credit' ? -numericAmount : 0);
               const customerUpdate = { $set: { updatedAt: new Date() }, $inc: { totalDue: dueDelta } };
               if (isUmrahCategory) customerUpdate.$inc.umrahDue = (customerUpdate.$inc.umrahDue || 0) + dueDelta;
               if (transactionType === 'credit') customerUpdate.$inc.paidAmount = (customerUpdate.$inc.paidAmount || 0) + numericAmount;
 
-              await airCustomers.updateOne({ _id: custDoc._id }, customerUpdate, { session });
+              await airCustomers.updateOne({ _id: custDoc._id }, customerUpdate, { session: mongoSession });
 
               // Clamp negatives and overpayments
-              const afterCust = await airCustomers.findOne({ _id: custDoc._id }, { session });
+              const afterCust = await airCustomers.findOne({ _id: custDoc._id }, { session: mongoSession });
               const clampCust = {};
               if ((afterCust.totalDue || 0) < 0) clampCust.totalDue = 0;
               if ((afterCust.paidAmount || 0) < 0) clampCust.paidAmount = 0;
@@ -1128,7 +1146,7 @@ export async function POST(request) {
               }
               if (Object.keys(clampCust).length) {
                 clampCust.updatedAt = new Date();
-                await airCustomers.updateOne({ _id: custDoc._id }, { $set: clampCust }, { session });
+                await airCustomers.updateOne({ _id: custDoc._id }, { $set: clampCust }, { session: mongoSession });
               }
             }
           }
@@ -1173,10 +1191,10 @@ export async function POST(request) {
         }
 
         loanUpdate.$inc.totalDue = dueDelta;
-        const updateResult = await loansCollection.updateOne({ _id: party._id }, loanUpdate, { session });
+        const updateResult = await loansCollection.updateOne({ _id: party._id }, loanUpdate, { session: mongoSession });
         console.log('📝 Loan update result:', { modifiedCount: updateResult.modifiedCount });
         
-        const afterLoan = await loansCollection.findOne({ _id: party._id }, { session });
+        const afterLoan = await loansCollection.findOne({ _id: party._id }, { session: mongoSession });
         const clampLoan = {};
         if ((afterLoan?.totalDue || 0) < 0) clampLoan.totalDue = 0;
         if ((afterLoan?.paidAmount || 0) < 0) clampLoan.paidAmount = 0;
@@ -1186,10 +1204,10 @@ export async function POST(request) {
         }
         if (Object.keys(clampLoan).length) {
           clampLoan.updatedAt = new Date();
-          await loansCollection.updateOne({ _id: party._id }, { $set: clampLoan }, { session });
+          await loansCollection.updateOne({ _id: party._id }, { $set: clampLoan }, { session: mongoSession });
         }
         // Ensure loan is marked Active once any transaction is recorded against it
-        await loansCollection.updateOne({ _id: party._id, status: { $ne: 'Active' } }, { $set: { status: 'Active', updatedAt: new Date() } }, { session });
+        await loansCollection.updateOne({ _id: party._id, status: { $ne: 'Active' } }, { $set: { status: 'Active', updatedAt: new Date() } }, { session: mongoSession });
         
         console.log('✅ Loan balance updated:', {
           loanId: afterLoan?.loanId || afterLoan?._id?.toString(),
@@ -1233,7 +1251,7 @@ export async function POST(request) {
 
         console.log('📝 Investment update result:', { modifiedCount: updateResult.modifiedCount });
 
-        const afterInvestment = await investmentCollection.findOne({ _id: party._id }, { session });
+        const afterInvestment = await investmentCollection.findOne({ _id: party._id }, { session: mongoSession });
         
         // Clamp negative values
         const clampInvestment = {};
@@ -1279,12 +1297,12 @@ export async function POST(request) {
         }
       }
 
-      transactionResult = await transactions.insertOne(transactionData, { session });
+      transactionResult = await transactions.insertOne(transactionData, { session: mongoSession });
 
       // 8.12 Update Operating Expense Category balance if applicable
       if (finalOperatingExpenseCategoryId && ObjectId.isValid(String(finalOperatingExpenseCategoryId))) {
         const categoryId = new ObjectId(String(finalOperatingExpenseCategoryId));
-        const category = await operatingExpenseCategories.findOne({ _id: categoryId }, { session });
+        const category = await operatingExpenseCategories.findOne({ _id: categoryId }, { session: mongoSession });
         
         if (category) {
           console.log('💰 Updating operating expense category balance:', {
@@ -1314,7 +1332,7 @@ export async function POST(request) {
             { session }
           );
 
-          const updatedCategory = await operatingExpenseCategories.findOne({ _id: categoryId }, { session });
+          const updatedCategory = await operatingExpenseCategories.findOne({ _id: categoryId }, { session: mongoSession });
           console.log('✅ Operating expense category updated:', {
             categoryId: categoryId.toString(),
             categoryName: updatedCategory?.name,
@@ -1329,7 +1347,7 @@ export async function POST(request) {
 
       // 8.13 Final verification: Re-check haji paidAmount before commit
       if (finalPartyType === 'haji' && party && party._id && transactionType === 'credit') {
-        const finalHajiCheck = await haji.findOne({ _id: party._id }, { session });
+        const finalHajiCheck = await haji.findOne({ _id: party._id }, { session: mongoSession });
         console.log('🔍 Final haji check before commit:', {
           _id: finalHajiCheck?._id,
           paidAmount: finalHajiCheck?.paidAmount,
@@ -1345,14 +1363,14 @@ export async function POST(request) {
             { $set: { paidAmount: currentPaid + numericAmount, updatedAt: new Date() } },
             { session }
           );
-          const afterFinal = await haji.findOne({ _id: party._id }, { session });
+          const afterFinal = await haji.findOne({ _id: party._id }, { session: mongoSession });
           console.log('✅ Final paidAmount set:', afterFinal?.paidAmount);
         }
       }
 
       // 9. Commit transaction
       console.log('💾 Committing transaction...');
-      await session.commitTransaction();
+      await mongoSession.commitTransaction();
       console.log('✅ Transaction committed successfully');
 
       // Create real-time notification for new transaction
@@ -1424,13 +1442,13 @@ export async function POST(request) {
       });
 
     } catch (transactionError) {
-      await session.abortTransaction();
+      await mongoSession.abortTransaction();
       throw transactionError;
     }
 
   } catch (err) {
-    if (session && session.inTransaction()) {
-      await session.abortTransaction();
+    if (mongoSession && mongoSession.inTransaction()) {
+      await mongoSession.abortTransaction();
     }
 
     console.error('Transaction creation error:', err);
@@ -1439,8 +1457,8 @@ export async function POST(request) {
       message: err.message
     }, { status: 500 });
   } finally {
-    if (session) {
-      session.endSession();
+    if (mongoSession) {
+      mongoSession.endSession();
     }
   }
 }
@@ -1448,12 +1466,16 @@ export async function POST(request) {
 // ✅ GET: List transactions with filters and pagination (IMPROVED VERSION)
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const partyType = searchParams.get('partyType');
     const partyId = searchParams.get('partyId');
     const transactionType = searchParams.get('transactionType');
     const serviceCategory = searchParams.get('serviceCategory') || searchParams.get('category');
-    const branchId = searchParams.get('branchId');
+    const selectedBranchId = searchParams.get('branchId'); // For super admin to filter specific branch
     const accountId = searchParams.get('accountId');
     const scope = searchParams.get('scope');
     const categoryId = searchParams.get('categoryId');
@@ -1528,13 +1550,22 @@ export async function GET(request) {
       });
     }
 
-    const filter = { isActive: { $ne: false } };
+    // Apply branch filter based on user role
+    const filter = { isActive: { $ne: false }, ...branchFilter };
+    
+    // Super admin can override branch filter with specific branch selection
+    if (selectedBranchId && userSession?.user?.role === 'super_admin') {
+      if (selectedBranchId !== 'all') {
+        filter.branchId = String(selectedBranchId);
+      } else {
+        delete filter.branchId; // Show all branches for super admin
+      }
+    }
 
     if (partyType) filter.partyType = String(partyType);
     if (partyId) filter.partyId = String(partyId);
     if (transactionType) filter.transactionType = String(transactionType);
     if (serviceCategory) filter.serviceCategory = String(serviceCategory);
-    if (branchId) filter.branchId = String(branchId);
     if (accountId) {
       filter.$or = [
         { targetAccountId: String(accountId) },

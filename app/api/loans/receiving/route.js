@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../../lib/branchHelper';
 
 // POST create new loan receiving
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
 
     // Validation
@@ -80,7 +87,8 @@ export async function POST(request) {
       loanDirection: 'receiving',
       type: 'receiving',
       createdBy: body.createdBy || 'unknown_user',
-      branchId: body.branchId || 'main_branch',
+      branchId: branchInfo.branchId || body.branchId || 'main_branch',
+      branchName: branchInfo.branchName || body.branchName || '',
       status: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -121,6 +129,10 @@ export async function POST(request) {
 // GET all receiving loans with search and filters
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || searchParams.get('q');
     const status = searchParams.get('status');
@@ -130,10 +142,11 @@ export async function GET(request) {
     const db = await getDb();
     const loansCollection = db.collection('loans_receiving');
 
-    // Build query
+    // Build query with branch filter
     const query = {
       loanDirection: 'receiving',
-      type: 'receiving'
+      type: 'receiving',
+      ...branchFilter
     };
     
     if (status && status !== 'all') {

@@ -1,16 +1,27 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
+import { getBranchFilterWithOverride, isSuperAdmin } from '../../../lib/branchHelper';
 
 // GET unified dashboard summary - all data in one API call
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    
     const { searchParams } = new URL(request.url);
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
+    const selectedBranchId = searchParams.get('branchId'); // For super admin to select specific branch
 
     const db = await getDb();
+    
+    // Get branch filter based on user role
+    const branchFilter = getBranchFilterWithOverride(userSession, selectedBranchId);
+    const isAdmin = isSuperAdmin(userSession);
 
-    // Fetch all data in parallel
+    // Fetch all data in parallel with branch filter
     const [
       hajis,
       umrahs,
@@ -25,21 +36,21 @@ export async function GET(request) {
       branches,
       bankAccounts,
     ] = await Promise.all([
-      db.collection('hajis').find({}).toArray(),
-      db.collection('umrahs').find({ service_type: 'umrah' }).toArray(),
-      db.collection('agents').find({}).toArray(),
-      db.collection('packages').find({}).toArray(),
+      db.collection('hajis').find({ ...branchFilter }).toArray(),
+      db.collection('umrahs').find({ service_type: 'umrah', ...branchFilter }).toArray(),
+      db.collection('agents').find({ ...branchFilter }).toArray(),
+      db.collection('packages').find({}).toArray(), // Packages are shared
       db
         .collection('money_exchanges')
-        .find({ isActive: { $ne: false } })
+        .find({ isActive: { $ne: false }, ...branchFilter })
         .toArray(),
-      db.collection('loans_receiving').find({}).toArray(),
-      db.collection('loans_giving').find({}).toArray(),
-      db.collection('vendors').find({}).toArray(),
-      db.collection('vendor_bills').find({}).toArray(),
-      db.collection('users').find({}).toArray(),
-      db.collection('branches').find({}).toArray(),
-      db.collection('bank_accounts').find({}).toArray(),
+      db.collection('loans_receiving').find({ ...branchFilter }).toArray(),
+      db.collection('loans_giving').find({ ...branchFilter }).toArray(),
+      db.collection('vendors').find({ ...branchFilter }).toArray(),
+      db.collection('vendor_bills').find({ ...branchFilter }).toArray(),
+      db.collection('users').find({}).toArray(), // Users list is for admin only
+      db.collection('branches').find({}).toArray(), // All branches for dropdown
+      db.collection('bank_accounts').find({ ...branchFilter }).toArray(),
     ]);
 
     // ========== HAJJ & UMRAH ==========
@@ -211,6 +222,28 @@ export async function GET(request) {
       totalBranches: branches.length,
     };
 
+    // ========== BRANCH INFO FOR SUPER ADMIN ==========
+    const branchInfo = {
+      isSuperAdmin: isAdmin,
+      currentBranchId: selectedBranchId || userSession?.user?.branchId || 'all',
+      currentBranchName: selectedBranchId 
+        ? branches.find(b => b._id?.toString() === selectedBranchId || b.branchId === selectedBranchId)?.name || 
+          branches.find(b => b._id?.toString() === selectedBranchId || b.branchId === selectedBranchId)?.branchName || 
+          'Selected Branch'
+        : userSession?.user?.branchName || 'All Branches',
+      availableBranches: isAdmin 
+        ? [
+            { id: 'all', name: 'All Branches', branchName: 'All Branches' },
+            ...branches.map(b => ({
+              id: b._id?.toString() || b.branchId,
+              branchId: b.branchId,
+              name: b.name || b.branchName,
+              branchName: b.branchName || b.name,
+            }))
+          ]
+        : [],
+    };
+
     // ========== RESPONSE ==========
     return NextResponse.json(
       {
@@ -291,6 +324,7 @@ export async function GET(request) {
               currentBalance: cashAccount.currentBalance || cashAccount.initialBalance || 0,
             }
           : null,
+        branchInfo, // Branch filter info for frontend
       },
       { status: 200 }
     );

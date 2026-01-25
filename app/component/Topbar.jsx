@@ -14,7 +14,8 @@ import {
   LogOut,
   ChevronDown,
   HelpCircle,
-  MessageSquare
+  MessageSquare,
+  Building2
 } from 'lucide-react';
 
 const Topbar = ({ onMenuClick }) => {
@@ -311,9 +312,17 @@ const Topbar = ({ onMenuClick }) => {
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   {user?.name || session?.user?.name || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                  {user?.role || session?.user?.role || 'user'}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                    {user?.role || session?.user?.role || 'user'}
+                  </p>
+                  {(user?.branchName || session?.user?.branchName) && (
+                    <span className="flex items-center gap-0.5 text-xs text-blue-600 dark:text-blue-400">
+                      <Building2 className="h-3 w-3" />
+                      {user?.branchName || session?.user?.branchName}
+                    </span>
+                  )}
+                </div>
               </div>
               <ChevronDown className="hidden sm:block h-4 w-4 text-gray-500 dark:text-gray-400" />
             </button>
@@ -348,9 +357,17 @@ const Topbar = ({ onMenuClick }) => {
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {user?.email || session?.user?.email || 'user@example.com'}
                       </p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 mt-1 capitalize">
-                        {user?.role || session?.user?.role || 'user'}
-                      </span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 capitalize">
+                          {user?.role || session?.user?.role || 'user'}
+                        </span>
+                        {(user?.branchName || session?.user?.branchName) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                            <Building2 className="h-3 w-3" />
+                            {user?.branchName || session?.user?.branchName}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

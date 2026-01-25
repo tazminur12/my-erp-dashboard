@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../lib/branchHelper';
 
 // GET all vendors
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // Optional filter by status
 
     const db = await getDb();
     const vendorsCollection = db.collection('vendors');
 
-    // Build query - show all vendors (deleted vendors are permanently removed)
-    const query = {};
+    // Build query with branch filter
+    const query = { ...branchFilter };
     if (status) {
       query.status = status;
     }
@@ -59,6 +66,10 @@ export async function GET(request) {
 // POST create new vendor
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
     const { tradeName, tradeLocation, ownerName, contactNo, dob, nid, passport, logo } = body;
 
@@ -156,7 +167,7 @@ export async function POST(request) {
     
     const vendorId = `VN${String(maxNumber + 1).padStart(5, '0')}`;
 
-    // Create new vendor
+    // Create new vendor with branch info
     const newVendor = {
       vendorId: vendorId,
       tradeName: tradeName.trim(),
@@ -170,6 +181,8 @@ export async function POST(request) {
       totalPaid: 0,
       totalDue: 0,
       status: 'active',
+      branchId: branchInfo.branchId,
+      branchName: branchInfo.branchName,
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -202,6 +215,10 @@ export async function POST(request) {
 // POST bulk create vendors (for Excel upload)
 export async function PUT(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
     const vendors = Array.isArray(body) ? body : [body];
 
@@ -262,7 +279,7 @@ export async function PUT(request) {
           continue;
         }
 
-        // Create new vendor
+        // Create new vendor with branch info
         const newVendor = {
           tradeName: tradeName.trim(),
           tradeLocation: tradeLocation.trim(),
@@ -275,6 +292,8 @@ export async function PUT(request) {
           totalPaid: 0,
           totalDue: 0,
           status: 'active',
+          branchId: branchInfo.branchId,
+          branchName: branchInfo.branchName,
           created_at: new Date(),
           updated_at: new Date(),
         };

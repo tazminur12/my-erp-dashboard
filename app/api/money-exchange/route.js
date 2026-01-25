@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../lib/branchHelper';
 
 // GET all money exchanges
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const type = searchParams.get('type'); // 'Buy' or 'Sell'
@@ -17,8 +24,8 @@ export async function GET(request) {
     const db = await getDb();
     const exchangesCollection = db.collection('money_exchanges');
 
-    // Build query
-    const query = {};
+    // Build query with branch filter
+    const query = { ...branchFilter };
     
     if (type) {
       query.type = type;
@@ -130,6 +137,10 @@ export async function GET(request) {
 // POST create new money exchange
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
 
     // Validation
@@ -209,6 +220,8 @@ export async function POST(request) {
       amount_bdt: amount_bdt,
       customerType: body.customerType || 'normal',
       dilarId: body.dilarId || body.selectedDilarId || '',
+      branchId: branchInfo.branchId,
+      branchName: branchInfo.branchName,
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),

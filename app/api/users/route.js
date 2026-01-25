@@ -21,6 +21,8 @@ export async function GET() {
       email: user.email,
       phone: user.phone || 'N/A',
       role: user.role || 'user',
+      branchId: user.branchId || '',
+      branchName: user.branchName || '',
       status: user.status || 'active',
       created_at: user.created_at || user._id.getTimestamp().toISOString(),
     }));
@@ -39,7 +41,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, role, password } = body;
+    const { name, email, phone, role, branchId, branchName, password } = body;
 
     // Validation
     if (!email || !password) {
@@ -52,6 +54,13 @@ export async function POST(request) {
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (!branchId) {
+      return NextResponse.json(
+        { error: 'Branch is required' },
         { status: 400 }
       );
     }
@@ -77,6 +86,8 @@ export async function POST(request) {
       email,
       phone: phone || '',
       role: role || 'reservation',
+      branchId: branchId || '',
+      branchName: branchName || '',
       password: hashedPassword,
       status: 'active',
       created_at: new Date(),
@@ -92,6 +103,8 @@ export async function POST(request) {
       email: newUser.email,
       phone: newUser.phone,
       role: newUser.role,
+      branchId: newUser.branchId,
+      branchName: newUser.branchName,
       status: newUser.status,
       created_at: newUser.created_at.toISOString(),
     };

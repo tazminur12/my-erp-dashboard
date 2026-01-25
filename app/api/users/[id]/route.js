@@ -5,9 +5,10 @@ import { getDb } from '../../../../lib/mongodb';
 // PUT update user
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
     const body = await request.json();
-    const { name, email, phone, role } = body;
+    const { name, email, phone, role, branchId, branchName } = body;
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -48,6 +49,8 @@ export async function PUT(request, { params }) {
     if (email !== undefined) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone;
     if (role !== undefined) updateData.role = role;
+    if (branchId !== undefined) updateData.branchId = branchId;
+    if (branchName !== undefined) updateData.branchName = branchName;
 
     await usersCollection.updateOne(
       { _id: new ObjectId(id) },
@@ -66,6 +69,8 @@ export async function PUT(request, { params }) {
       email: updatedUser.email,
       phone: updatedUser.phone || 'N/A',
       role: updatedUser.role || 'user',
+      branchId: updatedUser.branchId || '',
+      branchName: updatedUser.branchName || '',
       status: updatedUser.status || 'active',
       created_at: updatedUser.created_at || updatedUser._id.getTimestamp().toISOString(),
     };
@@ -86,7 +91,8 @@ export async function PUT(request, { params }) {
 // DELETE user
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(

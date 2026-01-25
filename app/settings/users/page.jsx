@@ -11,7 +11,10 @@ import {
   User,
   X,
   Save,
-  Loader2
+  Loader2,
+  Building2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const roles = [
@@ -23,20 +26,37 @@ const roles = [
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     role: 'reservation',
+    branchId: '',
     password: '',
     confirmPassword: '',
   });
+
+  const fetchBranches = useCallback(async () => {
+    try {
+      const response = await fetch('/api/branches?status=active');
+      const responseData = await response.json();
+
+      if (response.ok) {
+        setBranches(responseData.branches || []);
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -59,6 +79,8 @@ export default function UserManagement() {
         email: user.email,
         phone: user.phone || 'N/A',
         role: user.role || 'user',
+        branchId: user.branchId || '',
+        branchName: user.branchName || '',
         status: user.status || 'active',
         createdAt: user.created_at
           ? new Date(user.created_at).toISOString().split('T')[0]
@@ -83,9 +105,10 @@ export default function UserManagement() {
     }
   }, []);
 
-  // Fetch users from API
+  // Fetch users and branches from API
   useEffect(() => {
     fetchUsers();
+    fetchBranches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -103,6 +126,7 @@ export default function UserManagement() {
         email: user.email,
         phone: user.phone,
         role: user.role,
+        branchId: user.branchId || '',
         password: '',
         confirmPassword: '',
       });
@@ -113,6 +137,7 @@ export default function UserManagement() {
         email: '',
         phone: '',
         role: 'reservation',
+        branchId: '',
         password: '',
         confirmPassword: '',
       });
@@ -123,11 +148,14 @@ export default function UserManagement() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingUser(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setFormData({
       name: '',
       email: '',
       phone: '',
       role: 'reservation',
+      branchId: '',
       password: '',
       confirmPassword: '',
     });
@@ -163,6 +191,10 @@ export default function UserManagement() {
         return;
       }
 
+      // Find selected branch name
+      const selectedBranch = branches.find(b => b.id === formData.branchId);
+      const branchName = selectedBranch?.name || selectedBranch?.branchName || '';
+
       if (editingUser) {
         // Update user via API
         const response = await fetch(`/api/users/${editingUser.id}`, {
@@ -175,6 +207,8 @@ export default function UserManagement() {
             email: formData.email,
             phone: formData.phone,
             role: formData.role,
+            branchId: formData.branchId,
+            branchName: branchName,
           }),
         });
 
@@ -194,6 +228,8 @@ export default function UserManagement() {
             email: formData.email,
             phone: formData.phone,
             role: formData.role,
+            branchId: formData.branchId,
+            branchName: branchName,
             password: formData.password,
           }),
         });
@@ -377,6 +413,9 @@ export default function UserManagement() {
                       Contact
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Branch
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Role
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -393,7 +432,7 @@ export default function UserManagement() {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan="7" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         {searchTerm ? 'No users found matching your search' : 'No users found'}
                       </td>
                     </tr>
@@ -421,6 +460,12 @@ export default function UserManagement() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
                           {user.phone}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center text-sm text-gray-900 dark:text-white">
+                          <Building2 className="h-4 w-4 mr-1 text-gray-400" />
+                          {user.branchName || 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -561,41 +606,80 @@ export default function UserManagement() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Branch
+                  </label>
+                  <select
+                    required
+                    value={formData.branchId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, branchId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                  >
+                    <option value="">Select Branch</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name || branch.branchName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {!editingUser && (
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Password
                       </label>
-                      <input
-                        type="password"
-                        required={!editingUser}
-                        value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                        placeholder="Enter password"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required={!editingUser}
+                          value={formData.password}
+                          onChange={(e) =>
+                            setFormData({ ...formData, password: e.target.value })
+                          }
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                          placeholder="Enter password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Confirm Password
                       </label>
-                      <input
-                        type="password"
-                        required={!editingUser}
-                        value={formData.confirmPassword}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            confirmPassword: e.target.value,
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                        placeholder="Confirm password"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          required={!editingUser}
+                          value={formData.confirmPassword}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              confirmPassword: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                          placeholder="Confirm password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}

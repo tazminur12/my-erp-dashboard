@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../../lib/branchHelper';
 
 // GET all umrahs
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit')) || 100;
     const page = parseInt(searchParams.get('page')) || 1;
@@ -15,8 +22,8 @@ export async function GET(request) {
     const db = await getDb();
     const umrahsCollection = db.collection('umrahs');
 
-    // Build query
-    const query = { service_type: 'umrah' };
+    // Build query with branch filter
+    const query = { service_type: 'umrah', ...branchFilter };
     
     // Handle packageId filter
     if (packageId) {
@@ -154,6 +161,10 @@ export async function GET(request) {
 // POST create new umrah
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const branchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
 
     // Validation
@@ -258,6 +269,8 @@ export async function POST(request) {
       passport_copy_url: body.passport_copy || body.passport_copy_url || '',
       nid_copy: body.nid_copy || body.nid_copy_url || '',
       nid_copy_url: body.nid_copy || body.nid_copy_url || '',
+      branchId: branchInfo.branchId,
+      branchName: branchInfo.branchName,
       created_at: new Date(),
       updated_at: new Date(),
     };

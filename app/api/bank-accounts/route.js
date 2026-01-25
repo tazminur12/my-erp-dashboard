@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
+import { getBranchFilter, getBranchInfo } from '../../../lib/branchHelper';
 
 // GET all bank accounts
 export async function GET(request) {
   try {
+    // Get user session for branch filtering
+    const userSession = await getServerSession(authOptions);
+    const branchFilter = getBranchFilter(userSession);
+    
     const { searchParams } = new URL(request.url);
     const accountCategory = searchParams.get('accountCategory'); // Optional filter
     const status = searchParams.get('status'); // Optional filter by status
@@ -11,8 +18,8 @@ export async function GET(request) {
     const db = await getDb();
     const bankAccountsCollection = db.collection('bank_accounts');
 
-    // Build query
-    const query = {};
+    // Build query with branch filter
+    const query = { ...branchFilter };
     if (accountCategory) {
       query.accountCategory = accountCategory;
     }
@@ -69,6 +76,10 @@ export async function GET(request) {
 // POST create new bank account
 export async function POST(request) {
   try {
+    // Get user session for branch info
+    const userSession = await getServerSession(authOptions);
+    const userBranchInfo = getBranchInfo(userSession);
+    
     const body = await request.json();
     const {
       bankName,
@@ -198,7 +209,8 @@ export async function POST(request) {
       currency: currency || 'BDT',
       contactNumber: contactNumber ? contactNumber.trim() : '',
       createdBy: createdBy || '',
-      branchId: branchId || '',
+      branchId: userBranchInfo.branchId || branchId || '',
+      userBranchName: userBranchInfo.branchName || '',
       status: 'active',
       created_at: new Date(),
       updated_at: new Date(),

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import DashboardLayout from '../component/DashboardLayout';
 import {
   Users,
@@ -26,6 +27,8 @@ import {
   Loader2,
   ShoppingCart,
   Plane,
+  Building2,
+  ChevronDown,
 } from 'lucide-react';
 
 const formatCurrency = (amount) => {
@@ -174,58 +177,77 @@ const businessModules = [
 ];
 
 export default function ProfessionalDashboard() {
+  const { data: session, status } = useSession();
   const [dashboardData, setDashboardData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opExpenseDue, setOpExpenseDue] = useState([]);
   const [opExpenseLoading, setOpExpenseLoading] = useState(false);
   const [opExpenseError, setOpExpenseError] = useState(null);
+  
+  // Branch selector state for super admin
+  const [selectedBranchId, setSelectedBranchId] = useState('all');
+  const [branchInfo, setBranchInfo] = useState(null);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  
   const nowDate = new Date();
   const isYearlyWindow = nowDate.getMonth() === 0;
+  
+  const sessionLoading = status === 'loading';
+  const isSuperAdmin = session?.user?.role === 'super_admin';
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Single API call to unified dashboard endpoint with branch filter
+      const branchParam = isSuperAdmin && selectedBranchId ? `?branchId=${selectedBranchId}` : '';
+      const response = await fetch(`/api/dashboard${branchParam}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch dashboard data');
+      }
+
+      // Store branch info for selector
+      if (data.branchInfo) {
+        setBranchInfo(data.branchInfo);
+      }
+
+      setDashboardData({
+        overview: data.overview || {},
+        grandTotals: {
+          totalRevenue: data.grandTotals?.totalRevenue || 0,
+          totalDue: data.grandTotals?.totalDue || 0,
+          totalAssets: data.grandTotals?.totalAssets || 0,
+          totalAdvanceAmni: 0,
+        },
+        totalExpensesFromTransactions: data.grandTotals?.totalExpenses || 0,
+        netProfitFromTransactions: data.grandTotals?.netProfit || 0,
+        financial: data.financial || {},
+        services: {
+          exchanges: data.moneyExchange || {},
+          packages: { total: 0, agentPackages: 0 },
+          tickets: { total: 0, totalAmount: 0 },
+        },
+        hu: data.hu || {},
+        cashAccount: data.cashAccount,
+      });
+    } catch (err) {
+      setError(err);
+      setDashboardData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isSuperAdmin, selectedBranchId]);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Single API call to unified dashboard endpoint
-        const response = await fetch('/api/dashboard');
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch dashboard data');
-        }
-
-        setDashboardData({
-          overview: data.overview || {},
-          grandTotals: {
-            totalRevenue: data.grandTotals?.totalRevenue || 0,
-            totalDue: data.grandTotals?.totalDue || 0,
-            totalAssets: data.grandTotals?.totalAssets || 0,
-            totalAdvanceAmni: 0,
-          },
-          totalExpensesFromTransactions: data.grandTotals?.totalExpenses || 0,
-          netProfitFromTransactions: data.grandTotals?.netProfit || 0,
-          financial: data.financial || {},
-          services: {
-            exchanges: data.moneyExchange || {},
-            packages: { total: 0, agentPackages: 0 },
-            tickets: { total: 0, totalAmount: 0 },
-          },
-          hu: data.hu || {},
-          cashAccount: data.cashAccount,
-        });
-      } catch (err) {
-        setError(err);
-        setDashboardData(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchDashboardData();
-  }, []);
+    // Wait for session to be loaded before fetching dashboard data
+    if (!sessionLoading) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, sessionLoading]);
 
   useEffect(() => {
     const fetchOperatingExpenses = async () => {
@@ -306,7 +328,8 @@ export default function ProfessionalDashboard() {
     return `BDT ${Number(total).toLocaleString('bn-BD')}`;
   }, [dashboardData?.financial?.bankAccounts?.totalBalance, dashboardData?.financial?.accounts?.totalBalance]);
 
-  if (isLoading) {
+  // Show loading while session is being fetched
+  if (sessionLoading || isLoading) {
     return (
       <DashboardLayout>
         <div className="min-h-[60vh] flex items-center justify-center">
@@ -341,6 +364,53 @@ export default function ProfessionalDashboard() {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Branch Selector for Super Admin */}
+        {isSuperAdmin && branchInfo?.availableBranches?.length > 0 && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  শাখা ফিল্টার:
+                </span>
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                >
+                  <span className="font-medium">
+                    {selectedBranchId === 'all' 
+                      ? 'সব শাখা' 
+                      : branchInfo.availableBranches.find(b => b.id === selectedBranchId)?.branchName || 'শাখা নির্বাচন করুন'}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showBranchDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                    {branchInfo.availableBranches.map((branch) => (
+                      <button
+                        key={branch.id}
+                        onClick={() => {
+                          setSelectedBranchId(branch.id);
+                          setShowBranchDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                          selectedBranchId === branch.id 
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium' 
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {branch.branchName || branch.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Grand Totals Summary */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-6 sm:p-8">
