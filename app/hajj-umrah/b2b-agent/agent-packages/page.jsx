@@ -256,7 +256,7 @@ const AgentPackageList = () => {
               <span className="text-sm sm:text-base">এক্সপোর্ট</span>
             </button>
             <button 
-              onClick={() => router.push('/hajj-umrah/b2b-agent/agent/create-package')}
+              onClick={() => router.push('/hajj-umrah/b2b-agent/agent-packages/create')}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />

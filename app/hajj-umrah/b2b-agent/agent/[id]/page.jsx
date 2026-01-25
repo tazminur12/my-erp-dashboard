@@ -777,13 +777,44 @@ const AgentDetails = () => {
           </div>
 
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Basic Information */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center space-x-2 mb-3">
                 <Building className="w-4 h-4 text-purple-600" />
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">মৌলিক তথ্য</h3>
               </div>
+              
+              {/* Profile Picture */}
+              <div className="flex justify-center mb-4">
+                <div className="relative">
+                  {agent.profilePicture || agent.profileImage || agent.image ? (
+                    <img 
+                      src={agent.profilePicture || agent.profileImage || agent.image} 
+                      alt={agent.tradeName || 'Agent'}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-purple-200 dark:border-purple-700 shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className={`w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 flex items-center justify-center border-4 border-purple-200 dark:border-purple-700 shadow-lg ${agent.profilePicture || agent.profileImage || agent.image ? 'hidden' : ''}`}
+                  >
+                    <Users className="w-10 h-10 text-purple-600 dark:text-purple-300" />
+                  </div>
+                  {/* Status Badge */}
+                  <span className={`absolute bottom-0 right-0 w-6 h-6 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800 ${
+                    agent.isActive !== false && (agent.status === 'active' || agent.status === 'Active')
+                      ? 'bg-green-500' 
+                      : 'bg-red-500'
+                  }`}>
+                    <span className="sr-only">{agent.isActive !== false && (agent.status === 'active' || agent.status === 'Active') ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span>
+                  </span>
+                </div>
+              </div>
+              
               <div className="space-y-2">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ট্রেড নাম</label>
@@ -856,42 +887,6 @@ const AgentDetails = () => {
               </div>
             </div>
 
-            {/* Financial Information */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center space-x-2 mb-3">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">আর্থিক তথ্য</h3>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">মোট রাজস্ব</label>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    ৳{Number(agent?.totalRevenue ?? 0).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">কমিশন হার</label>
-                  <p className="text-sm text-gray-900 dark:text-white">{Number(agent?.commissionRate ?? 0)}%</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">বকেয়া পেমেন্ট</label>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    ৳{Number(agent?.pendingPayments ?? 0).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">ব্যাংক অ্যাকাউন্ট</label>
-                  <p className="text-sm text-gray-900 dark:text-white flex items-center">
-                    <CreditCard className="w-3 h-3 mr-1" />
-                    {agent.bankAccount || '-'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">পেমেন্ট পদ্ধতি</label>
-                  <p className="text-sm text-gray-900 dark:text-white">{agent.paymentMethod || '-'}</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Additional Information */}

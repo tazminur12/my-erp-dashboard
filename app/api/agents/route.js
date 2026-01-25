@@ -40,34 +40,89 @@ export async function GET(request) {
       .sort({ created_at: -1 })
       .toArray();
 
-    // Format agents for frontend
-    const formattedAgents = agents.map((agent) => ({
-      id: agent._id.toString(),
-      _id: agent._id.toString(),
-      tradeName: agent.tradeName || '',
-      tradeLocation: agent.tradeLocation || '',
-      location: agent.tradeLocation || agent.location || '',
-      ownerName: agent.ownerName || '',
-      contactNo: agent.contactNo || '',
-      contact: agent.contactNo || agent.contact || '',
-      dob: agent.dob || '',
-      nid: agent.nid || '',
-      passport: agent.passport || '',
-      profilePicture: agent.profilePicture || agent.profile_picture || '',
-      status: agent.status || 'active',
-      // Balance fields
-      totalDue: agent.totalDue !== undefined ? agent.totalDue : (agent.total_due || 0),
-      hajDue: agent.hajDue !== undefined ? agent.hajDue : (agent.haj_due || 0),
-      umrahDue: agent.umrahDue !== undefined ? agent.umrahDue : (agent.umrah_due || 0),
-      totalPaid: agent.totalPaid !== undefined ? agent.totalPaid : (agent.total_paid || 0),
-      hajPaid: agent.hajPaid !== undefined ? agent.hajPaid : (agent.haj_paid || 0),
-      umrahPaid: agent.umrahPaid !== undefined ? agent.umrahPaid : (agent.umrah_paid || 0),
-      totalDeposit: agent.totalDeposit !== undefined ? agent.totalDeposit : (agent.total_deposit || 0),
-      totalAdvance: agent.totalAdvance !== undefined ? agent.totalAdvance : (agent.total_advance || 0),
-      hajAdvance: agent.hajAdvance !== undefined ? agent.hajAdvance : (agent.haj_advance || 0),
-      umrahAdvance: agent.umrahAdvance !== undefined ? agent.umrahAdvance : (agent.umrah_advance || 0),
-      created_at: agent.created_at ? agent.created_at.toISOString() : '',
-      updated_at: agent.updated_at ? agent.updated_at.toISOString() : '',
+    // Get packages collection to calculate financial data
+    const packagesCollection = db.collection('packages');
+    
+    // Format agents for frontend with calculated financial data from packages
+    const formattedAgents = await Promise.all(agents.map(async (agent) => {
+      const agentId = agent._id.toString();
+      
+      // Fetch all packages for this agent
+      const agentPackages = await packagesCollection.find({
+        $or: [
+          { agentId: agentId },
+          { agent_id: agentId },
+          { 'agentInfo.agentId': agentId },
+          { 'agentInfo._id': agentId }
+        ]
+      }).toArray();
+      
+      // Calculate financial totals from packages
+      let hajjBill = 0, umrahBill = 0;
+      let hajjPaid = 0, umrahPaid = 0;
+      
+      for (const pkg of agentPackages) {
+        const pkgTotal = pkg.totalPrice || pkg.totals?.grandTotal || pkg.totals?.subtotal || 0;
+        const pkgPaid = pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0;
+        
+        const isHajj = pkg.packageType === 'Hajj' || 
+                       pkg.packageType === 'হজ্জ' || 
+                       pkg.customPackageType === 'Custom Hajj' ||
+                       pkg.customPackageType === 'Hajj';
+        
+        if (isHajj) {
+          hajjBill += Number(pkgTotal) || 0;
+          hajjPaid += Number(pkgPaid) || 0;
+        } else {
+          umrahBill += Number(pkgTotal) || 0;
+          umrahPaid += Number(pkgPaid) || 0;
+        }
+      }
+      
+      const totalBilled = hajjBill + umrahBill;
+      const totalPaid = hajjPaid + umrahPaid;
+      const totalDue = Math.max(0, totalBilled - totalPaid);
+      const hajjDue = Math.max(0, hajjBill - hajjPaid);
+      const umrahDue = Math.max(0, umrahBill - umrahPaid);
+      
+      // Use calculated values, fallback to stored values if no packages
+      const finalTotalBilled = totalBilled || agent.totalBilled || agent.totalBill || 0;
+      const finalTotalPaid = totalPaid || agent.totalPaid || 0;
+      const finalTotalDue = totalDue || agent.totalDue || 0;
+      
+      return {
+        id: agentId,
+        _id: agentId,
+        tradeName: agent.tradeName || '',
+        tradeLocation: agent.tradeLocation || '',
+        location: agent.tradeLocation || agent.location || '',
+        ownerName: agent.ownerName || '',
+        contactNo: agent.contactNo || '',
+        contact: agent.contactNo || agent.contact || '',
+        dob: agent.dob || '',
+        nid: agent.nid || '',
+        passport: agent.passport || '',
+        profilePicture: agent.profilePicture || agent.profile_picture || '',
+        status: agent.status || 'active',
+        // Calculated balance fields from packages
+        totalBilled: finalTotalBilled,
+        totalBill: finalTotalBilled,
+        totalDue: finalTotalDue,
+        hajDue: hajjDue || agent.hajDue || 0,
+        umrahDue: umrahDue || agent.umrahDue || 0,
+        hajBill: hajjBill || agent.hajBill || 0,
+        umrahBill: umrahBill || agent.umrahBill || 0,
+        totalPaid: finalTotalPaid,
+        hajPaid: hajjPaid || agent.hajPaid || 0,
+        umrahPaid: umrahPaid || agent.umrahPaid || 0,
+        totalDeposit: agent.totalDeposit || 0,
+        totalAdvance: totalPaid > totalBilled ? (totalPaid - totalBilled) : (agent.totalAdvance || 0),
+        hajAdvance: hajjPaid > hajjBill ? (hajjPaid - hajjBill) : (agent.hajAdvance || 0),
+        umrahAdvance: umrahPaid > umrahBill ? (umrahPaid - umrahBill) : (agent.umrahAdvance || 0),
+        packagesCount: agentPackages.length,
+        created_at: agent.created_at ? agent.created_at.toISOString() : '',
+        updated_at: agent.updated_at ? agent.updated_at.toISOString() : '',
+      };
     }));
 
     return NextResponse.json(
