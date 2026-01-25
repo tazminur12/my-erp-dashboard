@@ -1,21 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession } from '../hooks/useSession';
+import { getNotificationSound } from '../../lib/notificationSound';
 import {
   Menu,
   Search,
   Bell,
   User,
-  Settings,
   LogOut,
   ChevronDown,
   HelpCircle,
   MessageSquare,
-  Building2
+  Building2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 const Topbar = ({ onMenuClick }) => {
@@ -25,8 +27,44 @@ const Topbar = ({ onMenuClick }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const previousUnreadCount = useRef(0);
+  const isFirstLoad = useRef(true);
+  const notificationSound = useRef(null);
   const router = useRouter();
   const { user, session } = useSession();
+
+  // Initialize notification sound
+  useEffect(() => {
+    notificationSound.current = getNotificationSound();
+    
+    // Load sound preference from localStorage
+    const savedSoundPref = localStorage.getItem('notificationSoundEnabled');
+    if (savedSoundPref !== null) {
+      setSoundEnabled(savedSoundPref === 'true');
+    }
+  }, []);
+
+  // Play notification sound when new notifications arrive
+  const playNotificationSound = useCallback(() => {
+    if (soundEnabled && notificationSound.current) {
+      notificationSound.current.init();
+      notificationSound.current.playGeneratedTone();
+    }
+  }, [soundEnabled]);
+
+  // Toggle sound on/off
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    localStorage.setItem('notificationSoundEnabled', String(newState));
+    
+    // Play a test sound when enabling
+    if (newState && notificationSound.current) {
+      notificationSound.current.init();
+      notificationSound.current.playGeneratedTone();
+    }
+  };
 
   // Fetch notifications from backend
   const fetchNotifications = useCallback(async () => {
@@ -36,15 +74,26 @@ const Topbar = ({ onMenuClick }) => {
       const data = await response.json();
       
       if (data.success) {
+        const newUnreadCount = data.unreadCount || 0;
+        
+        // Play sound if new notifications arrived (not on first load)
+        if (!isFirstLoad.current && newUnreadCount > previousUnreadCount.current) {
+          playNotificationSound();
+        }
+        
+        // Update refs for next comparison
+        previousUnreadCount.current = newUnreadCount;
+        isFirstLoad.current = false;
+        
         setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        setUnreadCount(newUnreadCount);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
       setNotificationsLoading(false);
     }
-  }, []);
+  }, [playNotificationSound]);
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
@@ -206,9 +255,27 @@ const Topbar = ({ onMenuClick }) => {
               <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
                 <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Notifications
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Notifications
+                      </h3>
+                      {/* Sound Toggle Button */}
+                      <button
+                        onClick={toggleSound}
+                        className={`p-1 rounded transition-colors ${
+                          soundEnabled 
+                            ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20' 
+                            : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        title={soundEnabled ? 'Sound On - Click to mute' : 'Sound Off - Click to unmute'}
+                      >
+                        {soundEnabled ? (
+                          <Volume2 className="h-4 w-4" />
+                        ) : (
+                          <VolumeX className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                     <div className="flex items-center gap-2">
                       {unreadCount > 0 && (
                         <>

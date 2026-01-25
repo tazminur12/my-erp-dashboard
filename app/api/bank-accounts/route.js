@@ -51,6 +51,7 @@ export async function GET(request) {
       contactNumber: account.contactNumber || '',
       createdBy: account.createdBy || '',
       branchId: account.branchId || '',
+      userBranchName: account.userBranchName || '', // System branch that created this account
       status: account.status || 'active',
       created_at: account.created_at ? account.created_at.toISOString() : new Date().toISOString(),
       updated_at: account.updated_at ? account.updated_at.toISOString() : new Date().toISOString(),

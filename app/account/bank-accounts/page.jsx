@@ -768,6 +768,9 @@ const BankAccounts = () => {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Created By Branch
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -775,7 +778,7 @@ const BankAccounts = () => {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {banks.length === 0 ? (
                       <tr>
-                        <td colSpan="9" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td colSpan="10" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                           No bank accounts found
                         </td>
                       </tr>
@@ -834,6 +837,16 @@ const BankAccounts = () => {
                             }`}>
                               {bank.status}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {bank.userBranchName ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                <Building2 className="w-3 h-3 mr-1" />
+                                {bank.userBranchName}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-400 dark:text-gray-500">N/A</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
