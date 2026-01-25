@@ -403,7 +403,9 @@ export async function DELETE(request, { params }) {
       });
 
     } catch (transactionError) {
-      await session.abortTransaction();
+      if (session && session.inTransaction()) {
+        await session.abortTransaction();
+      }
       throw transactionError;
     }
 

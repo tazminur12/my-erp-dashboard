@@ -175,10 +175,44 @@ export default function Login() {
         return;
       }
 
+      // Check if OTP is disabled - login directly
+      if (data.skipOtp) {
+        // OTP is disabled, login directly with NextAuth
+        const result = await signIn('credentials', {
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          setError(result.error);
+          Swal.fire({
+            icon: 'error',
+            title: 'Login Failed',
+            text: result.error,
+            confirmButtonColor: '#3b82f6',
+          });
+          setLoading(false);
+          return;
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Login Successful!',
+          text: 'Redirecting to dashboard...',
+          confirmButtonColor: '#3b82f6',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+
+        router.push('/dashboard');
+        return;
+      }
+
       // Success - move to OTP step
       setMaskedPhone(data.phone);
       setStep(2);
-      setCountdown(300); // 5 minutes countdown
+      setCountdown(data.expiresIn || 300); // Use server expiry time
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
       

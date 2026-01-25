@@ -61,6 +61,20 @@ export async function POST(request) {
       }, { status: 403 });
     }
 
+    // Check system settings for OTP
+    const settingsCollection = db.collection('system_settings');
+    const systemSettings = await settingsCollection.findOne({ type: 'system' });
+    const otpEnabled = systemSettings?.otpEnabled ?? true; // Default to true if not set
+
+    // If OTP is disabled, return success with skipOtp flag
+    if (!otpEnabled) {
+      return NextResponse.json({
+        success: true,
+        skipOtp: true,
+        message: "OTP verification is disabled. You can login directly."
+      });
+    }
+
     // Check if user has phone number
     if (!user.phone) {
       return NextResponse.json({
@@ -72,10 +86,13 @@ export async function POST(request) {
 
     // Normalize phone number
     const normalizedPhone = normalizePhone(user.phone);
+    
+    // Get OTP expiry from settings
+    const otpExpiryMinutes = systemSettings?.otpExpiryMinutes ?? 5;
 
     // Generate OTP
     const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+    const expiresAt = new Date(Date.now() + otpExpiryMinutes * 60 * 1000); // Use settings expiry
 
     // Store OTP with expiry and email
     otpStore.set(normalizedPhone, {
@@ -112,7 +129,7 @@ export async function POST(request) {
       success: true,
       message: `OTP sent to ${maskedPhone}`,
       phone: maskedPhone,
-      expiresIn: 300 // seconds
+      expiresIn: otpExpiryMinutes * 60 // seconds
     });
 
   } catch (error) {

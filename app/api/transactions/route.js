@@ -460,7 +460,7 @@ export async function POST(request) {
               }
             }
           },
-          { session }
+          { session: mongoSession }
         );
       } else if (transactionType === "debit") {
         const newBalance = (account.currentBalance || 0) - numericAmount;
@@ -477,7 +477,7 @@ export async function POST(request) {
               }
             }
           },
-          { session }
+          { session: mongoSession }
         );
       } else if (transactionType === "transfer") {
         const fromNewBalance = (fromAccount.currentBalance || 0) - numericAmount;
@@ -496,7 +496,7 @@ export async function POST(request) {
               }
             }
           },
-          { session }
+          { session: mongoSession }
         );
 
         await bankAccounts.updateOne(
@@ -512,7 +512,7 @@ export async function POST(request) {
               }
             }
           },
-          { session }
+          { session: mongoSession }
         );
       }
 
@@ -862,7 +862,7 @@ export async function POST(request) {
             await haji.updateOne(
               { _id: hajiDoc._id },
               { $inc: { paidAmount: numericAmount }, $set: { updatedAt: new Date() } },
-              { session }
+              { session: mongoSession }
             );
             const afterH = await haji.findOne({ _id: hajiDoc._id }, { session: mongoSession });
             const clampH = {};
@@ -897,7 +897,7 @@ export async function POST(request) {
                   updatedAt: new Date() 
                 }
               },
-              { session }
+              { session: mongoSession }
             );
             const afterU = await umrah.findOne({ _id: umrahDoc._id }, { session: mongoSession });
             const clampU = {};
@@ -961,7 +961,7 @@ export async function POST(request) {
                 updatedAt: new Date() 
               }
             },
-            { session }
+            { session: mongoSession }
           );
           
           const afterHaji = await haji.findOne({ _id: party._id }, { session: mongoSession });
@@ -1073,7 +1073,7 @@ export async function POST(request) {
                 updatedAt: new Date() 
               }
             },
-            { session }
+            { session: mongoSession }
           );
           
           const afterUmrah = await umrah.findOne({ _id: party._id }, { session: mongoSession });
@@ -1246,7 +1246,7 @@ export async function POST(request) {
         const updateResult = await investmentCollection.updateOne(
           { _id: party._id },
           investmentUpdate,
-          { session }
+          { session: mongoSession }
         );
 
         console.log('📝 Investment update result:', { modifiedCount: updateResult.modifiedCount });
@@ -1272,7 +1272,7 @@ export async function POST(request) {
           await investmentCollection.updateOne(
             { _id: party._id },
             { $set: clampInvestment },
-            { session }
+            { session: mongoSession }
           );
         }
 
@@ -1292,7 +1292,7 @@ export async function POST(request) {
           await personalExpenseProfiles.updateOne(
             { _id: new ObjectId(profileId) },
             { $inc: { totalTaken: numericAmount }, $set: { updatedAt: new Date() } },
-            { session }
+            { session: mongoSession }
           );
         }
       }
@@ -1329,7 +1329,7 @@ export async function POST(request) {
           const updateResult = await operatingExpenseCategories.updateOne(
             { _id: categoryId },
             categoryUpdate,
-            { session }
+            { session: mongoSession }
           );
 
           const updatedCategory = await operatingExpenseCategories.findOne({ _id: categoryId }, { session: mongoSession });
@@ -1361,7 +1361,7 @@ export async function POST(request) {
           await haji.updateOne(
             { _id: party._id },
             { $set: { paidAmount: currentPaid + numericAmount, updatedAt: new Date() } },
-            { session }
+            { session: mongoSession }
           );
           const afterFinal = await haji.findOne({ _id: party._id }, { session: mongoSession });
           console.log('✅ Final paidAmount set:', afterFinal?.paidAmount);

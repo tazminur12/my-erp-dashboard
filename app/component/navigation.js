@@ -278,6 +278,7 @@ export const navigation = [
       { name: 'Branch Management', href: '/settings/branch', icon: Building2 },
       { name: 'Permission Management', href: '/settings/permissions', icon: Shield },
       { name: 'Module Access', href: '/settings/module-access', icon: Eye },
+      { name: 'System Settings', href: '/settings/system', icon: Settings },
     ]
   },
   {
