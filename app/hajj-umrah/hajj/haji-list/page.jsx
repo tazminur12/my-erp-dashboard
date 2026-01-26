@@ -63,6 +63,7 @@ const HajiList = () => {
         ngSerialNo: haji.ng_serial_no,
         trackingNo: haji.tracking_no,
         name: haji.name,
+        banglaName: haji.bangla_name,
         firstName: haji.first_name,
         lastName: haji.last_name,
         fatherName: haji.father_name,
@@ -662,6 +663,9 @@ const HajiList = () => {
                     নাম
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    এলাকা
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     যোগাযোগ
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -703,18 +707,18 @@ const HajiList = () => {
                             disabled={!hajiId}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(haji)}>
+                          <span className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
                             {haji.customerId || hajiId || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-gray-900 dark:text-white">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(haji)}>
+                          <span className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
                             {haji.manualSerialNumber || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(haji)}>
+                          <div className="flex items-center space-x-3 group">
                             <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
                               {photoUrl ? (
                                 <img
@@ -731,18 +735,30 @@ const HajiList = () => {
                               </div>
                             </div>
                             <div>
-                              <div className="font-medium text-gray-900 dark:text-white">
-                                {haji.name || 'N/A'}
+                              <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                {haji.banglaName ? (
+                                  <>
+                                    <div>{haji.banglaName}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{haji.name}</div>
+                                  </>
+                                ) : (
+                                  haji.name || 'N/A'
+                                )}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                                 {haji.passportNumber || 'N/A'}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            <div className="flex items-center space-x-1 text-gray-600 dark:text-gray-400">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(haji)}>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {haji.area || 'N/A'}, {haji.upazila || ''}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(haji)}>
+                          <div className="text-sm group">
+                            <div className="flex items-center space-x-1 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                               <Phone className="w-3 h-3" />
                               <span>{haji.mobile || 'N/A'}</span>
                             </div>

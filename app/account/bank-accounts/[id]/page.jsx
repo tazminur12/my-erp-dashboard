@@ -275,6 +275,12 @@ const TransactionHistory = ({ accountId }) => {
               {summary.totalTransferOut?.toLocaleString() || '0'}
             </p>
           </div>
+          <div>
+            <p className="text-xs text-red-600 dark:text-red-400">Total Charge</p>
+            <p className="text-lg font-semibold text-red-700 dark:text-red-300">
+              {summary.totalCharge?.toLocaleString() || '0'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -374,12 +380,15 @@ const TransactionHistory = ({ accountId }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Reference
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Charge
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                   No transactions found
                 </td>
               </tr>
@@ -412,6 +421,9 @@ const TransactionHistory = ({ accountId }) => {
                     {transaction.isTransfer
                       ? transaction.transferDetails?.reference || transaction.transactionId
                       : transaction.paymentDetails?.reference || transaction.transactionId || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 dark:text-red-400">
+                    {transaction.charge > 0 ? `৳${transaction.charge.toLocaleString()}` : '-'}
                   </td>
                 </tr>
               ))
@@ -677,7 +689,7 @@ const BankAccountsProfile = () => {
   const handleTransactionSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`/api/bank-accounts/${id}/transactions`, {
+      const response = await fetch(`/api/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -685,11 +697,12 @@ const BankAccountsProfile = () => {
         body: JSON.stringify({
           ...transactionData,
           amount: parseFloat(transactionData.amount),
+          targetAccountId: id,
         }),
       });
 
       const result = await response.json();
-      
+
       if (response.ok) {
         Swal.fire({
           title: 'সফল!',
@@ -744,7 +757,7 @@ const BankAccountsProfile = () => {
           <div className="text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Account Not Found</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">The bank account you're looking for doesn't exist.</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">The bank account you&apos;re looking for doesn&apos;t exist.</p>
             <button
               onClick={() => router.push('/account/bank-accounts')}
               className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"

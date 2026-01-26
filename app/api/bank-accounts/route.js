@@ -46,7 +46,7 @@ export async function GET(request) {
       routingNumber: account.routingNumber || '',
       logo: account.logo || '',
       initialBalance: account.initialBalance || 0,
-      currentBalance: account.currentBalance || account.initialBalance || 0,
+      currentBalance: account.currentBalance || 0,
       currency: account.currency || 'BDT',
       contactNumber: account.contactNumber || '',
       createdBy: account.createdBy || '',
@@ -206,7 +206,7 @@ export async function POST(request) {
       initialBalance: parseFloat(initialBalance),
       currentBalance: currentBalance !== undefined && currentBalance !== null && currentBalance !== '' 
         ? parseFloat(currentBalance) 
-        : parseFloat(initialBalance), // Use provided currentBalance or default to initialBalance
+        : 0, // Default to 0 if not provided
       currency: currency || 'BDT',
       contactNumber: contactNumber ? contactNumber.trim() : '',
       createdBy: createdBy || '',

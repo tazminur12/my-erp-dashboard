@@ -851,11 +851,13 @@ const NewTransaction = () => {
           const formattedAccounts = bankAccounts.map(account => ({
             id: account.id || account._id,
             name: account.accountTitle || account.accountHolder || `${account.bankName} - ${account.accountNumber}`,
+            accountTitle: account.accountTitle,
+            accountHolder: account.accountHolder,
             bankName: account.bankName,
             accountNumber: account.accountNumber,
             accountType: account.accountType,
             accountCategory: account.accountCategory || 'bank',
-            balance: account.currentBalance || account.initialBalance || 0,
+            balance: account.currentBalance ?? 0,
             logo: account.logo,
             branchName: account.branchName,
             currency: account.currency || 'BDT',
@@ -3969,11 +3971,13 @@ const NewTransaction = () => {
                             </div>
                             <div className="text-left min-w-0 flex-1">
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                {account.name}
+                                {account.bankName} - {account.accountTitle || account.name}
                               </h3>
-                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                                {account.bankName}
-                              </p>
+                              {account.accountHolder && (
+                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                                  {account.accountHolder}
+                                </p>
+                              )}
                               <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
                                 A/C: {account.accountNumber}
                               </p>
@@ -4163,11 +4167,13 @@ const NewTransaction = () => {
                               </div>
                               <div className="text-left min-w-0 flex-1">
                                 <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                  {account.name}
+                                  {account.bankName} - {account.accountTitle || account.name}
                                 </h3>
-                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                                  {account.bankName}
-                                </p>
+                                {account.accountHolder && (
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    {account.accountHolder}
+                                  </p>
+                                )}
                                 <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
                                   A/C: {account.accountNumber}
                                 </p>

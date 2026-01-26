@@ -423,10 +423,11 @@ export async function POST(request) {
           message: "One or both accounts not found"
         }, { status: 404 });
       }
-      if ((fromAccount.currentBalance || 0) < numericAmount) {
+      // Check if source account has enough balance for amount + charge
+      if ((fromAccount.currentBalance || 0) < (numericAmount + chargeAmount)) {
         return NextResponse.json({
           success: false,
-          message: "Insufficient balance in source account"
+          message: `Insufficient balance in source account (Need ${numericAmount + chargeAmount}, Available: ${fromAccount.currentBalance || 0})`
         }, { status: 400 });
       }
     }
@@ -480,8 +481,12 @@ export async function POST(request) {
           { session: mongoSession }
         );
       } else if (transactionType === "transfer") {
-        const fromNewBalance = (fromAccount.currentBalance || 0) - numericAmount;
-        const toNewBalance = (toAccount.currentBalance || 0) + numericAmount;
+        const fromBalance = Number(fromAccount.currentBalance || 0);
+        const toBalance = Number(toAccount.currentBalance || 0);
+        
+        // Subtract both amount and charge from sender's account
+        const fromNewBalance = fromBalance - numericAmount - chargeAmount;
+        const toNewBalance = toBalance + numericAmount;
 
         await bankAccounts.updateOne(
           { _id: new ObjectId(finalFromAccountId) },
@@ -490,8 +495,9 @@ export async function POST(request) {
             $push: {
               balanceHistory: {
                 amount: numericAmount,
+                charge: chargeAmount, // Record charge in history
                 type: 'withdrawal',
-                note: `Transfer to ${toAccount.bankName || ''} - ${toAccount.accountNumber || ''}`.trim(),
+                note: `Transfer to ${toAccount.bankName || ''} - ${toAccount.accountNumber || ''} (Charge: ${chargeAmount})`.trim(),
                 at: new Date()
               }
             }

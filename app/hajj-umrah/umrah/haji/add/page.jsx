@@ -776,7 +776,7 @@ const AddUmrahHaji = () => {
           text: 'উমরাহ তথ্য সফলভাবে আপডেট করা হয়েছে।',
           confirmButtonColor: '#3b82f6',
         }).then(() => {
-          router.push(`/umrah/haji/${umrahId}`);
+          router.push(`/hajj-umrah/umrah/haji/${umrahId}`);
         });
         return;
       }
@@ -804,7 +804,7 @@ const AddUmrahHaji = () => {
         confirmButtonColor: '#3b82f6',
       }).then(() => {
         if (umrahId) {
-          router.push(`/umrah/haji/${umrahId}`);
+          router.push(`/hajj-umrah/umrah/haji/${umrahId}`);
         } else {
           router.push('/hajj-umrah/umrah/haji-list');
         }

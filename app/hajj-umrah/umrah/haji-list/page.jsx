@@ -63,6 +63,7 @@ const UmrahHajiList = () => {
         ngSerialNo: umrah.ng_serial_no,
         trackingNo: umrah.tracking_no,
         name: umrah.name,
+        banglaName: umrah.bangla_name,
         firstName: umrah.first_name,
         lastName: umrah.last_name,
         fatherName: umrah.father_name,
@@ -638,6 +639,9 @@ const UmrahHajiList = () => {
                     নাম
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    এলাকা
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     যোগাযোগ
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -679,18 +683,18 @@ const UmrahHajiList = () => {
                             disabled={!umrahId}
                           />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(umrah)}>
+                          <span className="font-medium text-blue-600 dark:text-blue-400 hover:underline">
                             {umrah.customerId || umrahId || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="font-medium text-gray-900 dark:text-white">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(umrah)}>
+                          <span className="font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
                             {umrah.manualSerialNumber || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-3">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(umrah)}>
+                          <div className="flex items-center space-x-3 group">
                             <div className="w-10 h-10 rounded-full overflow-hidden shrink-0">
                               {photoUrl ? (
                                 <img
@@ -707,18 +711,30 @@ const UmrahHajiList = () => {
                               </div>
                             </div>
                             <div>
-                              <div className="font-medium text-gray-900 dark:text-white">
-                                {umrah.name || 'N/A'}
+                              <div className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                {umrah.banglaName ? (
+                                  <>
+                                    <div>{umrah.banglaName}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">{umrah.name}</div>
+                                  </>
+                                ) : (
+                                  umrah.name || 'N/A'
+                                )}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                              <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                                 {umrah.passportNumber || 'N/A'}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm">
-                            <div className="flex items-center space-x-1 text-gray-600 dark:text-gray-400">
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(umrah)}>
+                          <div className="text-sm text-gray-900 dark:text-white">
+                            {umrah.area || 'N/A'}, {umrah.upazila || ''}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap cursor-pointer" onClick={() => handleViewDetails(umrah)}>
+                          <div className="text-sm group">
+                            <div className="flex items-center space-x-1 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                               <Phone className="w-3 h-3" />
                               <span>{umrah.mobile || 'N/A'}</span>
                             </div>

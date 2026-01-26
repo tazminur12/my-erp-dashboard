@@ -465,7 +465,7 @@ const AgentDetails = () => {
       items: [
         { label: 'মোট হাজি (হজ্জ)', value: formatCount(financialSummary.hajj.customers), icon: Building },
         { label: 'হজ্জ বিল', value: formatCurrency(financialSummary.hajj.billed), icon: FileText },
-        { label: 'হজ্জ পরিশোধ', value: formatCurrency(financialSummary.hajj.paid), icon: PiggyBank },
+        { label: 'হজ্জ পরিশোধ', value: formatCurrency(financialSummary.hajj.paid), icon: Wallet },
         { label: 'হজ্জ বকেয়া', value: formatCurrency(financialSummary.hajj.due), icon: Calculator },
         { 
           label: 'লাভ/ক্ষতি', 
