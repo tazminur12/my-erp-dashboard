@@ -433,7 +433,7 @@ export default function ProfessionalDashboard() {
                     </p>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">মোট ডিউ</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">মোট বকেয়া</p>
                     <p className="text-xl sm:text-2xl font-semibold text-orange-600">
                       {formatCurrency(grandTotals.totalDue)}
                     </p>
@@ -454,12 +454,12 @@ export default function ProfessionalDashboard() {
               </div>
               <div className="w-full lg:w-auto lg:min-w-[260px]">
                 <div className="bg-blue-600/95 dark:bg-blue-700/95 rounded-2xl p-5 shadow-xl">
-                  <p className="text-sm font-medium text-blue-100">বর্তমান ব্যালেন্স (Bank)</p>
+                  <p className="text-sm font-medium text-blue-100">বর্তমান ব্যালেন্স (Cash)</p>
                   <p className="mt-3 text-2xl sm:text-3xl font-extrabold text-white">
-                    {currentBalanceDisplay}
+                    {formatCurrency(dashboardData?.cashAccount?.currentBalance)}
                   </p>
                   <p className="mt-2 text-xs text-blue-100/80">
-                    সব ব্যাংক অ্যাকাউন্টের মোট Current Balance
+                    মূল ক্যাশ অ্যাকাউন্টের বর্তমান ব্যালেন্স
                   </p>
                 </div>
               </div>

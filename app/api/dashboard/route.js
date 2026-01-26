@@ -63,10 +63,11 @@ export async function GET(request) {
         pkg.packageType === 'Umrah' || pkg.customPackageType?.toLowerCase().includes('umrah')
     );
 
-    const hajjTotalRevenue = hajis.reduce(
-      (sum, haji) => sum + (Number(haji.total_amount) || Number(haji.totalAmount) || 0),
-      0
-    );
+    const hajiTotalAmount = hajis.reduce((sum, haji) => sum + (Number(haji.total_amount) || Number(haji.totalAmount) || 0), 0);
+    const hajiTotalPaid = hajis.reduce((sum, haji) => sum + (Number(haji.paid_amount) || Number(haji.paidAmount) || 0), 0);
+
+    const hajjTotalRevenue = hajiTotalAmount;
+    
     const hajjTotalCost = hajjPackages.reduce((sum, pkg) => {
       const packageCost = Number(pkg.costingPrice) || Number(pkg.totals?.costingPrice) || 0;
       const hajisInPackage = hajis.filter(
@@ -78,10 +79,11 @@ export async function GET(request) {
       return sum + packageCost * hajisInPackage;
     }, 0);
 
-    const umrahTotalRevenue = umrahs.reduce(
-      (sum, umrah) => sum + (Number(umrah.total_amount) || Number(umrah.totalAmount) || 0),
-      0
-    );
+    const umrahTotalAmount = umrahs.reduce((sum, umrah) => sum + (Number(umrah.total_amount) || Number(umrah.totalAmount) || 0), 0);
+    const umrahTotalPaid = umrahs.reduce((sum, umrah) => sum + (Number(umrah.paid_amount) || Number(umrah.paidAmount) || 0), 0);
+
+    const umrahTotalRevenue = umrahTotalAmount;
+
     const umrahTotalCost = umrahPackages.reduce((sum, pkg) => {
       const packageCost = Number(pkg.costingPrice) || Number(pkg.totals?.costingPrice) || 0;
       const umrahsInPackage = umrahs.filter(
@@ -183,8 +185,14 @@ export async function GET(request) {
       (sum, bill) => sum + (Number(bill.totalAmount) || Number(bill.amount) || 0),
       0
     );
-    const vendorBillsPaid = vendorBills.reduce((sum, bill) => sum + (Number(bill.paidAmount) || 0), 0);
-    const vendorBillsDue = Math.max(0, vendorBillsTotal - vendorBillsPaid);
+    
+    // Use vendors collection for accurate Due/Paid status (updated by transactions)
+    const vendorTotalDue = vendors.reduce((sum, v) => sum + (Number(v.totalDue) || 0), 0);
+    const vendorTotalPaid = vendors.reduce((sum, v) => sum + (Number(v.totalPaid) || 0), 0);
+    
+    // Keep these for backward compatibility in response, but map them to the accurate vendor totals
+    const vendorBillsPaid = vendorTotalPaid;
+    const vendorBillsDue = vendorTotalDue;
 
     // ========== BANK ACCOUNTS ==========
     const totalBankBalance = bankAccounts.reduce(
@@ -199,15 +207,20 @@ export async function GET(request) {
       ) || bankAccounts[0];
 
     // ========== CALCULATE GRAND TOTALS ==========
+    // Calculate total due from Hajj & Umrah
+    const hajjTotalDue = hajiTotalAmount - hajiTotalPaid;
+    const umrahTotalDue = umrahTotalAmount - umrahTotalPaid;
+    const agentTotalDue = agents.reduce((sum, a) => sum + (Number(a.totalDue) || Number(a.total_due) || 0), 0);
+
     const totalRevenue =
       huProfitLoss.combined.totalRevenue +
       totalSaleRevenue +
       receivingFinancial.taken +
       givingFinancial.repaid;
 
-    const totalExpenses = totalPurchaseCost + givingFinancial.disbursed + vendorBillsPaid;
+    const totalExpenses = totalPurchaseCost + givingFinancial.disbursed + vendorBillsTotal;
 
-    const totalDue = receivingFinancial.totalDue + givingFinancial.totalDue + vendorBillsDue;
+    const totalDue = receivingFinancial.totalDue + givingFinancial.totalDue + vendorTotalDue + hajjTotalDue + umrahTotalDue + agentTotalDue;
 
     const totalAssets = totalSaleRevenue - totalPurchaseCost + totalBankBalance; // Simplified
 

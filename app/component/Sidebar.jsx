@@ -70,10 +70,74 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   }, [pathname, filteredNavigation]);
 
   const toggleExpand = (key) => {
-    setExpandedItems((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setExpandedItems((prev) => {
+      // Logic for Accordion behavior (one open at a time)
+      
+      // Determine the level of the clicked item
+      // Top level: "0", "1", "2" (no hyphens)
+      // Second level: "0-1", "2-3" (one hyphen)
+      // Third level: "0-1-2" (two hyphens)
+      
+      const keyString = String(key);
+      const hyphenCount = (keyString.match(/-/g) || []).length;
+      
+      // If it's a top-level item (0 hyphens)
+      if (hyphenCount === 0) {
+        const newState = {};
+        
+        // Preserve open states of nested items for the clicked parent IF we are opening it
+        // But for simplicity and true accordion, we usually just close others.
+        
+        // If opening the clicked item
+        if (!prev[key]) {
+          newState[key] = true;
+        } 
+        // If closing, newState remains empty (all closed)
+        
+        return newState;
+      }
+      
+      // If it's a nested item (e.g., inside Hajj & Umrah -> Hajj Management)
+      // We want to close siblings at the same level but keep the parent open.
+      
+      // Get the parent key (e.g., for "0-1", parent is "0")
+      const parentKey = keyString.substring(0, keyString.lastIndexOf('-'));
+      
+      const newState = { ...prev };
+      
+      // Find all keys that are siblings (start with same parentKey + '-' and have same hyphen count)
+      Object.keys(prev).forEach(existingKey => {
+        const existingKeyString = String(existingKey);
+        const existingHyphenCount = (existingKeyString.match(/-/g) || []).length;
+        
+        // Check if it's a sibling (same parent, same level)
+        if (existingKeyString.startsWith(parentKey + '-') && 
+            existingHyphenCount === hyphenCount && 
+            existingKeyString !== keyString) {
+          newState[existingKey] = false; // Close sibling
+        }
+      });
+      
+      // Toggle the clicked item
+      newState[key] = !prev[key];
+      
+      // Ensure parent remains open (safety check)
+      if (newState[key]) {
+        let currentParent = parentKey;
+        while (currentParent) {
+          newState[currentParent] = true;
+          if (currentParent.includes('-')) {
+            currentParent = currentParent.substring(0, currentParent.lastIndexOf('-'));
+          } else {
+            // Reached top level
+            newState[currentParent] = true;
+            break;
+          }
+        }
+      }
+      
+      return newState;
+    });
   };
 
   const handleNavClick = (item) => {
