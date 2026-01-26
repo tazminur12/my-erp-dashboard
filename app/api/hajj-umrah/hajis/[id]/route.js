@@ -47,6 +47,7 @@ export async function GET(request, { params }) {
       ng_serial_no: haji.ng_serial_no || '',
       tracking_no: haji.tracking_no || '',
       name: haji.name || `${haji.first_name || ''} ${haji.last_name || ''}`.trim(),
+      bangla_name: haji.bangla_name || '',
       first_name: haji.first_name || '',
       last_name: haji.last_name || '',
       father_name: haji.father_name || '',
@@ -93,6 +94,9 @@ export async function GET(request, { params }) {
       reference_customer_id: haji.reference_customer_id || '',
       employer_id: haji.employer_id || haji.employerId || '',
       employerId: haji.employer_id || haji.employerId || '',
+      source_type: haji.source_type || 'office',
+      branch_id: haji.branch_id || '',
+      reference_haji: haji.reference_haji || '',
       photo: haji.photo || haji.photo_url || '',
       photo_url: haji.photo || haji.photo_url || '',
       passport_copy: haji.passport_copy || haji.passport_copy_url || '',
@@ -173,9 +177,8 @@ export async function PUT(request, { params }) {
 
     // Update all fields that are provided
     const fieldsToUpdate = [
-      'customer_id', 'manual_serial_number', 'pid_no', 'ng_serial_no', 'tracking_no',
-      'name', 'first_name', 'last_name', 'father_name', 'mother_name', 'spouse_name',
-      'occupation', 'date_of_birth', 'gender', 'marital_status', 'nationality',
+      'customer_id', 'manual_serial_number', 'pid_no', 'ng_serial_no', 'tracking_no', 'name', 'bangla_name', 'first_name', 'last_name', 'father_name', 'mother_name',
+      'spouse_name', 'occupation', 'date_of_birth', 'gender', 'marital_status', 'nationality',
       'passport_number', 'passport_type', 'issue_date', 'expiry_date', 'nid_number',
       'mobile', 'whatsapp_no', 'email', 'address', 'division', 'district', 'upazila',
       'area', 'post_code', 'emergency_contact', 'emergency_phone',
@@ -183,7 +186,7 @@ export async function PUT(request, { params }) {
       'total_amount', 'paid_amount', 'payment_method', 'payment_status',
       'service_type', 'service_status', 'is_active', 'previous_hajj', 'previous_umrah',
       'special_requirements', 'notes', 'reference_by', 'reference_customer_id',
-      'employer_id', 'employerId',
+      'employer_id', 'employerId', 'source_type', 'branch_id', 'reference_haji',
       'photo', 'photo_url', 'passport_copy', 'passport_copy_url', 'nid_copy', 'nid_copy_url'
     ];
 

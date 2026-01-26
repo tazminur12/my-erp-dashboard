@@ -96,6 +96,7 @@ export const navigation = [
     module: MODULES.customers,
     children: [
       { name: 'Dashboard', href: '/hajj-umrah/dashboard', icon: LayoutDashboard },
+      { name : 'Reference List', href: '/hajj-umrah/refer-list', icon: Users },
       {
         name: 'Hajj',
         icon: Users,

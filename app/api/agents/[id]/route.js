@@ -47,6 +47,113 @@ export async function GET(request, { params }) {
       umrahAdvance: agent.umrahAdvance
     });
 
+    // Get packages collection to calculate financial data
+    const packagesCollection = db.collection('packages');
+    
+    // Fetch all packages for this agent
+    const agentPackages = await packagesCollection.find({
+      $or: [
+        { agentId: agent._id.toString() },
+        { agent_id: agent._id.toString() },
+        { 'agentInfo.agentId': agent._id.toString() },
+        { 'agentInfo._id': agent._id.toString() }
+      ]
+    }).toArray();
+    
+    // Helper to resolve numbers safely
+    const resolveNumber = (...values) => {
+      for (const value of values) {
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'number' && !Number.isNaN(value)) return value;
+          if (typeof value === 'string') {
+            const cleaned = value.replace(/[^0-9.-]/g, '');
+            if (cleaned) {
+              const numericValue = Number(cleaned);
+              if (!Number.isNaN(numericValue)) return numericValue;
+            }
+          }
+        }
+      }
+      return 0;
+    };
+
+    // Calculate financial totals from packages
+    let hajjBill = 0, umrahBill = 0;
+    let hajjPaid = 0, umrahPaid = 0;
+    
+    for (const pkg of agentPackages) {
+       // Logic from AgentDetails page - Exactly matching field precedence
+        
+        console.log('📦 Package Debug:', {
+          id: pkg._id,
+          name: pkg.packageName,
+          totalPaidRaw: pkg.totalPaid,
+          paymentSummary: pkg.paymentSummary,
+          financialSummary: pkg.financialSummary,
+          totals: pkg.totals
+        });
+
+        const pkgTotal = resolveNumber(
+         pkg.financialSummary?.totalBilled,
+         pkg.financialSummary?.billTotal,
+         pkg.financialSummary?.subtotal,
+         pkg.paymentSummary?.totalBilled,
+         pkg.paymentSummary?.billTotal,
+         pkg.totalPrice,
+         pkg.totalPriceBdt,
+         pkg.totals?.grandTotal,
+         pkg.totals?.subtotal,
+         pkg.profitLoss?.packagePrice,
+         pkg.profitLoss?.totalOriginalPrice
+       );
+ 
+       const pkgPaid = resolveNumber(
+         pkg.financialSummary?.totalPaid,
+         pkg.financialSummary?.paidAmount,
+         pkg.paymentSummary?.totalPaid,
+         pkg.paymentSummary?.paid,
+         pkg.payments?.totalPaid,
+         pkg.payments?.paid,
+         pkg.totalPaid,
+         pkg.depositReceived,
+         pkg.receivedAmount
+       );
+      
+      const isHajj = pkg.packageType === 'Hajj' || 
+                     pkg.packageType === 'হজ্জ' || 
+                     pkg.customPackageType === 'Custom Hajj' ||
+                     pkg.customPackageType === 'Hajj';
+      
+      if (isHajj) {
+        hajjBill += Number(pkgTotal) || 0;
+        hajjPaid += Number(pkgPaid) || 0;
+      } else {
+        umrahBill += Number(pkgTotal) || 0;
+        umrahPaid += Number(pkgPaid) || 0;
+      }
+    }
+    
+    const totalBilled = hajjBill + umrahBill;
+    const totalPaid = hajjPaid + umrahPaid;
+    
+    // Use calculated values, fallback to stored values if no packages
+    // For paid/deposit, we prioritize the calculated totalPaid
+    const finalTotalBilled = totalBilled || agent.totalBilled || agent.totalBill || 0;
+    const finalTotalPaid = totalPaid || agent.totalPaid || 0;
+    const finalTotalDeposit = finalTotalPaid; // Total Deposit is effectively Total Paid in this context
+
+    // Recalculate Due based on the FINAL Billed and Paid to ensure consistency
+    // This matches AgentDetails page logic which falls back to stored agent totals
+    const finalTotalDue = Math.max(0, finalTotalBilled - finalTotalPaid);
+
+    const finalHajjBilled = hajjBill || agent.hajBilled || 0;
+    const finalHajjPaid = hajjPaid || agent.hajPaid || 0;
+    const finalHajjDue = Math.max(0, finalHajjBilled - finalHajjPaid);
+
+    const finalUmrahBilled = umrahBill || agent.umrahBilled || 0;
+    const finalUmrahPaid = umrahPaid || agent.umrahPaid || 0;
+    const finalUmrahDue = Math.max(0, finalUmrahBilled - finalUmrahPaid);
+
     const formattedAgent = {
       id: agent._id.toString(),
       _id: agent._id.toString(),
@@ -66,23 +173,21 @@ export async function GET(request, { params }) {
       totalRevenue: agent.totalRevenue || agent.total_revenue || 0,
       commissionRate: agent.commissionRate || agent.commission_rate || 0,
       pendingPayments: agent.pendingPayments || agent.pending_payments || 0,
-      totalDue: agent.totalDue !== undefined ? agent.totalDue : (agent.total_due || 0),
-      hajDue: agent.hajDue !== undefined ? agent.hajDue : (agent.haj_due || 0),
-      umrahDue: agent.umrahDue !== undefined ? agent.umrahDue : (agent.umrah_due || 0),
-      totalPaid: agent.totalPaid !== undefined ? agent.totalPaid : (agent.total_paid || 0),
-      hajPaid: agent.hajPaid !== undefined ? agent.hajPaid : (agent.haj_paid || 0),
-      umrahPaid: agent.umrahPaid !== undefined ? agent.umrahPaid : (agent.umrah_paid || 0),
-      totalDeposit: agent.totalDeposit !== undefined ? agent.totalDeposit : (agent.total_deposit || 0),
-      hajDeposit: agent.hajDeposit !== undefined ? agent.hajDeposit : (agent.haj_deposit || 0),
-      umrahDeposit: agent.umrahDeposit !== undefined ? agent.umrahDeposit : (agent.umrah_deposit || 0),
-      totalBilled: agent.totalBilled !== undefined ? agent.totalBilled : (agent.total_billed || agent.totalBill || agent.totalBillAmount || 0),
-      hajBilled: agent.hajBilled !== undefined ? agent.hajBilled : (agent.haj_billed || agent.hajBill || agent.hajjBill || 0),
-      umrahBilled: agent.umrahBilled !== undefined ? agent.umrahBilled : (agent.umrah_billed || agent.umrahBill || 0),
-      totalAdvance: agent.totalAdvance !== undefined ? agent.totalAdvance : (agent.total_advance || 0),
-      hajAdvance: agent.hajAdvance !== undefined ? agent.hajAdvance : (agent.haj_advance || 0),
-      umrahAdvance: agent.umrahAdvance !== undefined ? agent.umrahAdvance : (agent.umrah_advance || 0),
-      hajAdvance: agent.hajAdvance || agent.haj_advance || 0,
-      umrahAdvance: agent.umrahAdvance || agent.umrah_advance || 0,
+      totalDue: finalTotalDue,
+      hajDue: finalHajjDue,
+      umrahDue: finalUmrahDue,
+      totalPaid: finalTotalPaid,
+      hajPaid: finalHajjPaid,
+      umrahPaid: finalUmrahPaid,
+      totalDeposit: finalTotalDeposit,
+      hajDeposit: finalHajjPaid,
+      umrahDeposit: finalUmrahPaid,
+      totalBilled: finalTotalBilled,
+      hajBilled: finalHajjBilled,
+      umrahBilled: finalUmrahBilled,
+      totalAdvance: totalPaid > totalBilled ? (totalPaid - totalBilled) : (agent.totalAdvance || 0),
+      hajAdvance: hajjPaid > hajjBill ? (hajjPaid - hajjBill) : (agent.hajAdvance || 0),
+      umrahAdvance: umrahPaid > umrahBill ? (umrahPaid - umrahBill) : (agent.umrahAdvance || 0),
       totalProfit: agent.totalProfit || agent.total_profit || 0,
       hajProfit: agent.hajProfit || agent.haj_profit || 0,
       umrahProfit: agent.umrahProfit || agent.umrah_profit || 0,

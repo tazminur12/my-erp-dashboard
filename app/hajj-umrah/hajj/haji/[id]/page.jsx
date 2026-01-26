@@ -33,7 +33,8 @@ import {
   Receipt,
   ArrowUp,
   ArrowDown,
-  Loader2
+  Loader2,
+  Building
 } from 'lucide-react';
 import { generateHajiCardPDF } from '../../../../utils/hajiCardPdf';
 import { generateHajiContractPDF } from '../../../../utils/hajiContractPdf';
@@ -159,6 +160,10 @@ const HajiDetails = () => {
         notes: hajiData.notes,
         referenceBy: hajiData.reference_by,
         referenceCustomerId: hajiData.reference_customer_id,
+        sourceType: hajiData.source_type,
+        branchId: hajiData.branch_id,
+        referenceHaji: hajiData.reference_haji,
+        employerId: hajiData.employer_id || hajiData.employerId,
         photo: hajiData.photo || hajiData.photo_url,
         photoUrl: hajiData.photo || hajiData.photo_url,
         passportCopy: hajiData.passport_copy || hajiData.passport_copy_url,
@@ -581,7 +586,8 @@ const HajiDetails = () => {
     { id: 'financial', label: 'আর্থিক', icon: CreditCard },
     { id: 'documents', label: 'ডকুমেন্ট', icon: ImageIcon },
     { id: 'relations', label: 'সম্পর্ক', icon: Users },
-    { id: 'transactions', label: 'লেনদেনের ইতিহাস', icon: Receipt }
+    { id: 'transactions', label: 'লেনদেনের ইতিহাস', icon: Receipt },
+    { id: 'reference', label: 'রেফারেন্স তথ্য', icon: FileText }
   ];
 
   if (loading) {
@@ -831,6 +837,10 @@ const HajiDetails = () => {
           <div>
             <label className="text-sm text-gray-600 dark:text-gray-400">পূর্ণ নাম</label>
             <p className="text-base text-gray-900 dark:text-white font-medium">{haji.name || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">বাংলা নাম</label>
+            <p className="text-base text-gray-900 dark:text-white font-medium">{haji.banglaName || 'N/A'}</p>
           </div>
           <div>
             <label className="text-sm text-gray-600 dark:text-gray-400">হাজি আইডি</label>
@@ -1392,6 +1402,57 @@ const HajiDetails = () => {
     );
   };
 
+  const renderReferenceInfo = () => (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রেফারেন্স এবং উৎস তথ্য</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">উৎস ধরন</label>
+            <p className="text-base text-gray-900 dark:text-white capitalize">
+              {haji.sourceType === 'agent' ? 'এজেন্ট' : 'অফিস'}
+            </p>
+          </div>
+          
+          {haji.sourceType === 'agent' ? (
+            <div>
+              <label className="text-sm text-gray-600 dark:text-gray-400">এজেন্ট</label>
+              {haji.agentId ? (
+                <Link href={`/hajj-umrah/b2b-agent/agent/${haji.agentId}`} className="text-blue-600 hover:underline">
+                  এজেন্ট প্রোফাইল দেখুন
+                </Link>
+              ) : (
+                <p className="text-base text-gray-900 dark:text-white">N/A</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">ব্রাঞ্চ</label>
+                <p className="text-base text-gray-900 dark:text-white">
+                  {haji.branchId || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">রেফারেন্স কর্মচারী</label>
+                <p className="text-base text-gray-900 dark:text-white">
+                  {haji.employerId || 'N/A'}
+                </p>
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">রেফারেন্স (হাজী)</label>
+            <p className="text-base text-gray-900 dark:text-white">
+              {haji.referenceHaji || 'N/A'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -1408,6 +1469,8 @@ const HajiDetails = () => {
         return renderRelations();
       case 'transactions':
         return renderTransactionHistory();
+      case 'reference':
+        return renderReferenceInfo();
       default:
         return renderOverview();
     }

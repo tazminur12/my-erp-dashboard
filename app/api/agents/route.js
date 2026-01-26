@@ -57,13 +57,54 @@ export async function GET(request) {
         ]
       }).toArray();
       
+      // Helper to resolve numbers safely
+      const resolveNumber = (...values) => {
+        for (const value of values) {
+          if (value !== undefined && value !== null) {
+            if (typeof value === 'number' && !Number.isNaN(value)) return value;
+            if (typeof value === 'string') {
+              const cleaned = value.replace(/[^0-9.-]/g, '');
+              if (cleaned) {
+                const numericValue = Number(cleaned);
+                if (!Number.isNaN(numericValue)) return numericValue;
+              }
+            }
+          }
+        }
+        return 0;
+      };
+
       // Calculate financial totals from packages
       let hajjBill = 0, umrahBill = 0;
       let hajjPaid = 0, umrahPaid = 0;
       
       for (const pkg of agentPackages) {
-        const pkgTotal = pkg.totalPrice || pkg.totals?.grandTotal || pkg.totals?.subtotal || 0;
-        const pkgPaid = pkg.totalPaid || pkg.paymentSummary?.totalPaid || 0;
+        // Logic from AgentDetails page - Exactly matching field precedence
+        const pkgTotal = resolveNumber(
+          pkg.financialSummary?.totalBilled,
+          pkg.financialSummary?.billTotal,
+          pkg.financialSummary?.subtotal,
+          pkg.paymentSummary?.totalBilled,
+          pkg.paymentSummary?.billTotal,
+          pkg.totalPrice,
+          pkg.totalPriceBdt,
+          pkg.totals?.grandTotal,
+          pkg.totals?.subtotal,
+          pkg.profitLoss?.packagePrice,
+          pkg.profitLoss?.totalOriginalPrice
+        );
+  
+        const pkgPaid = resolveNumber(
+          pkg.financialSummary?.totalPaid,
+          pkg.financialSummary?.paidAmount,
+          pkg.paymentSummary?.totalPaid,
+          pkg.paymentSummary?.paid,
+          pkg.payments?.totalPaid,
+          pkg.payments?.paid,
+          pkg.totalPaid,
+          pkg.depositReceived,
+          pkg.receivedAmount
+        );
         
         const isHajj = pkg.packageType === 'Hajj' || 
                        pkg.packageType === 'হজ্জ' || 
@@ -81,14 +122,24 @@ export async function GET(request) {
       
       const totalBilled = hajjBill + umrahBill;
       const totalPaid = hajjPaid + umrahPaid;
-      const totalDue = Math.max(0, totalBilled - totalPaid);
-      const hajjDue = Math.max(0, hajjBill - hajjPaid);
-      const umrahDue = Math.max(0, umrahBill - umrahPaid);
       
       // Use calculated values, fallback to stored values if no packages
+      // For paid/deposit, we prioritize the calculated totalPaid
       const finalTotalBilled = totalBilled || agent.totalBilled || agent.totalBill || 0;
       const finalTotalPaid = totalPaid || agent.totalPaid || 0;
-      const finalTotalDue = totalDue || agent.totalDue || 0;
+      const finalTotalDeposit = finalTotalPaid; // Total Deposit is effectively Total Paid in this context
+
+      // Recalculate Due based on the FINAL Billed and Paid to ensure consistency
+      // This matches AgentDetails page logic which falls back to stored agent totals
+      const finalTotalDue = Math.max(0, finalTotalBilled - finalTotalPaid);
+
+      const finalHajjBilled = hajjBill || agent.hajBilled || 0;
+      const finalHajjPaid = hajjPaid || agent.hajPaid || 0;
+      const finalHajjDue = Math.max(0, finalHajjBilled - finalHajjPaid);
+
+      const finalUmrahBilled = umrahBill || agent.umrahBilled || 0;
+      const finalUmrahPaid = umrahPaid || agent.umrahPaid || 0;
+      const finalUmrahDue = Math.max(0, finalUmrahBilled - finalUmrahPaid);
       
       return {
         id: agentId,
@@ -108,14 +159,14 @@ export async function GET(request) {
         totalBilled: finalTotalBilled,
         totalBill: finalTotalBilled,
         totalDue: finalTotalDue,
-        hajDue: hajjDue || agent.hajDue || 0,
-        umrahDue: umrahDue || agent.umrahDue || 0,
-        hajBill: hajjBill || agent.hajBill || 0,
-        umrahBill: umrahBill || agent.umrahBill || 0,
+        hajDue: finalHajjDue,
+        umrahDue: finalUmrahDue,
+        hajBill: finalHajjBilled,
+        umrahBill: finalUmrahBilled,
         totalPaid: finalTotalPaid,
-        hajPaid: hajjPaid || agent.hajPaid || 0,
-        umrahPaid: umrahPaid || agent.umrahPaid || 0,
-        totalDeposit: agent.totalDeposit || 0,
+        hajPaid: finalHajjPaid,
+        umrahPaid: finalUmrahPaid,
+        totalDeposit: finalTotalDeposit,
         totalAdvance: totalPaid > totalBilled ? (totalPaid - totalBilled) : (agent.totalAdvance || 0),
         hajAdvance: hajjPaid > hajjBill ? (hajjPaid - hajjBill) : (agent.hajAdvance || 0),
         umrahAdvance: umrahPaid > umrahBill ? (umrahPaid - umrahBill) : (agent.umrahAdvance || 0),

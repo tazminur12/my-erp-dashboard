@@ -1415,6 +1415,7 @@ const NewTransaction = () => {
           customerId: agentId,
           uniqueId: fullAgent.uniqueId || fullAgent.agentId || agent.uniqueId || agent.agentId || '',
           customerName: fullAgent.tradeName || fullAgent.ownerName || agent.tradeName || agent.ownerName || '',
+          customerPhoto: fullAgent.profilePicture || fullAgent.profile_picture || agent.profilePicture || agent.profile_picture || '',
           customerPhone: fullAgent.contactNo || fullAgent.phone || fullAgent.mobile || agent.contactNo || agent.phone || agent.mobile || '',
           customerEmail: fullAgent.email || '',
           customerAddress: fullAgent.tradeLocation || fullAgent.address || agent.tradeLocation || agent.address || '',
@@ -1440,6 +1441,7 @@ const NewTransaction = () => {
           customerId: agentId,
           uniqueId: agent.uniqueId || agent.agentId || '',
           customerName: agent.tradeName || agent.ownerName || '',
+          customerPhoto: agent.profilePicture || agent.profile_picture || '',
           customerPhone: agent.contactNo || agent.phone || agent.mobile || agent.mobileNumber || '',
           customerEmail: '',
           customerAddress: agent.address || agent.fullAddress || '',
@@ -1467,7 +1469,8 @@ const NewTransaction = () => {
         customerId: agentId,
         uniqueId: agent.uniqueId || agent.agentId || '',
         customerName: agent.tradeName || agent.ownerName || '',
-        customerPhone: agent.contactNo || agent.phone || agent.mobile || agent.mobileNumber || '',
+          customerPhoto: agent.profilePicture || agent.profile_picture || '',
+          customerPhone: agent.contactNo || agent.phone || agent.mobile || agent.mobileNumber || '',
         customerEmail: '',
         customerAddress: agent.address || agent.fullAddress || '',
         customerType: 'agent',
@@ -4631,8 +4634,23 @@ const NewTransaction = () => {
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-700">
+                                  {(agent.profilePicture || agent.profile_picture) ? (
+                                    <img 
+                                      src={agent.profilePicture || agent.profile_picture} 
+                                      alt={agent.tradeName || agent.ownerName} 
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center ${
+                                    (agent.profilePicture || agent.profile_picture) ? 'hidden' : 'flex'
+                                  }`}>
+                                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
+                                  </div>
                                 </div>
                                 <div className="text-left min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
@@ -5458,7 +5476,24 @@ const NewTransaction = () => {
                   <div className="space-y-4 sm:space-y-6">
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <User className="w-5 h-5 text-blue-600" />
+                        {formData.customerPhoto ? (
+                          <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <img 
+                              src={formData.customerPhoto} 
+                              alt="Agent" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <div className="w-full h-full bg-blue-100 dark:bg-blue-900/20 hidden items-center justify-center">
+                              <User className="w-4 h-4 text-blue-600" />
+                            </div>
+                          </div>
+                        ) : (
+                          <User className="w-5 h-5 text-blue-600" />
+                        )}
                         {formData.customerName} - ব্যালেন্স তথ্য
                       </h3>
                       
@@ -8211,20 +8246,26 @@ const NewTransaction = () => {
 
                 {/* Payment Details Form */}
                 {selectedPaymentMethod && (
-                  <div className={`p-3 sm:p-4 rounded-lg border-2 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800`}>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                      <selectedPaymentMethod.icon className="w-4 h-4 text-blue-600" />
-                      {selectedPaymentMethod.name} - বিবরণ
-                    </h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                        <selectedPaymentMethod.icon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                        {selectedPaymentMethod.name} - বিবরণ
+                      </h3>
+                    </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       {/* Amount */}
                       <div className="sm:col-span-2">
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                          পরিমাণ *
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                          পরিমাণ <span className="text-red-500">*</span>
                         </label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <div className="relative group">
+                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400 group-focus-within:bg-blue-50 group-focus-within:text-blue-500 transition-colors font-bold text-lg">
+                            ৳
+                          </div>
                           <input
                             type="number"
                             name="paymentDetails.amount"
@@ -8233,16 +8274,16 @@ const NewTransaction = () => {
                             placeholder="0.00"
                             min="0"
                             step="0.01"
-                            className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
+                            className={`w-full pl-14 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-base font-medium ${
                               isDark 
-                                ? 'bg-white border-gray-300 text-gray-900' 
-                                : 'border-gray-300'
-                            } ${errors.amount ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                            } ${errors.amount ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                           />
                         </div>
                         {errors.amount && (
-                          <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" />
+                          <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1.5 animate-in slide-in-from-top-1 fade-in duration-200">
+                            <AlertCircle className="w-3.5 h-3.5" />
                             {errors.amount}
                           </p>
                         )}
@@ -8251,11 +8292,13 @@ const NewTransaction = () => {
                       {/* Charge Field - For cash, bank-transfer, cheque, and mobile-banking */}
                       {(formData.paymentMethod === 'cash' || formData.paymentMethod === 'bank-transfer' || formData.paymentMethod === 'cheque' || formData.paymentMethod === 'mobile-banking') && (
                         <div className="sm:col-span-2">
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                            চার্জ
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            চার্জ (যদি থাকে)
                           </label>
-                          <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <div className="relative group">
+                            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center text-gray-500 dark:text-gray-400 group-focus-within:bg-orange-50 group-focus-within:text-orange-500 transition-colors font-bold text-lg">
+                              ৳
+                            </div>
                             <input
                               type="number"
                               name="paymentDetails.charge"
@@ -8264,10 +8307,10 @@ const NewTransaction = () => {
                               placeholder="0.00"
                               min="0"
                               step="0.01"
-                              className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
+                              className={`w-full pl-14 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-200 text-base font-medium ${
                                 isDark 
-                                  ? 'bg-white border-gray-300 text-gray-900' 
-                                  : 'border-gray-300'
+                                  ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                               }`}
                             />
                           </div>
@@ -8277,34 +8320,36 @@ const NewTransaction = () => {
                       {/* Total Amount Summary */}
                       {formData.paymentDetails.amount && (
                         <div className="sm:col-span-2">
-                          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-3 sm:p-4 border border-blue-200 dark:border-blue-800">
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">পরিমাণ:</span>
-                                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-bl-full -mr-4 -mt-4"></div>
+                            
+                            <div className="relative space-y-3">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">মূল পরিমাণ</span>
+                                <span className="font-semibold text-gray-900 dark:text-white font-mono">
                                   ৳{parseFloat(formData.paymentDetails.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               </div>
+                              
                               {formData.paymentDetails.charge && parseFloat(formData.paymentDetails.charge || 0) > 0 && (
-                                <>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">চার্জ:</span>
-                                    <span className={`text-sm font-semibold ${
-                                      getChargeWithSign() < 0 
-                                        ? 'text-red-600 dark:text-red-400' 
-                                        : 'text-green-600 dark:text-green-400'
-                                    }`}>
-                                      {getChargeWithSign() < 0 ? '-' : '+'}৳{Math.abs(getChargeWithSign()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700">
-                                    <span className="text-base font-bold text-gray-900 dark:text-white">মোট পরিমাণ:</span>
-                                    <span className="text-base font-bold text-blue-600 dark:text-blue-400">
-                                      ৳{getTotalAmount().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                  </div>
-                                </>
+                                <div className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-600 dark:text-gray-400">চার্জ</span>
+                                  <span className={`font-semibold font-mono ${
+                                    getChargeWithSign() < 0 
+                                      ? 'text-red-600 dark:text-red-400' 
+                                      : 'text-orange-600 dark:text-orange-400'
+                                  }`}>
+                                    {getChargeWithSign() < 0 ? '-' : '+'}৳{Math.abs(getChargeWithSign()).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
                               )}
+                              
+                              <div className="pt-3 mt-1 border-t border-dashed border-gray-300 dark:border-gray-600 flex justify-between items-end">
+                                <span className="text-sm font-bold text-gray-800 dark:text-gray-200">সর্বমোট</span>
+                                <span className="text-xl font-bold text-blue-600 dark:text-blue-400 font-mono">
+                                  ৳{getTotalAmount().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -8312,8 +8357,8 @@ const NewTransaction = () => {
 
                       {/* Dynamic Fields based on Payment Method */}
                       {selectedPaymentMethod.fields.map((field) => (
-                        <div key={field}>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        <div key={field} className={field === 'reference' ? 'sm:col-span-2' : ''}>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                             {field === 'bankName' && 'ব্যাংকের নাম'}
                             {field === 'accountNumber' && 'অ্যাকাউন্ট নম্বর'}
                             {field === 'chequeNumber' && 'চেক নম্বর'}
@@ -8332,10 +8377,10 @@ const NewTransaction = () => {
                                          field === 'mobileProvider' ? 'প্রোভাইডার' :
                                          field === 'transactionId' ? 'ট্রানজেকশন আইডি' :
                                          'রেফারেন্স'} লিখুন...`}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm ${
                               isDark 
-                                ? 'bg-white border-gray-300 text-gray-900' 
-                                : 'border-gray-300'
+                                ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' 
+                                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                             }`}
                           />
                         </div>

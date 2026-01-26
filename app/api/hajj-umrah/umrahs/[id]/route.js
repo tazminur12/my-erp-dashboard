@@ -47,6 +47,7 @@ export async function GET(request, { params }) {
       ng_serial_no: umrah.ng_serial_no || '',
       tracking_no: umrah.tracking_no || '',
       name: umrah.name || `${umrah.first_name || ''} ${umrah.last_name || ''}`.trim(),
+      bangla_name: umrah.bangla_name || '',
       first_name: umrah.first_name || '',
       last_name: umrah.last_name || '',
       father_name: umrah.father_name || '',
@@ -92,6 +93,9 @@ export async function GET(request, { params }) {
       reference_customer_id: umrah.reference_customer_id || '',
       employer_id: umrah.employer_id || umrah.employerId || '',
       employerId: umrah.employer_id || umrah.employerId || '',
+      source_type: umrah.source_type || 'office',
+      branch_id: umrah.branch_id || '',
+      reference_haji: umrah.reference_haji || '',
       photo: umrah.photo || umrah.photo_url || '',
       photo_url: umrah.photo || umrah.photo_url || '',
       passport_copy: umrah.passport_copy || umrah.passport_copy_url || '',
@@ -172,9 +176,8 @@ export async function PUT(request, { params }) {
 
     // Update all fields that are provided
     const fieldsToUpdate = [
-      'customer_id', 'manual_serial_number', 'pid_no', 'ng_serial_no', 'tracking_no',
-      'name', 'first_name', 'last_name', 'father_name', 'mother_name', 'spouse_name',
-      'occupation', 'date_of_birth', 'gender', 'marital_status', 'nationality',
+      'customer_id', 'manual_serial_number', 'pid_no', 'ng_serial_no', 'tracking_no', 'name', 'bangla_name', 'first_name', 'last_name', 'father_name', 'mother_name',
+      'spouse_name', 'occupation', 'date_of_birth', 'gender', 'marital_status', 'nationality',
       'passport_number', 'passport_type', 'issue_date', 'expiry_date', 'nid_number',
       'mobile', 'whatsapp_no', 'email', 'address', 'division', 'district', 'upazila',
       'area', 'post_code', 'emergency_contact', 'emergency_phone',
@@ -182,7 +185,7 @@ export async function PUT(request, { params }) {
       'total_amount', 'paid_amount', 'payment_method', 'payment_status',
       'service_type', 'service_status', 'is_active', 'previous_hajj', 'previous_umrah',
       'special_requirements', 'notes', 'reference_by', 'reference_customer_id',
-      'employer_id', 'employerId',
+      'employer_id', 'employerId', 'source_type', 'branch_id', 'reference_haji',
       'photo', 'photo_url', 'passport_copy', 'passport_copy_url', 'nid_copy', 'nid_copy_url'
     ];
 

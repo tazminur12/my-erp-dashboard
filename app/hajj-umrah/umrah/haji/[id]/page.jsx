@@ -102,6 +102,7 @@ const UmrahHajiDetails = () => {
         pidNo: umrahData.pid_no,
         ngSerialNo: umrahData.ng_serial_no,
         trackingNo: umrahData.tracking_no,
+        banglaName: umrahData.bangla_name,
         name: umrahData.name,
         firstName: umrahData.first_name,
         lastName: umrahData.last_name,
@@ -147,6 +148,10 @@ const UmrahHajiDetails = () => {
         notes: umrahData.notes,
         referenceBy: umrahData.reference_by,
         referenceCustomerId: umrahData.reference_customer_id,
+        sourceType: umrahData.source_type,
+        branchId: umrahData.branch_id,
+        referenceHaji: umrahData.reference_haji,
+        employerId: umrahData.employer_id || umrahData.employerId,
         photo: umrahData.photo || umrahData.photo_url,
         photoUrl: umrahData.photo || umrahData.photo_url,
         passportCopy: umrahData.passport_copy || umrahData.passport_copy_url,
@@ -439,7 +444,8 @@ const UmrahHajiDetails = () => {
     { id: 'financial', label: 'আর্থিক', icon: CreditCard },
     { id: 'documents', label: 'ডকুমেন্ট', icon: ImageIcon },
     { id: 'relations', label: 'সম্পর্ক', icon: Users },
-    { id: 'transactions', label: 'লেনদেনের ইতিহাস', icon: Receipt }
+    { id: 'transactions', label: 'লেনদেনের ইতিহাস', icon: Receipt },
+    { id: 'reference', label: 'রেফারেন্স তথ্য', icon: FileText }
   ];
 
   if (loading) {
@@ -729,6 +735,10 @@ const UmrahHajiDetails = () => {
           <div>
             <label className="text-sm text-gray-600 dark:text-gray-400">পূর্ণ নাম</label>
             <p className="text-base text-gray-900 dark:text-white font-medium">{umrah.name || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">বাংলা নাম</label>
+            <p className="text-base text-gray-900 dark:text-white font-medium">{umrah.banglaName || 'N/A'}</p>
           </div>
           <div>
             <label className="text-sm text-gray-600 dark:text-gray-400">উমরাহ আইডি</label>
@@ -1455,6 +1465,58 @@ const UmrahHajiDetails = () => {
     );
   };
 
+  const renderReferenceInfo = () => (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রেফারেন্স এবং উৎস তথ্য</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">উৎস ধরন</label>
+            <p className="text-base text-gray-900 dark:text-white capitalize">
+              {umrah.sourceType === 'agent' ? 'এজেন্ট' : 'অফিস'}
+            </p>
+          </div>
+          
+          {umrah.sourceType === 'agent' ? (
+            <div>
+              <label className="text-sm text-gray-600 dark:text-gray-400">এজেন্ট</label>
+              {umrah.agentId ? (
+                <Link href={`/hajj-umrah/b2b-agent/agent/${umrah.agentId}`} className="text-blue-600 hover:underline">
+                  এজেন্ট প্রোফাইল দেখুন
+                </Link>
+              ) : (
+                <p className="text-base text-gray-900 dark:text-white">N/A</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">ব্রাঞ্চ</label>
+                <p className="text-base text-gray-900 dark:text-white">
+                  {/* Ideally fetch branch name using ID, for now showing ID or N/A */}
+                  {umrah.branchId || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600 dark:text-gray-400">রেফারেন্স কর্মচারী</label>
+                <p className="text-base text-gray-900 dark:text-white">
+                  {umrah.employerId || 'N/A'}
+                </p>
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="text-sm text-gray-600 dark:text-gray-400">রেফারেন্স (হাজী)</label>
+            <p className="text-base text-gray-900 dark:text-white">
+              {umrah.referenceHaji || 'N/A'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -1471,6 +1533,8 @@ const UmrahHajiDetails = () => {
         return renderRelations();
       case 'transactions':
         return renderTransactionHistory();
+      case 'reference':
+        return renderReferenceInfo();
       default:
         return renderOverview();
     }

@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  Loader2
+  Loader2,
+  Building,
+  Users
 } from 'lucide-react';
 import { uploadToCloudinary, validateCloudinaryConfig } from '../../../../../../config/cloudinary';
 import divisionDataJson from '../../../../../jsondata/AllDivision.json';
@@ -173,13 +175,11 @@ const EditUmrahHaji = () => {
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 6;
+  const totalSteps = 4;
 
   const stepTitles = [
     'ব্যক্তিগত তথ্য',
     'যোগাযোগ তথ্য',
-    'প্যাকেজ তথ্য',
-    'আর্থিক তথ্য',
     'অতিরিক্ত তথ্য',
     'ডকুমেন্ট'
   ];
@@ -275,6 +275,7 @@ const EditUmrahHaji = () => {
     pidNo: '',
     ngSerialNo: '',
     trackingNo: '',
+    banglaName: '',
     nationality: 'Bangladeshi',
     employerId: ''
   });
@@ -296,11 +297,14 @@ const EditUmrahHaji = () => {
     return (district?.Upazilas || []).map((u) => ({ value: u, label: u }));
   }, [formData.division, formData.district, divisionData]);
 
+  const [branches, setBranches] = useState([]);
+
   // Fetch packages, agents, employees
   useEffect(() => {
     fetchPackages();
     fetchAgents();
     fetchEmployees();
+    fetchBranches();
   }, []);
 
   // Fetch umrah data for edit mode
@@ -331,6 +335,18 @@ const EditUmrahHaji = () => {
       setAgents([]);
     } catch (error) {
       console.error('Error fetching agents:', error);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const response = await fetch('/api/branches');
+      const data = await response.json();
+      if (response.ok) {
+        setBranches(data.branches || []);
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
     }
   };
 
@@ -408,6 +424,7 @@ const EditUmrahHaji = () => {
         pidNo: umrah.pid_no || '',
         ngSerialNo: umrah.ng_serial_no || '',
         trackingNo: umrah.tracking_no || '',
+        banglaName: umrah.bangla_name || '',
         nationality: umrah.nationality || 'Bangladeshi',
         photo: umrah.photo || umrah.photo_url || null,
         passportCopy: umrah.passport_copy || umrah.passport_copy_url || null,
@@ -875,6 +892,13 @@ const EditUmrahHaji = () => {
                   placeholder="ম্যানুয়াল সিরিয়াল নম্বর দিন"
                 />
                 <InputGroup
+                  label="বাংলা নাম"
+                  name="banglaName"
+                  value={formData.banglaName}
+                  onChange={handleInputChange}
+                  placeholder="বাংলায় নাম লিখুন"
+                />
+                <InputGroup
                   label="প্রথম নাম"
                   name="firstName"
                   value={formData.firstName}
@@ -1085,95 +1109,109 @@ const EditUmrahHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 3: Package Information */}
+          {/* Step 3: Additional Information (Modified) */}
           {currentStep === 3 && (
-            <FormSection title="প্যাকেজ তথ্য" icon={Package}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectGroup
-                  label="প্যাকেজ"
-                  name="packageId"
-                  value={formData.packageId}
-                  options={packages}
-                  onChange={handlePackageChange}
-                />
-                <SelectGroup
-                  label="এজেন্ট"
-                  name="agentId"
-                  value={formData.agentId}
-                  options={agents}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="প্রস্থান তারিখ"
-                  name="departureDate"
-                  type="date"
-                  value={formData.departureDate}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="ফেরত তারিখ"
-                  name="returnDate"
-                  type="date"
-                  value={formData.returnDate}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </FormSection>
-          )}
+            <FormSection title="অতিরিক্ত তথ্য ও রেফারেন্স" icon={FileText}>
+              <div className="space-y-6">
+                
+                {/* Office vs Agent Selection */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    রেফারেন্স উৎস নির্বাচন করুন
+                  </label>
+                  <div className="flex items-center space-x-6">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sourceType"
+                        value="office"
+                        checked={formData.sourceType === 'office'}
+                        onChange={handleInputChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <Building className="w-4 h-4 mr-2 text-blue-500" />
+                        অফিস
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sourceType"
+                        value="agent"
+                        checked={formData.sourceType === 'agent'}
+                        onChange={handleInputChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <Users className="w-4 h-4 mr-2 text-green-500" />
+                        এজেন্ট
+                      </span>
+                    </label>
+                  </div>
 
-          {/* Step 4: Financial Information */}
-          {currentStep === 4 && (
-            <FormSection title="আর্থিক তথ্য" icon={CreditCard}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <InputGroup
-                  label="মোট পরিমাণ"
-                  name="totalAmount"
-                  type="number"
-                  readOnly
-                  value={formData.totalAmount}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="পরিশোধিত পরিমাণ"
-                  name="paidAmount"
-                  type="number"
-                  min="0"
-                  max={formData.totalAmount}
-                  value={formData.paidAmount}
-                  onChange={handleInputChange}
-                />
-                <SelectGroup
-                  label="পেমেন্ট পদ্ধতি"
-                  name="paymentMethod"
-                  value={formData.paymentMethod}
-                  onChange={handleInputChange}
-                  options={[
-                    { value: 'cash', label: 'নগদ' },
-                    { value: 'bank_transfer', label: 'ব্যাংক ট্রান্সফার' },
-                    { value: 'mobile_banking', label: 'মোবাইল ব্যাংকিং' },
-                    { value: 'check', label: 'চেক' }
-                  ]}
-                />
-                <SelectGroup
-                  label="পেমেন্ট স্ট্যাটাস"
-                  name="paymentStatus"
-                  value={formData.paymentStatus}
-                  onChange={handleInputChange}
-                  options={[
-                    { value: 'pending', label: 'বিচারাধীন' },
-                    { value: 'partial', label: 'আংশিক' },
-                    { value: 'paid', label: 'পরিশোধিত' }
-                  ]}
-                />
-              </div>
-            </FormSection>
-          )}
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {formData.sourceType === 'office' ? (
+                      <>
+                        <SelectGroup
+                          label="ব্রাঞ্চ নির্বাচন করুন"
+                          name="branchId"
+                          value={formData.branchId}
+                          onChange={(e) => {
+                            handleInputChange(e);
+                            // Clear employer when branch changes
+                            setFormData(prev => ({ ...prev, employerId: '', branchId: e.target.value }));
+                          }}
+                          options={branches.map(b => ({
+                            id: b.id,
+                            name: b.name
+                          }))}
+                        />
+                        <SelectGroup
+                          label="কর্মচারী নির্বাচন করুন"
+                          name="employerId"
+                          value={formData.employerId}
+                          onChange={handleInputChange}
+                          disabled={!formData.branchId}
+                          options={employees
+                            .filter(emp => !formData.branchId || emp.branch === formData.branchId || emp.branch === branches.find(b => b.id === formData.branchId)?.name) // Filter by branch if selected
+                            .map(emp => ({
+                              id: emp.id,
+                              name: `${emp.fullName || emp.firstName} (${emp.employeeId})`
+                            }))
+                          }
+                        />
+                      </>
+                    ) : (
+                      <div className="md:col-span-2">
+                        <SelectGroup
+                          label="এজেন্ট নির্বাচন করুন"
+                          name="agentId"
+                          value={formData.agentId}
+                          onChange={handleInputChange}
+                          options={agents.map(agent => ({
+                            id: agent._id || agent.id,
+                            name: `${agent.tradeName || agent.ownerName} (${agent.contactNo || ''})`
+                          }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-          {/* Step 5: Additional Information */}
-          {currentStep === 5 && (
-            <FormSection title="অতিরিক্ত তথ্য" icon={FileText}>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputGroup
+                    label="রেফারেন্স (হাজী)"
+                    name="referenceHaji"
+                    placeholder="হাজীর নাম বা আইডি লিখুন"
+                    value={formData.referenceHaji}
+                    onChange={handleInputChange}
+                  />
+                  
+                  {/* Reuse existing referenceBy if needed or keep it hidden/synced */}
+                </div>
+
+                <div className="flex items-center space-x-6 pt-2">
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -1195,16 +1233,7 @@ const EditUmrahHaji = () => {
                     <span className="text-sm text-gray-700 dark:text-gray-300">পূর্ববর্তী উমরাহ অভিজ্ঞতা</span>
                   </label>
                 </div>
-                <SelectGroup
-                  label="কর্মচারী নির্বাচন করুন"
-                  name="employerId"
-                  value={formData.employerId}
-                  onChange={handleInputChange}
-                  options={employees.map(emp => ({
-                    id: emp.id,
-                    name: `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} - ${emp.employeeId || emp.id}`
-                  }))}
-                />
+
                 <InputGroup
                   label="বিশেষ প্রয়োজনীয়তা"
                   name="specialRequirements"
@@ -1212,6 +1241,7 @@ const EditUmrahHaji = () => {
                   value={formData.specialRequirements}
                   onChange={handleInputChange}
                 />
+                
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     নোট
@@ -1229,8 +1259,8 @@ const EditUmrahHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 6: Document Upload */}
-          {currentStep === 6 && (
+          {/* Step 4: Document Upload (Was Step 6) */}
+          {currentStep === 4 && (
             <FormSection title="ডকুমেন্ট আপলোড" icon={Upload}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FileUploadGroup

@@ -17,7 +17,9 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
-  Loader2
+  Loader2,
+  Building,
+  Users
 } from 'lucide-react';
 import { uploadToCloudinary, validateCloudinaryConfig } from '../../../../../config/cloudinary';
 import divisionDataJson from '../../../../jsondata/AllDivision.json';
@@ -167,19 +169,18 @@ const AddHaji = () => {
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState([]);
   const [agents, setAgents] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [licenses, setLicenses] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [hajiLoading, setHajiLoading] = useState(false);
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 6;
+  const totalSteps = 4;
 
   const stepTitles = [
     'ব্যক্তিগত তথ্য',
     'পাসপোর্ট তথ্য',
-    'যোগাযোগ তথ্য',
-    'প্যাকেজ তথ্য',
     'অতিরিক্ত তথ্য',
     'ডকুমেন্ট'
   ];
@@ -276,7 +277,11 @@ const AddHaji = () => {
     pidNo: '',
     ngSerialNo: '',
     trackingNo: '',
-    employerId: ''
+    banglaName: '',
+    employerId: '',
+    sourceType: 'office', // 'office' or 'agent'
+    branchId: '',
+    referenceHaji: ''
   });
 
   // Location options
@@ -302,6 +307,7 @@ const AddHaji = () => {
     fetchAgents();
     fetchLicenses();
     fetchEmployees();
+    fetchBranches();
   }, []);
 
   // Fetch haji data for edit mode
@@ -325,13 +331,23 @@ const AddHaji = () => {
 
   const fetchAgents = async () => {
     try {
-      // TODO: Replace with actual API endpoint
-      // const response = await fetch('/api/agents');
-      // const data = await response.json();
-      // setAgents(data.agents || []);
-      setAgents([]);
+      const response = await fetch('/api/agents');
+      const data = await response.json();
+      setAgents(data.agents || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const response = await fetch('/api/branches');
+      const data = await response.json();
+      if (response.ok) {
+        setBranches(data.branches || []);
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
     }
   };
 
@@ -427,6 +443,10 @@ const AddHaji = () => {
           referenceBy: haji.reference_by || '',
           referenceCustomerId: haji.reference_customer_id || '',
           employerId: haji.employer_id || haji.employerId || '',
+          sourceType: haji.source_type || (haji.agent_id ? 'agent' : 'office'),
+          branchId: haji.branch_id || '',
+          referenceHaji: haji.reference_haji || '',
+          banglaName: haji.bangla_name || '',
           photo: photoUrl,
           passportCopy: passportUrl,
           nidCopy: nidUrl
@@ -736,6 +756,10 @@ const AddHaji = () => {
         notes: formData.notes,
         referenceBy: formData.referenceBy,
         referenceCustomerId: formData.referenceCustomerId,
+        source_type: formData.sourceType,
+        branch_id: formData.branchId,
+        reference_haji: formData.referenceHaji,
+        bangla_name: formData.banglaName,
         totalAmount: Number(formData.totalAmount) || 0,
         paidAmount: Number(formData.paidAmount) || 0,
         paymentMethod: formData.paymentMethod,
@@ -932,6 +956,13 @@ const AddHaji = () => {
                   placeholder="ম্যানুয়াল সিরিয়াল নম্বর দিন"
                 />
                 <InputGroup
+                  label="বাংলা নাম"
+                  name="banglaName"
+                  value={formData.banglaName}
+                  onChange={handleInputChange}
+                  placeholder="বাংলা নাম লিখুন"
+                />
+                <InputGroup
                   label="প্রথম নাম (English)"
                   name="firstName"
                   value={formData.firstName}
@@ -1016,6 +1047,14 @@ const AddHaji = () => {
                   value={formData.nationality}
                   onChange={handleInputChange}
                 />
+                <InputGroup
+                  label="মোবাইল নম্বর"
+                  name="mobile"
+                  type="tel"
+                  value={formData.mobile}
+                  onChange={handleInputChange}
+                  required
+                />
                 <SelectGroup
                   label="হাজি স্ট্যাটাস"
                   name="serviceStatus"
@@ -1046,12 +1085,22 @@ const AddHaji = () => {
                   value={formData.passportNumber}
                   onChange={handleInputChange}
                 />
-                <InputGroup
-                  label="পাসপোর্ট টাইপ"
-                  name="passportType"
-                  value={formData.passportType || 'ordinary'}
-                  onChange={handleInputChange}
-                />
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    পাসপোর্ট টাইপ
+                  </label>
+                  <select
+                    name="passportType"
+                    value={formData.passportType || 'ordinary'}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors duration-200"
+                  >
+                    <option value="">পাসপোর্ট টাইপ নির্বাচন করুন</option>
+                    <option value="ordinary">Ordinary Passport (সাধারণ পাসপোর্ট)</option>
+                    <option value="official">Official Passport (সরাসরি সরকারি পাসপোর্ট)</option>
+                    <option value="diplomatic">Diplomatic Passport (কূটনৈতিক পাসপোর্ট)</option>
+                  </select>
+                </div>
                 <InputGroup
                   label="ইস্যু তারিখ"
                   name="issueDate"
@@ -1097,140 +1146,109 @@ const AddHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 3: Contact Information */}
+          {/* Step 3: Additional Information (Modified) */}
           {currentStep === 3 && (
-            <FormSection title="যোগাযোগ তথ্য" icon={Phone}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputGroup
-                  label="মোবাইল নম্বর"
-                  name="mobile"
-                  type="tel"
-                  value={formData.mobile}
-                  onChange={handleInputChange}
-                  required
-                />
-                <InputGroup
-                  label="WhatsApp নম্বর"
-                  name="whatsappNo"
-                  type="tel"
-                  value={formData.whatsappNo}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="ইমেইল ঠিকানা"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                />
-                <div className="md:col-span-2">
+            <FormSection title="অতিরিক্ত তথ্য ও রেফারেন্স" icon={FileText}>
+              <div className="space-y-6">
+                
+                {/* Office vs Agent Selection */}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    রেফারেন্স উৎস নির্বাচন করুন
+                  </label>
+                  <div className="flex items-center space-x-6">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sourceType"
+                        value="office"
+                        checked={formData.sourceType === 'office'}
+                        onChange={handleInputChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <Building className="w-4 h-4 mr-2 text-blue-500" />
+                        অফিস
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sourceType"
+                        value="agent"
+                        checked={formData.sourceType === 'agent'}
+                        onChange={handleInputChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <Users className="w-4 h-4 mr-2 text-green-500" />
+                        এজেন্ট
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {formData.sourceType === 'office' ? (
+                      <>
+                        <SelectGroup
+                          label="ব্রাঞ্চ নির্বাচন করুন"
+                          name="branchId"
+                          value={formData.branchId}
+                          onChange={(e) => {
+                            handleInputChange(e);
+                            // Clear employer when branch changes
+                            setFormData(prev => ({ ...prev, employerId: '', branchId: e.target.value }));
+                          }}
+                          options={branches.map(b => ({
+                            id: b.id,
+                            name: b.name
+                          }))}
+                        />
+                        <SelectGroup
+                          label="কর্মচারী নির্বাচন করুন"
+                          name="employerId"
+                          value={formData.employerId}
+                          onChange={handleInputChange}
+                          disabled={!formData.branchId}
+                          options={employees
+                            .filter(emp => !formData.branchId || emp.branch === formData.branchId || emp.branch === branches.find(b => b.id === formData.branchId)?.name) // Filter by branch if selected
+                            .map(emp => ({
+                              id: emp.id,
+                              name: `${emp.fullName || emp.firstName} (${emp.employeeId})`
+                            }))
+                          }
+                        />
+                      </>
+                    ) : (
+                      <div className="md:col-span-2">
+                        <SelectGroup
+                          label="এজেন্ট নির্বাচন করুন"
+                          name="agentId"
+                          value={formData.agentId}
+                          onChange={handleInputChange}
+                          options={agents.map(agent => ({
+                            id: agent._id || agent.id,
+                            name: `${agent.tradeName || agent.ownerName} (${agent.contactNo || ''})`
+                          }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InputGroup
-                    label="ঠিকানা"
-                    name="address"
-                    value={formData.address}
+                    label="রেফারেন্স (হাজী)"
+                    name="referenceHaji"
+                    placeholder="হাজীর নাম বা আইডি লিখুন"
+                    value={formData.referenceHaji}
                     onChange={handleInputChange}
                   />
+                  
+                  {/* Reuse existing referenceBy if needed or keep it hidden/synced */}
                 </div>
-                <SelectGroup
-                  label="বিভাগ"
-                  name="division"
-                  value={formData.division}
-                  onChange={handleInputChange}
-                  options={divisionOptions}
-                />
-                <SelectGroup
-                  label="জেলা"
-                  name="district"
-                  value={formData.district}
-                  onChange={handleInputChange}
-                  options={districtOptions}
-                  disabled={!formData.division}
-                />
-                <SelectGroup
-                  label="উপজেলা"
-                  name="upazila"
-                  value={formData.upazila}
-                  onChange={handleInputChange}
-                  options={upazilaOptions}
-                  disabled={!formData.district}
-                />
-                <InputGroup
-                  label="এলাকা"
-                  name="area"
-                  value={formData.area}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="পোস্ট কোড"
-                  name="postCode"
-                  value={formData.postCode}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="জরুরি যোগাযোগের নাম"
-                  name="emergencyContact"
-                  value={formData.emergencyContact}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="জরুরি যোগাযোগের ফোন"
-                  name="emergencyPhone"
-                  type="tel"
-                  value={formData.emergencyPhone}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </FormSection>
-          )}
 
-          {/* Step 4: Package Information */}
-          {currentStep === 4 && (
-            <FormSection title="প্যাকেজ তথ্য" icon={Package}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <SelectGroup
-                  label="প্যাকেজ"
-                  name="packageId"
-                  value={formData.packageId}
-                  options={packages}
-                  onChange={handlePackageChange}
-                />
-                <SelectGroup
-                  label="এজেন্ট"
-                  name="agentId"
-                  value={formData.agentId}
-                  options={agents}
-                  onChange={handleInputChange}
-                />
-                <SelectGroup
-                  label="লাইসেন্স"
-                  name="licenseId"
-                  value={formData.licenseId}
-                  options={licenses}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="প্রস্থান তারিখ"
-                  name="departureDate"
-                  type="date"
-                  value={formData.departureDate}
-                  onChange={handleInputChange}
-                />
-                <InputGroup
-                  label="ফিরে আসার তারিখ"
-                  name="returnDate"
-                  type="date"
-                  value={formData.returnDate}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </FormSection>
-          )}
-
-          {/* Step 5: Additional Information */}
-          {currentStep === 5 && (
-            <FormSection title="অতিরিক্ত তথ্য" icon={FileText}>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-6 pt-2">
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -1252,16 +1270,7 @@ const AddHaji = () => {
                     <span className="text-sm text-gray-700 dark:text-gray-300">পূর্ববর্তী উমরাহ অভিজ্ঞতা</span>
                   </label>
                 </div>
-                <SelectGroup
-                  label="কর্মচারী নির্বাচন করুন"
-                  name="employerId"
-                  value={formData.employerId}
-                  onChange={handleInputChange}
-                  options={employees.map(emp => ({
-                    id: emp.id,
-                    name: `${emp.fullName || `${emp.firstName} ${emp.lastName}`.trim()} - ${emp.employeeId || emp.id}`
-                  }))}
-                />
+
                 <InputGroup
                   label="বিশেষ প্রয়োজনীয়তা"
                   name="specialRequirements"
@@ -1269,6 +1278,7 @@ const AddHaji = () => {
                   value={formData.specialRequirements}
                   onChange={handleInputChange}
                 />
+                
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     নোট
@@ -1286,8 +1296,8 @@ const AddHaji = () => {
             </FormSection>
           )}
 
-          {/* Step 6: Document Upload */}
-          {currentStep === 6 && (
+          {/* Step 4: Document Upload */}
+          {currentStep === 4 && (
             <FormSection title="ডকুমেন্ট আপলোড" icon={Upload}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FileUploadGroup
