@@ -16,9 +16,11 @@ import {
   MapPin,
   Phone,
   FileCheck,
+  Calendar,
   CreditCard,
   Building2,
-  Calendar
+  CheckCircle,
+  ArrowRight
 } from 'lucide-react';
 import DashboardLayout from '../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
@@ -70,7 +72,7 @@ const NewLoanReceiving = () => {
     commencementDate: new Date().toISOString().split('T')[0],
     completionDate: '',
     commitmentDate: '',
-    notes: ''
+    notes: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -84,6 +86,16 @@ const NewLoanReceiving = () => {
     nidFrontImage: false,
     nidBackImage: false
   });
+
+  // Step state
+  const [currentStep, setCurrentStep] = useState(1);
+  const steps = [
+    { number: 1, title: 'ব্যক্তিগত তথ্য', icon: User },
+    { number: 2, title: 'ব্যবসায়িক তথ্য', icon: Building2 },
+    { number: 3, title: 'ঠিকানা তথ্য', icon: MapPin },
+    { number: 4, title: 'যোগাযোগের তথ্য', icon: Phone },
+    { number: 5, title: 'অতিরিক্ত তথ্য', icon: FileText }
+  ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -194,36 +206,52 @@ const NewLoanReceiving = () => {
     }));
   };
 
-  const validateForm = () => {
+  const validateStep = (step) => {
     const newErrors = {};
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'নামের প্রথম অংশ আবশ্যক';
-    }
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'নামের শেষ অংশ আবশ্যক';
-    }
-
-    if (formData.nidNumber && !/^\d{10}$|^\d{13}$|^\d{17}$/.test(formData.nidNumber.replace(/\s/g, ''))) {
-      newErrors.nidNumber = 'সঠিক জাতীয় পরিচয়পত্র নম্বর লিখুন';
+    
+    if (step === 1) {
+      if (!formData.firstName.trim()) newErrors.firstName = 'নামের প্রথম অংশ আবশ্যক';
+      if (!formData.lastName.trim()) newErrors.lastName = 'নামের শেষ অংশ আবশ্যক';
+      if (formData.nidNumber && !/^\d{10}$|^\d{13}$|^\d{17}$/.test(formData.nidNumber.replace(/\s/g, ''))) {
+        newErrors.nidNumber = 'সঠিক জাতীয় পরিচয়পত্র নম্বর লিখুন';
+      }
     }
 
-    if (formData.contactPhone && !/^01[3-9]\d{8}$/.test(formData.contactPhone)) {
-      newErrors.contactPhone = 'সঠিক মোবাইল নম্বর লিখুন';
-    }
-
-    if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
-      newErrors.contactEmail = 'সঠিক ইমেইল ঠিকানা লিখুন';
+    if (step === 4) { // Contact Info
+      if (formData.contactPhone && !/^01[3-9]\d{8}$/.test(formData.contactPhone)) {
+        newErrors.contactPhone = 'সঠিক মোবাইল নম্বর লিখুন';
+      }
+      if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
+        newErrors.contactEmail = 'সঠিক ইমেইল ঠিকানা লিখুন';
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => Math.min(prev + 1, steps.length));
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo(0, 0);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Prevent submission on intermediate steps (e.g. on Enter key press)
+    if (currentStep < steps.length) {
+      nextStep();
+      return;
+    }
+    
+    if (!validateStep(currentStep)) {
       Swal.fire({
         title: 'ত্রুটি!',
         text: 'অনুগ্রহ করে সব আবশ্যক ক্ষেত্র সঠিকভাবে পূরণ করুন।',
@@ -236,8 +264,6 @@ const NewLoanReceiving = () => {
 
     const loanData = {
       ...formData,
-      loanDirection: 'receiving',
-      type: 'receiving',
       createdBy: user?.email || 'unknown_user',
       branchId: user?.branchId || 'main_branch'
     };
@@ -257,19 +283,19 @@ const NewLoanReceiving = () => {
       if (response.ok) {
         await Swal.fire({
           title: 'সফল!',
-          text: result?.message || 'ঋণের আবেদন সফলভাবে জমা দেওয়া হয়েছে।',
+          text: result?.message || 'ঋণ আবেদন সফলভাবে জমা দেওয়া হয়েছে।',
           icon: 'success',
           confirmButtonText: 'ঠিক আছে',
           confirmButtonColor: '#10B981',
         });
         router.push('/loan/receiving-list');
       } else {
-        throw new Error(result.error || result.message || 'Failed to create loan');
+        throw new Error(result.error || result.message || 'Failed to create loan application');
       }
     } catch (error) {
       Swal.fire({
         title: 'ত্রুটি!',
-        text: error.message || 'ঋণের আবেদন জমা দিতে সমস্যা হয়েছে।',
+        text: error.message || 'ঋণ আবেদনে সমস্যা হয়েছে।',
         icon: 'error',
         confirmButtonText: 'ঠিক আছে',
         confirmButtonColor: '#EF4444',
@@ -298,9 +324,44 @@ const NewLoanReceiving = () => {
                 <TrendingUp className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">নতুন ঋণ আবেদন</h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-2">ঋণ আবেদনের জন্য প্রয়োজনীয় তথ্য পূরণ করুন</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">নতুন ঋণ গ্রহণ</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">ঋণ গ্রহণের জন্য প্রয়োজনীয় তথ্য পূরণ করুন</p>
               </div>
+            </div>
+          </div>
+
+          {/* Stepper */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between relative">
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 dark:bg-gray-700 -z-10" />
+              {steps.map((step) => {
+                const isActive = currentStep === step.number;
+                const isCompleted = currentStep > step.number;
+                const Icon = step.icon;
+
+                return (
+                  <div key={step.number} className="flex flex-col items-center bg-gray-50 dark:bg-gray-900 px-2">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                        isActive
+                          ? 'bg-purple-600 border-purple-600 text-white scale-110'
+                          : isCompleted
+                          ? 'bg-purple-100 border-purple-600 text-purple-600'
+                          : 'bg-white border-gray-300 text-gray-400 dark:bg-gray-800 dark:border-gray-600'
+                      }`}
+                    >
+                      {isCompleted ? <CheckCircle className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
+                    </div>
+                    <span
+                      className={`mt-2 text-xs sm:text-sm font-medium transition-colors duration-300 ${
+                        isActive ? 'text-purple-600' : isCompleted ? 'text-purple-600' : 'text-gray-500'
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -309,7 +370,8 @@ const NewLoanReceiving = () => {
             <form onSubmit={handleSubmit} className="p-8">
               <div className="space-y-8">
                 {/* Personal Profile Information */}
-                <div>
+                {currentStep === 1 && (
+                <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-lg">
                       <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -646,9 +708,11 @@ const NewLoanReceiving = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Business Information */}
-                <div>
+                {currentStep === 2 && (
+                <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="bg-purple-100 dark:bg-purple-900/20 p-2 rounded-lg">
                       <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -728,9 +792,11 @@ const NewLoanReceiving = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Address Information */}
-                <div>
+                {currentStep === 3 && (
+                <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="bg-green-100 dark:bg-green-900/20 p-2 rounded-lg">
                       <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -818,9 +884,11 @@ const NewLoanReceiving = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Contact Information */}
-                <div>
+                {currentStep === 4 && (
+                <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="bg-indigo-100 dark:bg-indigo-900/20 p-2 rounded-lg">
                       <Phone className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -920,9 +988,11 @@ const NewLoanReceiving = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Additional Information */}
-                <div>
+                {currentStep === 5 && (
+                <div className="animate-fadeIn">
                   <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="bg-amber-100 dark:bg-amber-900/20 p-2 rounded-lg">
                       <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -978,42 +1048,67 @@ const NewLoanReceiving = () => {
                         name="notes"
                         value={formData.notes}
                         onChange={handleInputChange}
-                        placeholder="ঋণ আবেদন সম্পর্কে অতিরিক্ত তথ্য লিখুন..."
+                        placeholder="অতিরিক্ত নোট বা তথ্য লিখুন..."
                         rows="4"
                         className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                       />
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Submit Button */}
-                <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-8 rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 font-semibold text-lg shadow-lg"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        আবেদন জমা দেওয়া হচ্ছে...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-5 h-5" />
-                        আবেদন জমা দিন
-                      </>
-                    )}
-                  </button>
-                  
+                <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                   <button
                     type="button"
                     onClick={() => router.back()}
-                    className="sm:w-auto bg-gray-500 dark:bg-gray-600 text-white py-4 px-8 rounded-lg hover:bg-gray-600 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 font-semibold text-lg"
+                    className="px-6 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 font-medium"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                     বাতিল
                   </button>
+
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      className="px-6 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 font-medium"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      পেছনে
+                    </button>
+                  )}
+                  
+                  {currentStep < steps.length ? (
+                    <button
+                      key="next-button"
+                      type="button"
+                      onClick={nextStep}
+                      className="px-6 py-2.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 font-medium shadow-lg"
+                    >
+                      পরবর্তী
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      key="submit-button"
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 font-medium shadow-lg"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          ঋণ গ্রহণ করা হচ্ছে...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          ঋণ গ্রহণ করুন
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

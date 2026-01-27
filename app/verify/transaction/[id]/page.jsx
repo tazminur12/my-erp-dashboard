@@ -30,107 +30,140 @@ export default async function VerifyTransactionPage({ params }) {
     );
   }
 
+  let transaction = null;
+
   try {
     const db = await getDb();
     const transactionsCollection = db.collection('transactions');
 
     // Try to find by transactionId first (most common for public links)
-    let transaction = await transactionsCollection.findOne({ transactionId: id, isActive: { $ne: false } });
+    transaction = await transactionsCollection.findOne({ transactionId: id, isActive: { $ne: false } });
 
     // Fallback to _id if not found
     if (!transaction && ObjectId.isValid(id)) {
       transaction = await transactionsCollection.findOne({ _id: new ObjectId(id), isActive: { $ne: false } });
     }
-
-    if (!transaction) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-            <div className="text-red-500 text-5xl mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">লেনদেন পাওয়া যায়নি</h1>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              আইডি <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{id}</span> এর সাথে কোনো লেনদেন পাওয়া যায়নি।
-            </p>
+  } catch (error) {
+    console.error('Error fetching transaction:', error);
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">সার্ভার ত্রুটি</h1>
+          <p className="text-gray-600 dark:text-gray-300">লেনদেনের তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</p>
+          <div className="mt-4 text-left text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto max-h-32">
+            <code className="text-red-500">{error.message}</code>
           </div>
         </div>
-      );
+      </div>
+    );
+  }
+
+  if (!transaction) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
+          <div className="text-red-500 text-5xl mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">লেনদেন পাওয়া যায়নি</h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            আইডি <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{id}</span> এর সাথে কোনো লেনদেন পাওয়া যায়নি।
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Format data for display
+  const {
+    transactionId,
+    date,
+    amount,
+    transactionType,
+    paymentMethod,
+    category,
+    serviceCategory,
+    notes,
+    createdAt
+  } = transaction;
+
+  const formattedDate = date ? new Date(date).toLocaleDateString('en-GB') : new Date(createdAt).toLocaleDateString('en-GB');
+  const formattedAmount = new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(amount || 0);
+
+  // Helper to get customer name safely
+  const getCustomerName = (t) => {
+    // For transfer transactions, use account names
+    if (t.transactionType === 'transfer') {
+      if (t.fromAccount && t.toAccount) {
+        const fromName = t.fromAccount.bankName || t.fromAccount.accountName || t.fromAccount.name || 'Account';
+        const toName = t.toAccount.bankName || t.toAccount.accountName || t.toAccount.name || 'Account';
+        return `${fromName} → ${toName}`;
+      }
+      if (t.debitAccount && t.creditAccount) {
+        const fromName = t.debitAccount.bankName || t.debitAccount.accountName || t.debitAccount.name || 'Account';
+        const toName = t.creditAccount.bankName || t.creditAccount.accountName || t.creditAccount.name || 'Account';
+        return `${fromName} → ${toName}`;
+      }
+      return 'Account Transfer';
+    }
+    
+    // For personal expense
+    if (t.scope === 'personal-expense' || t.personalExpenseProfileId) {
+      return t.partyName || t.customerName || 'Personal Expense';
     }
 
-    // Helper to get customer name safely
-    const getCustomerName = (t) => {
-      // For transfer transactions, use account names
-      if (t.transactionType === 'transfer') {
-        if (t.fromAccount && t.toAccount) {
-          const fromName = t.fromAccount.bankName || t.fromAccount.accountName || t.fromAccount.name || 'Account';
-          const toName = t.toAccount.bankName || t.toAccount.accountName || t.toAccount.name || 'Account';
-          return `${fromName} → ${toName}`;
-        }
-        if (t.debitAccount && t.creditAccount) {
-          const fromName = t.debitAccount.bankName || t.debitAccount.accountName || t.debitAccount.name || 'Account';
-          const toName = t.creditAccount.bankName || t.creditAccount.accountName || t.creditAccount.name || 'Account';
-          return `${fromName} → ${toName}`;
-        }
-        return 'Account Transfer';
-      }
+    // For money exchange
+    if (t.partyType === 'money-exchange' || t.partyType === 'money_exchange') {
+      const moneyExchangeInfo = t.moneyExchangeInfo || {};
+      const currencyName = moneyExchangeInfo.currencyName || t.party?.currencyName;
+      const type = moneyExchangeInfo.type || '';
+      const currencyCode = moneyExchangeInfo.currencyCode || '';
       
-      // For personal expense
-      if (t.scope === 'personal-expense' || t.personalExpenseProfileId) {
-        return t.partyName || t.customerName || 'Personal Expense';
+      if (type && currencyName) {
+        return `${type === 'Buy' ? 'ক্রয়' : type === 'Sell' ? 'বিক্রয়' : type} - ${currencyCode ? `${currencyCode} (${currencyName})` : currencyName}`;
       }
+      if (currencyName) return currencyName;
+      if (t.partyName) return t.partyName;
+    }
+    
+    return t.customerName || t.partyName || t.customer?.name || t.party?.name || 'N/A';
+  };
 
-      // For money exchange
-      if (t.partyType === 'money-exchange' || t.partyType === 'money_exchange') {
-        const moneyExchangeInfo = t.moneyExchangeInfo || {};
-        const currencyName = moneyExchangeInfo.currencyName || t.party?.currencyName;
-        const type = moneyExchangeInfo.type || '';
-        const currencyCode = moneyExchangeInfo.currencyCode || '';
-        
-        if (type && currencyName) {
-          return `${type === 'Buy' ? 'ক্রয়' : type === 'Sell' ? 'বিক্রয়' : type} - ${currencyCode ? `${currencyCode} (${currencyName})` : currencyName}`;
-        }
-        if (currencyName) return currencyName;
-        if (t.partyName) return t.partyName;
-      }
-      
-      return t.customerName || t.partyName || t.customer?.name || t.party?.name || 'N/A';
-    };
+  // Helper to get category safely
+  const getCategory = (t) => {
+    // Account Transfer
+    if (t.transactionType === 'transfer') {
+      return 'Account Transfer';
+    }
 
-    // Helper to get category safely
-    const getCategory = (t) => {
-      // Account Transfer
-      if (t.transactionType === 'transfer') {
-        return 'Account Transfer';
-      }
+    if (t.category && typeof t.category === 'object') {
+      return t.category.name || t.category.label || t.category.title || t.category.categoryName || 'N/A';
+    }
+    
+    const raw = t.category || t.serviceCategory || '';
+    
+    // If category is an ID or empty, try to map from customerType/partyType
+    if (!raw || (typeof raw === 'string' && raw.length === 24 && /^[0-9a-fA-F]{24}$/.test(raw))) {
+      const type = t.customerType || t.partyType || '';
+      if (type === 'haji' || type === 'hajj') return 'হাজ্জ প্যাকেজ';
+      if (type === 'umrah') return 'ওমরাহ প্যাকেজ';
+      if (type === 'airCustomer') return 'এয়ার টিকেট';
+      if (type === 'visa') return 'ভিসা সার্ভিস';
+      if (type === 'hotel') return 'হোটেল বুকিং';
+      if (type === 'money-exchange' || type === 'moneyExchange') return 'মানি এক্সচেঞ্জ';
+      if (type === 'office' || type === 'officeExpenses') return 'অফিস ব্যয়';
+      if (type === 'vendor') return 'ভেন্ডর';
+      if (type === 'agent') return 'এজেন্ট';
+    }
+    
+    return raw || 'N/A';
+  };
 
-      if (t.category && typeof t.category === 'object') {
-        return t.category.name || t.category.label || t.category.title || t.category.categoryName || 'N/A';
-      }
-      
-      const raw = t.category || t.serviceCategory || '';
-      
-      // If category is an ID or empty, try to map from customerType/partyType
-      if (!raw || (typeof raw === 'string' && raw.length === 24 && /^[0-9a-fA-F]{24}$/.test(raw))) {
-        const type = t.customerType || t.partyType || '';
-        if (type === 'haji' || type === 'hajj') return 'হাজ্জ প্যাকেজ';
-        if (type === 'umrah') return 'ওমরাহ প্যাকেজ';
-        if (type === 'airCustomer') return 'এয়ার টিকেট';
-        if (type === 'visa') return 'ভিসা সার্ভিস';
-        if (type === 'hotel') return 'হোটেল বুকিং';
-        if (type === 'money-exchange' || type === 'moneyExchange') return 'মানি এক্সচেঞ্জ';
-        if (type === 'office' || type === 'officeExpenses') return 'অফিস ব্যয়';
-        if (type === 'vendor') return 'ভেন্ডর';
-        if (type === 'agent') return 'এজেন্ট';
-      }
-      
-      return raw || 'N/A';
-    };
-
-    const finalCustomerName = getCustomerName(transaction);
-    const finalCategory = getCategory(transaction);
+  const finalCustomerName = getCustomerName(transaction);
+  const finalCategory = getCategory(transaction);
 
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 font-sans">
@@ -210,26 +243,9 @@ export default async function VerifyTransactionPage({ params }) {
               <p className="text-xs text-gray-400 dark:text-gray-500">
                 এই তথ্যটি Bin Rashid ERP সিস্টেম থেকে স্বয়ংক্রিয়ভাবে যাচাইকৃত।
               </p>
-              <div className="mt-6">
-                <Link href="/" className="text-emerald-600 hover:text-emerald-700 font-medium text-sm">
-                  লগইন করুন
-                </Link>
-              </div>
             </div>
           </div>
         </div>
       </div>
     );
-  } catch (error) {
-    console.error('Error fetching transaction:', error);
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">সার্ভার ত্রুটি</h1>
-          <p className="text-gray-600 dark:text-gray-300">লেনদেনের তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</p>
-        </div>
-      </div>
-    );
-  }
 }

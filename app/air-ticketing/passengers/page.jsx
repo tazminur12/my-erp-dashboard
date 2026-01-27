@@ -14,9 +14,11 @@ const PassengerList = () => {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [limit] = useState(50);
+  const [period, setPeriod] = useState(''); // 'today', 'month', 'year', or ''
   const [localFilters, setLocalFilters] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [stats, setStats] = useState({ totalAmount: 0, paidAmount: 0, totalDue: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState(null);
@@ -58,7 +60,7 @@ const PassengerList = () => {
 
   useEffect(() => {
     fetchAirCustomers();
-  }, [page, search]);
+  }, [page, search, period]);
 
   const totalPassengers = pagination?.total || customers.length;
   
@@ -278,7 +280,7 @@ const PassengerList = () => {
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">মোট</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">মোট যাত্রী</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPassengers}</p>
               </div>
               <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -287,17 +289,17 @@ const PassengerList = () => {
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">সক্রিয়</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{activeCount}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">মোট পরিমাণ</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">৳{stats.totalAmount?.toLocaleString() || 0}</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <CreditCard className="w-8 h-8 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">বকেয়া আছে</p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{dueCount}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">মোট বকেয়া আছে</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">৳{stats.totalDue?.toLocaleString() || 0}</p>
               </div>
               <CreditCard className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
@@ -305,21 +307,21 @@ const PassengerList = () => {
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">পৃষ্ঠার আকার</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{limit}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">পরিশোধিত পরিমাণ</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">৳{stats.paidAmount?.toLocaleString() || 0}</p>
               </div>
-              <Search className="w-8 h-8 text-gray-600 dark:text-gray-300" />
+              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
           </div>
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="নাম, মোবাইল, ইমেইল, পাসপোর্ট নম্বর, বা গ্রাহক আইডি দিয়ে অনুসন্ধান করুন..."
+                placeholder="অনুসন্ধান করুন..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -328,50 +330,43 @@ const PassengerList = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  অবস্থা
-                </label>
-                <select
-                  value={localFilters.status || ''}
-                  onChange={(e) => setLocalFilters({ ...localFilters, status: e.target.value || undefined })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value="">সব</option>
-                  <option value="active">সক্রিয়</option>
-                  <option value="inactive">নিষ্ক্রিয়</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  গ্রাহকের ধরন
-                </label>
-                <select
-                  value={localFilters.type || ''}
-                  onChange={(e) => setLocalFilters({ ...localFilters, type: e.target.value || undefined })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                >
-                  <option value="">সব</option>
-                  {customerTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            
+            <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="flex-1 lg:w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">সব সময়</option>
+                <option value="today">Daily</option>
+                <option value="month">Monthly</option>
+                <option value="year">Yearly</option>
+              </select>
+
+              <select
+                value={localFilters.status || ''}
+                onChange={(e) => setLocalFilters({ ...localFilters, status: e.target.value || undefined })}
+                className="flex-1 lg:w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">অবস্থা (সব)</option>
+                <option value="active">সক্রিয়</option>
+                <option value="inactive">নিষ্ক্রিয়</option>
+              </select>
+
+              <select
+                value={localFilters.type || ''}
+                onChange={(e) => setLocalFilters({ ...localFilters, type: e.target.value || undefined })}
+                className="flex-1 lg:w-40 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              >
+                <option value="">গ্রাহকের ধরন (সব)</option>
+                {customerTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-          {(localFilters.status || localFilters.type) && (
-            <div className="mt-4 flex items-center gap-2">
-              <button
-                onClick={() => setLocalFilters({})}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                সব ফিল্টার সাফ করুন
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Selected Items Action Bar */}
@@ -513,21 +508,30 @@ const PassengerList = () => {
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => handleView(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleView(item);
+                            }}
                             className="p-2 rounded-full bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300"
                             title="দেখুন"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleEdit(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(item);
+                            }}
                             className="p-2 rounded-full bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-600 dark:text-amber-300"
                             title="সম্পাদনা"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item);
+                            }}
                             disabled={isDeleting}
                             className="p-2 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             title="মুছে ফেলুন"

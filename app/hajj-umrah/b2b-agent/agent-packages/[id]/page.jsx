@@ -121,9 +121,21 @@ const AgentPackageDetails = () => {
       });
       return;
     }
+
+    // Use packageInfo._id if id is not available or incorrect
+    const packageId = packageInfo?._id || id;
+    
+    if (!packageId) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'প্যাকেজ আইডি পাওয়া যায়নি'
+      });
+      return;
+    }
     
     try {
-      const response = await fetch(`/api/agent-packages/${id}/customers`, {
+      const response = await fetch(`/api/agent-packages/${packageId}/customers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -288,10 +300,15 @@ const AgentPackageDetails = () => {
 
   // Get customer details from assigned customer IDs
   const getCustomerDetails = (customerId) => {
-    const hajiCustomer = hajiCustomers.find(customer => customer._id === customerId);
+    if (!customerId) return null;
+    
+    // Convert to string for comparison
+    const idStr = String(customerId);
+    
+    const hajiCustomer = hajiCustomers.find(customer => String(customer._id) === idStr);
     if (hajiCustomer) return hajiCustomer;
     
-    const umrahCustomer = umrahCustomers.find(customer => customer._id === customerId);
+    const umrahCustomer = umrahCustomers.find(customer => String(customer._id) === idStr);
     if (umrahCustomer) return umrahCustomer;
     
     return {
@@ -304,13 +321,29 @@ const AgentPackageDetails = () => {
 
   // Convert customer IDs to customer objects
   const displayCustomers = Array.isArray(assignedCustomers) 
-    ? assignedCustomers.map(customer => {
-        if (typeof customer === 'string') {
-          return getCustomerDetails(customer);
-        } else {
+    ? assignedCustomers
+        .filter(c => c) // Filter out null/undefined
+        .map(customer => {
+          // If it's a string, it's an ID
+          if (typeof customer === 'string') {
+            return getCustomerDetails(customer);
+          } 
+          // If it's an object with _id, try to find latest details
+          else if (typeof customer === 'object' && customer._id) {
+            const freshDetails = getCustomerDetails(customer._id);
+            // If we found fresh details, use them. Otherwise stick with what we have if it has name
+            if (freshDetails && freshDetails.name !== 'Customer Not Found') {
+              return freshDetails;
+            }
+            // If object has no name property, but has _id, return the not found placeholder or the object itself
+            if (!customer.name && !customer.customerName) {
+               return freshDetails || customer;
+            }
+            return customer;
+          }
           return customer;
-        }
-      })
+        })
+        .filter(c => c) // Filter out any nulls returned from mapping
     : [];
   
   if (packageLoading) {
@@ -591,21 +624,21 @@ const AgentPackageDetails = () => {
                     </div>
                   ) : Array.isArray(displayCustomers) && displayCustomers.length > 0 ? (
                     displayCustomers.map((customer) => (
-                      <div key={customer._id || customer.customerId} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div key={customer?._id || customer?.customerId || Math.random()} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
                             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
                               <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                             </div>
                             <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-white">{customer.name || customer.customerName || 'N/A'}</h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile || customer.phone || customer.contactNumber || 'N/A'}</p>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">{customer?.name || customer?.customerName || 'N/A'}</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{customer?.mobile || customer?.phone || customer?.contactNumber || 'N/A'}</p>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">{customer._id || customer.customerId || 'N/A'}</span>
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{customer?._id || customer?.customerId || 'N/A'}</span>
                             <button 
-                              onClick={() => handleRemoveCustomer(customer._id || customer.customerId)}
+                              onClick={() => handleRemoveCustomer(customer?._id || customer?.customerId)}
                               className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                               title="Remove from package"
                             >

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // GET vendor dashboard statistics
 export async function GET(request) {
@@ -8,51 +9,65 @@ export async function GET(request) {
     const vendorsCollection = db.collection('vendors');
     const vendorBillsCollection = db.collection('vendor_bills');
 
-    // Get total vendors count
-    const totalVendors = await vendorsCollection.countDocuments({});
-
-    // Get all vendor bills for statistics
-    const allBills = await vendorBillsCollection.find({}).toArray();
-
-    // Calculate bill statistics
-    const totalBills = allBills.length;
-    const totalAmount = allBills.reduce((sum, bill) => sum + (Number(bill.totalAmount) || Number(bill.amount) || 0), 0);
-    const totalPaid = allBills.reduce((sum, bill) => sum + (Number(bill.paidAmount) || 0), 0);
-    const totalDue = Math.max(0, totalAmount - totalPaid);
-
-    // Get all vendors
+    // Get all vendors with their bill statistics
     const allVendors = await vendorsCollection.find({}).toArray();
 
-    // Calculate bill statistics per vendor
-    const vendorBillStats = {};
+    // Calculate global statistics from vendors collection (Source of Truth for payments/due)
+    const totalVendors = allVendors.length;
+    
+    const globalStats = allVendors.reduce((acc, vendor) => {
+      const paid = Number(vendor.totalPaid || vendor.paidAmount || vendor.totalPaidAmount || 0);
+      const due = Number(vendor.totalDue || vendor.dueAmount || vendor.outstandingAmount || vendor.totalDueAmount || 0);
+      return {
+        totalPaid: acc.totalPaid + paid,
+        totalDue: acc.totalDue + due
+      };
+    }, { totalPaid: 0, totalDue: 0 });
+
+    // Calculate bill statistics from bills collection
+    const allBills = await vendorBillsCollection.find({}).toArray();
+    const totalBills = allBills.length;
+    const totalBillAmount = allBills.reduce((sum, bill) => sum + (Number(bill.totalAmount) || Number(bill.amount) || 0), 0);
+
+    // Calculate bill counts per vendor
+    const vendorBillCounts = {};
+    const vendorBillAmounts = {}; // Track bill amounts per vendor from bills collection
+    
     allBills.forEach((bill) => {
-      const vendorId = bill.vendorId?.toString() || bill.vendorIdString?.toString() || '';
-      if (vendorId) {
-        if (!vendorBillStats[vendorId]) {
-          vendorBillStats[vendorId] = {
-            billCount: 0,
-            totalAmount: 0,
-            paidAmount: 0,
-            dueAmount: 0,
-          };
+      // Handle different vendor ID formats
+      let vendorId = '';
+      if (bill.vendorId) {
+        if (typeof bill.vendorId === 'string') {
+          vendorId = bill.vendorId;
+        } else if (bill.vendorId instanceof ObjectId) {
+          vendorId = bill.vendorId.toString();
         }
-        vendorBillStats[vendorId].billCount += 1;
-        vendorBillStats[vendorId].totalAmount += Number(bill.totalAmount) || Number(bill.amount) || 0;
-        vendorBillStats[vendorId].paidAmount += Number(bill.paidAmount) || 0;
-        vendorBillStats[vendorId].dueAmount += Math.max(0, (Number(bill.totalAmount) || Number(bill.amount) || 0) - (Number(bill.paidAmount) || 0));
+      } else if (bill.vendorIdString) {
+        vendorId = bill.vendorIdString.toString();
+      }
+      
+      if (vendorId) {
+        vendorBillCounts[vendorId] = (vendorBillCounts[vendorId] || 0) + 1;
+        vendorBillAmounts[vendorId] = (vendorBillAmounts[vendorId] || 0) + (Number(bill.totalAmount) || Number(bill.amount) || 0);
       }
     });
 
-    // Format vendors with bill statistics
+    // Format vendors with statistics
     const formattedRecentVendors = allVendors.map((vendor) => {
       const vendorId = vendor._id.toString();
       const vendorIdAlt = vendor.vendorId?.toString() || vendorId;
-      const stats = vendorBillStats[vendorId] || vendorBillStats[vendorIdAlt] || {
-        billCount: 0,
-        totalAmount: 0,
-        paidAmount: 0,
-        dueAmount: 0,
-      };
+      
+      // Get bill count from our aggregation
+      const billCount = vendorBillCounts[vendorId] || vendorBillCounts[vendorIdAlt] || 0;
+      
+      // Get financial stats from Vendor document (Source of Truth)
+      const paidAmount = Number(vendor.totalPaid || vendor.paidAmount || vendor.totalPaidAmount || 0);
+      const dueAmount = Number(vendor.totalDue || vendor.dueAmount || vendor.outstandingAmount || vendor.totalDueAmount || 0);
+      
+      // For total bill amount, we can use the sum of bills OR (paid + due)
+      // Using sum of bills is more accurate for "Billed Amount", but might mismatch (Paid + Due) if data is inconsistent
+      // Let's use the sum of bills from the bills collection
+      const totalBillAmount = vendorBillAmounts[vendorId] || vendorBillAmounts[vendorIdAlt] || 0;
 
       return {
         _id: vendorId,
@@ -64,16 +79,16 @@ export async function GET(request) {
         logo: vendor.logo || vendor.photo || vendor.photoUrl || vendor.image || vendor.avatar || vendor.profilePicture || null,
         status: vendor.status || 'active',
         created_at: vendor.created_at ? vendor.created_at.toISOString() : new Date().toISOString(),
-        billCount: stats.billCount,
-        totalBillAmount: stats.totalAmount,
-        paidAmount: stats.paidAmount,
-        dueAmount: stats.dueAmount,
+        billCount: billCount,
+        totalBillAmount: totalBillAmount,
+        paidAmount: paidAmount,
+        dueAmount: dueAmount,
       };
     });
 
     // Get status distribution
-    const activeVendors = await vendorsCollection.countDocuments({ status: 'active' });
-    const inactiveVendors = await vendorsCollection.countDocuments({ status: 'inactive' });
+    const activeVendors = allVendors.filter(v => v.status === 'active').length;
+    const inactiveVendors = allVendors.filter(v => v.status === 'inactive').length;
 
     const dashboardData = {
       statistics: {
@@ -83,9 +98,9 @@ export async function GET(request) {
       },
       bills: {
         totalBills,
-        totalAmount,
-        totalPaid,
-        totalDue,
+        totalAmount: totalBillAmount,
+        totalPaid: globalStats.totalPaid,
+        totalDue: globalStats.totalDue,
       },
       recentActivity: {
         vendors: formattedRecentVendors,
@@ -95,6 +110,12 @@ export async function GET(request) {
         inactive: inactiveVendors,
       },
     };
+
+    console.log('Dashboard Data Calculated:', {
+      totalPaid: globalStats.totalPaid,
+      totalDue: globalStats.totalDue,
+      totalBillAmount
+    });
 
     return NextResponse.json(
       { ...dashboardData, data: dashboardData },

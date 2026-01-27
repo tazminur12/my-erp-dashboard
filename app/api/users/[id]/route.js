@@ -2,6 +2,61 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { getDb } from '../../../../lib/mongodb';
 
+// GET user details
+export async function GET(request, { params }) {
+  try {
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { error: 'Invalid user ID' },
+        { status: 400 }
+      );
+    }
+
+    const db = await getDb();
+    const usersCollection = db.collection('users');
+
+    const user = await usersCollection.findOne(
+      { _id: new ObjectId(id) },
+      { projection: { password: 0 } }
+    );
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const formattedUser = {
+      id: user._id.toString(),
+      name: user.name || user.email?.split('@')[0] || 'Unknown',
+      email: user.email,
+      phone: user.phone || 'N/A',
+      role: user.role || 'user',
+      branchId: user.branchId || '',
+      branchName: user.branchName || '',
+      status: user.status || 'active',
+      image: user.image || null,
+      created_at: user.created_at || user._id.getTimestamp().toISOString(),
+      updated_at: user.updated_at || null,
+    };
+
+    return NextResponse.json(
+      { user: formattedUser },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch user', message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 // PUT update user
 export async function PUT(request, { params }) {
   try {

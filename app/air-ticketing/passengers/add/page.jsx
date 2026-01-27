@@ -68,6 +68,7 @@ const NewPassenger = () => {
     // কাস্টমার তথ্য
     customerType: '',
     name: '',
+    banglaName: '',
     firstName: '',
     lastName: '',
     mobile: '',
@@ -674,6 +675,7 @@ const NewPassenger = () => {
           setFormData({
             customerType: '',
             name: '',
+            banglaName: '',
             firstName: '',
             lastName: '',
             mobile: '',
@@ -1003,6 +1005,24 @@ const NewPassenger = () => {
                         placeholder="Full Name"
                         readOnly
                         className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm cursor-not-allowed bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bangla Name */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-200">
+                      নাম (বাংলা)
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                      <input
+                        type="text"
+                        name="banglaName"
+                        value={formData.banglaName}
+                        onChange={handleInputChange}
+                        placeholder="বাংলায় নাম লিখুন"
+                        className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
                       />
                     </div>
                   </div>

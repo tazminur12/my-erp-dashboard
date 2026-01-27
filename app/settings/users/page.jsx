@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 import {
@@ -506,15 +507,24 @@ export default function UserManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
+                          <Link
+                            href={`/settings/users/${user.id}`}
+                            className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
                           <button
                             onClick={() => handleOpenModal(user)}
                             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200"
+                            title="Edit User"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(user.id)}
                             className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors duration-200"
+                            title="Delete User"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

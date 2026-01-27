@@ -359,6 +359,10 @@ const PassengerDetails = () => {
             <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium break-words">{passenger.name || 'N/A'}</p>
           </div>
           <div>
+            <label className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">নাম (বাংলা)</label>
+            <p className="text-sm sm:text-base text-gray-900 dark:text-white font-medium break-words">{passenger.banglaName || 'N/A'}</p>
+          </div>
+          <div>
             <label className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">প্রথম নাম</label>
             <p className="text-sm sm:text-base text-gray-900 dark:text-white break-words">{passenger.firstName || 'N/A'}</p>
           </div>

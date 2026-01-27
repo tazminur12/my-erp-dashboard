@@ -10,6 +10,7 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit')) || 50;
     const page = parseInt(searchParams.get('page')) || 1;
     const isActiveParam = searchParams.get('isActive');
+    const period = searchParams.get('period');
 
     const db = await getDb();
     const airCustomersCollection = db.collection('air_customers');
@@ -17,6 +18,28 @@ export async function GET(request) {
     // Build query for search
     const query = {};
     
+    // Date filtering based on period
+    if (period) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      let startDate;
+      if (period === 'today') {
+        startDate = today;
+      } else if (period === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else if (period === 'year') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+      }
+
+      if (startDate) {
+        // Assuming createdAt is stored as ISO string or Date object
+        // We'll try to match both string comparison and Date object comparison if possible, 
+        // but typically it's ISO string in this codebase based on POST method.
+        query.createdAt = { $gte: startDate.toISOString() };
+      }
+    }
+
     if (searchTerm && searchTerm.trim()) {
       const searchRegex = { $regex: searchTerm.trim(), $options: 'i' };
       query.$or = [
@@ -39,6 +62,22 @@ export async function GET(request) {
 
     // Get total count for pagination
     const total = await airCustomersCollection.countDocuments(query);
+
+    // Calculate stats (Total Amount, Paid, Due)
+    const statsPipeline = [
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } },
+          paidAmount: { $sum: { $ifNull: ["$paidAmount", 0] } },
+          totalDue: { $sum: { $ifNull: ["$totalDue", 0] } }
+        }
+      }
+    ];
+    
+    const statsResult = await airCustomersCollection.aggregate(statsPipeline).toArray();
+    const stats = statsResult[0] || { totalAmount: 0, paidAmount: 0, totalDue: 0 };
 
     // Calculate skip for pagination
     const skip = (page - 1) * limit;
@@ -85,6 +124,11 @@ export async function GET(request) {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+      stats: {
+        totalAmount: stats.totalAmount || 0,
+        paidAmount: stats.paidAmount || 0,
+        totalDue: stats.totalDue || 0
+      }
     }, { status: 200 });
   } catch (error) {
     console.error('Error fetching air customers:', error);
@@ -221,6 +265,7 @@ export async function POST(request) {
     const newCustomer = {
       customerId,
       name: body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim(),
+      banglaName: body.banglaName || null,
       firstName: body.firstName || '',
       lastName: body.lastName || '',
       mobile: body.mobile.trim(),

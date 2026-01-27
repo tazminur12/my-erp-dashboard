@@ -1226,6 +1226,16 @@ const NewTransaction = () => {
         { number: 5, title: 'কনফার্মেশন', description: 'এসএমএস কনফার্মেশন এবং সংরক্ষণ' }
       ];
     } else if (formData.transactionType === 'debit') {
+      if (formData.customerType === 'vendor') {
+        return [
+          { number: 1, title: 'লেনদেন টাইপ', description: 'ডেবিট (ব্যয়) নির্বাচন করুন' },
+          { number: 2, title: 'কাস্টমার টাইপ', description: 'কাস্টমার টাইপ নির্বাচন করুন' },
+          { number: 3, title: 'কাস্টমার নির্বাচন', description: 'কাস্টমার সিলেক্ট করুন' },
+          { number: 4, title: 'ভেন্ডরের ব্যালেন্স তথ্য', description: 'ভেন্ডরের বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন' },
+          { number: 5, title: 'পেমেন্ট মেথড', description: 'পেমেন্টের ধরন নির্বাচন করুন' },
+          { number: 6, title: 'কনফার্মেশন', description: 'তথ্য যাচাই এবং সংরক্ষণ' }
+        ];
+      }
       return [
         { number: 1, title: 'লেনদেন টাইপ', description: 'ডেবিট (ব্যয়) নির্বাচন করুন' },
         { number: 2, title: 'কাস্টমার টাইপ', description: 'কাস্টমার টাইপ নির্বাচন করুন' },
@@ -1252,6 +1262,15 @@ const NewTransaction = () => {
           { number: 2, title: 'কাস্টমার টাইপ', description: 'কাস্টমার টাইপ নির্বাচন করুন' },
           { number: 3, title: 'কাস্টমার নির্বাচন', description: 'কাস্টমার সিলেক্ট করুন' },
           { number: 4, title: formData.customerType === 'haji' ? 'হাজ্বীর ব্যালেন্স তথ্য' : 'উমরাহ যাত্রীর ব্যালেন্স তথ্য', description: formData.customerType === 'haji' ? 'হাজ্বীর বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন' : 'উমরাহ যাত্রীর বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন' },
+          { number: 5, title: 'পেমেন্ট মেথড', description: 'পেমেন্টের ধরন নির্বাচন করুন' },
+          { number: 6, title: 'কনফার্মেশন', description: 'তথ্য যাচাই এবং সংরক্ষণ' }
+        ];
+      } else if (formData.customerType === 'vendor') {
+        return [
+          { number: 1, title: 'লেনদেন টাইপ', description: 'ক্রেডিট (আয়) নির্বাচন করুন' },
+          { number: 2, title: 'কাস্টমার টাইপ', description: 'কাস্টমার টাইপ নির্বাচন করুন' },
+          { number: 3, title: 'কাস্টমার নির্বাচন', description: 'কাস্টমার সিলেক্ট করুন' },
+          { number: 4, title: 'ভেন্ডরের ব্যালেন্স তথ্য', description: 'ভেন্ডরের বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন' },
           { number: 5, title: 'পেমেন্ট মেথড', description: 'পেমেন্টের ধরন নির্বাচন করুন' },
           { number: 6, title: 'কনফার্মেশন', description: 'তথ্য যাচাই এবং সংরক্ষণ' }
         ];
@@ -1499,12 +1518,19 @@ const NewTransaction = () => {
       customerId: vendor._id || vendor.id,
       uniqueId: vendor.uniqueId || vendor.vendorId || '',
       customerName: vendor.tradeName || vendor.vendorName || vendor.name || '',
+      customerPhoto: vendor.logo || vendor.image || vendor.profileImage || '',
       customerPhone: vendor.contactNo || vendor.phone || vendor.mobile || vendor.mobileNumber || '',
       customerEmail: vendor.email || '',
       customerAddress: vendor.address || vendor.fullAddress || '',
       customerType: 'vendor',
       // Clear agent due info when selecting vendor
-      agentDueInfo: null
+      agentDueInfo: null,
+      // Store vendor due amounts
+      vendorDueInfo: {
+        totalDue: vendor.totalDue || 0,
+        totalPaid: vendor.totalPaid || 0,
+        totalBill: (vendor.totalPaid || 0) + (vendor.totalDue || 0)
+      }
     }));
     setSearchLoading(false);
   };
@@ -1799,6 +1825,10 @@ const NewTransaction = () => {
             }
             break;
           case 4:
+            // For vendor debit, step 4 is balance info, so no payment validation needed yet
+            if (formData.customerType === 'vendor') {
+              break;
+            }
             if (!formData.paymentMethod) {
               newErrors.paymentMethod = 'পেমেন্ট মেথড নির্বাচন করুন';
             } else if (!['cash', 'bank-transfer', 'cheque', 'mobile-banking', 'others'].includes(formData.paymentMethod)) {
@@ -1818,6 +1848,26 @@ const NewTransaction = () => {
             }
             break;
           case 5:
+            // For vendor debit, step 5 is payment method validation
+            if (formData.customerType === 'vendor') {
+              if (!formData.paymentMethod) {
+                newErrors.paymentMethod = 'পেমেন্ট মেথড নির্বাচন করুন';
+              } else if (!['cash', 'bank-transfer', 'cheque', 'mobile-banking', 'others'].includes(formData.paymentMethod)) {
+                newErrors.paymentMethod = 'পেমেন্ট মেথড অবৈধ';
+              }
+              // Only validate amount and accounts if payment method is selected
+              if (formData.paymentMethod) {
+                if (!formData.paymentDetails.amount) {
+                  newErrors.amount = 'পরিমাণ লিখুন';
+                } else if (isNaN(parseFloat(formData.paymentDetails.amount)) || parseFloat(formData.paymentDetails.amount) <= 0) {
+                  newErrors.amount = 'পরিমাণ ০ এর চেয়ে বেশি হতে হবে';
+                }
+                // Validate source account (where money goes from)
+                if (!formData.sourceAccount.id) {
+                  newErrors.sourceAccount = 'সোর্স একাউন্ট নির্বাচন করুন';
+                }
+              }
+            }
             // Final confirmation step for debit
             break;
         }
@@ -1843,21 +1893,21 @@ const NewTransaction = () => {
             }
           break;
         case 4:
-          // Agent/Hajji/Umrah balance step - no validation needed, just display
+          // Agent/Hajji/Umrah/Vendor balance step - no validation needed, just display
           if (formData.customerType === 'agent') {
             // For agents, validate selectedOption
             if (!formData.selectedOption) {
               newErrors.selectedOption = 'পেমেন্টের ধরন নির্বাচন করুন';
             }
           }
-          // For hajji/umrah, no validation needed at balance step
-          // For credit non-agent/hajji/umrah, step 4 is skipped, so no validation needed here
+          // For hajji/umrah/vendor, no validation needed at balance step
+          // For credit non-agent/hajji/umrah/vendor, step 4 is skipped, so no validation needed here
           break;
         case 5:
-          // For credit non-agent/hajji/umrah: step 5 is payment method (step 4 is skipped for non-agent/hajji/umrah)
-          // For credit agent/hajji/umrah: step 5 is payment method validation
-          if (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') {
-            // For credit agent: step 5 is payment method validation
+          // For credit non-agent/hajji/umrah/vendor: step 5 is payment method (step 4 is skipped)
+          // For credit agent/hajji/umrah/vendor: step 5 is payment method validation
+          if (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') {
+            // For credit agent/vendor/haji/umrah: step 5 is payment method validation
             if (!formData.paymentMethod) {
               newErrors.paymentMethod = 'পেমেন্ট মেথড নির্বাচন করুন';
             } else if (!['cash', 'bank-transfer', 'cheque', 'mobile-banking', 'others'].includes(formData.paymentMethod)) {
@@ -1871,8 +1921,15 @@ const NewTransaction = () => {
                 newErrors.amount = 'পরিমাণ ০ এর চেয়ে বেশি হতে হবে';
               }
               // For agent credit transactions, require destination account
-              if (!formData.destinationAccount.id) {
+              if (formData.customerType === 'agent' && !formData.destinationAccount.id) {
                 newErrors.destinationAccount = 'ডেস্টিনেশন একাউন্ট নির্বাচন করুন';
+              }
+              // For vendor credit transactions, require destination account
+              if (formData.transactionType === 'credit' && formData.customerType === 'vendor' && !formData.destinationAccount.id) {
+                 // For vendor, we might not strictly enforce destination account if business account fallback exists, 
+                 // but consistent with agent flow, let's keep it if logic requires. 
+                 // However, original code for non-agent enforced it if no default account.
+                 // Let's assume vendor behaves like normal credit flow regarding accounts.
               }
             }
           } else {
@@ -1914,22 +1971,32 @@ const NewTransaction = () => {
       if (formData.transactionType === 'transfer') {
         maxSteps = 5;
       } else if (formData.transactionType === 'debit') {
-        maxSteps = 5;
+        // For vendor debit, allow 6 steps (balance info, payment method, confirmation)
+        if (formData.customerType === 'vendor') {
+          maxSteps = 6;
+        } else {
+          maxSteps = 5;
+        }
       } else {
-        // Credit flow: for agents/hajji/umrah, 6 steps (balance info, payment method, confirmation)
-        maxSteps = (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 6 : 6;
+        // Credit flow: for agents/hajji/umrah/vendor, 6 steps (balance info, payment method, confirmation)
+        maxSteps = (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 6 : 6;
       }
       
       // For credit non-agent/hajji/umrah, skip step 4 (invoice selection) and go directly to step 5 (payment method) from step 3
-      if (formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'haji' && formData.customerType !== 'umrah' && currentStep === 3) {
+      if (formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'vendor' && formData.customerType !== 'haji' && formData.customerType !== 'umrah' && currentStep === 3) {
         setCurrentStep(5); // Skip step 4, go directly to payment method
-      } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 4) {
+      } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 4) {
         setCurrentStep(5); // Go to payment method from balance display
-      } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 5) {
+      } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 5) {
         setCurrentStep(6); // Go to confirmation from payment method
       } else if (formData.transactionType === 'debit' && currentStep === 4) {
-        // For debit, go directly to step 5 (confirmation) from step 4
-        setCurrentStep(5);
+        // For debit vendor, go to step 5 (payment) from step 4 (balance)
+        if (formData.customerType === 'vendor') {
+          setCurrentStep(5);
+        } else {
+          // For other debit types, step 4 is payment, so go to step 5 (confirmation)
+          setCurrentStep(5);
+        }
       } else {
         setCurrentStep(prev => Math.min(prev + 1, maxSteps));
       }
@@ -1938,15 +2005,20 @@ const NewTransaction = () => {
 
   const prevStep = () => {
     // For credit non-agent/hajji/umrah, skip step 4 (invoice selection) and go back to step 3 (customer selection) from step 5
-    if (formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'haji' && formData.customerType !== 'umrah' && currentStep === 5) {
+    if (formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'vendor' && formData.customerType !== 'haji' && formData.customerType !== 'umrah' && currentStep === 5) {
       setCurrentStep(3); // Skip step 4, go back to customer selection
-    } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 6) {
+    } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 6) {
       setCurrentStep(5); // Go back from confirmation to payment method
-    } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 5) {
+    } else if (formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') && currentStep === 5) {
       setCurrentStep(4); // Go back from payment method to balance display
     } else if (formData.transactionType === 'debit' && currentStep === 5) {
-      // For debit, go back from step 5 to step 4
-      setCurrentStep(4);
+      // For debit vendor, go back from step 5 (payment) to step 4 (balance)
+      if (formData.customerType === 'vendor') {
+        setCurrentStep(4);
+      } else {
+        // For other debit types, go back from step 5 (confirmation) to step 4 (payment)
+        setCurrentStep(4);
+      }
     } else {
       setCurrentStep(prev => Math.max(prev - 1, 1));
     }
@@ -1967,7 +2039,7 @@ const NewTransaction = () => {
       paymentMethod: formData.paymentMethod,
       amount: formData?.paymentDetails?.amount,
     });
-    const finalStep = formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 7 : 6;
+    const finalStep = formData.transactionType === 'credit' && (formData.customerType === 'agent' || formData.customerType === 'vendor' || formData.customerType === 'haji' || formData.customerType === 'umrah') ? 7 : 6;
     const isValid = validateStep(finalStep);
     if (!isValid) {
       console.warn('TXN validation failed at final step', { finalStep, errors });
@@ -5422,7 +5494,7 @@ const NewTransaction = () => {
           )}
           {/* Step 4: Agent Balance Display (for credit with agent) or Hajji/Umrah Balance Display (for credit with hajji/umrah) or Invoice Selection (for credit with customer) or Account Manager Selection (for transfer) or Payment Method (for debit) */}
           {/* Skip step 4 for credit non-agent/hajji/umrah transactions - invoice selection is removed */}
-          {currentStep === 4 && !(formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'haji' && formData.customerType !== 'umrah') && (
+          {currentStep === 4 && !(formData.transactionType === 'credit' && formData.customerType !== 'agent' && formData.customerType !== 'vendor' && formData.customerType !== 'haji' && formData.customerType !== 'umrah') && (
             <div className="p-3 sm:p-4 lg:p-6">
               {formData.transactionType === 'credit' && formData.customerType === 'agent' ? (
                 // Agent Balance Display
@@ -5432,6 +5504,16 @@ const NewTransaction = () => {
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     এজেন্টের বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন
+                  </p>
+                </div>
+              ) : (formData.transactionType === 'credit' || formData.transactionType === 'debit') && formData.customerType === 'vendor' ? (
+                // Vendor Balance Display
+                <div className="text-center mb-4 sm:mb-6">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    ভেন্ডরের ব্যালেন্স তথ্য
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                    ভেন্ডরের বর্তমান ব্যালেন্স এবং বকেয়া পরিমাণ দেখুন
                   </p>
                 </div>
               ) : formData.transactionType === 'credit' && (formData.customerType === 'haji' || formData.customerType === 'umrah') ? (
@@ -5693,6 +5775,94 @@ const NewTransaction = () => {
                           </p>
                         </div>
                       )}
+                    </div>
+                  </div>
+                ) : (formData.transactionType === 'credit' || formData.transactionType === 'debit') && formData.customerType === 'vendor' ? (
+                  // Vendor Balance Display
+                  <div className="space-y-4 sm:space-y-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border border-blue-200 dark:border-blue-700">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        {formData.customerPhoto ? (
+                          <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <img 
+                              src={formData.customerPhoto} 
+                              alt="Vendor" 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <div className="w-full h-full bg-blue-100 dark:bg-blue-900/20 hidden items-center justify-center">
+                              <Building className="w-4 h-4 text-blue-600" />
+                            </div>
+                          </div>
+                        ) : (
+                          <Building className="w-5 h-5 text-blue-600" />
+                        )}
+                        {formData.customerName} - ব্যালেন্স তথ্য
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {/* Total Bill */}
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">মোট বিল</p>
+                              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                ৳{Number(formData.vendorDueInfo?.totalBill || 0).toLocaleString('bn-BD')}
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                              <Receipt className="w-6 h-6 text-blue-600" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Paid */}
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">মোট পরিশোধিত</p>
+                              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                ৳{Number(formData.vendorDueInfo?.totalPaid || 0).toLocaleString('bn-BD')}
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                              <CheckCircle className="w-6 h-6 text-green-600" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Due */}
+                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">মোট বকেয়া</p>
+                              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                ৳{Number(formData.vendorDueInfo?.totalDue || 0).toLocaleString('bn-BD')}
+                              </p>
+                            </div>
+                            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                              <AlertCircle className="w-6 h-6 text-red-600" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                        <div className="flex items-start gap-3">
+                          <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-medium mb-1">ব্যালেন্স তথ্য সম্পর্কে:</p>
+                            <ul className="space-y-1 text-xs">
+                              <li>• মোট বিল: ভেন্ডরের সকল বিলের যোগফল</li>
+                              <li>• মোট পরিশোধিত: এ পর্যন্ত পরিশোধিত মোট পরিমাণ</li>
+                              <li>• মোট বকেয়া: পরিশোধের জন্য অবশিষ্ট পরিমাণ</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : formData.transactionType === 'credit' && (formData.customerType === 'haji' || formData.customerType === 'umrah') ? (
@@ -7640,7 +7810,7 @@ const NewTransaction = () => {
                     এসএমএস কনফার্মেশন এবং ট্রান্সফার সম্পূর্ণ করুন
                   </p>
                 </div>
-              ) : formData.transactionType === 'debit' ? (
+              ) : formData.transactionType === 'debit' && formData.customerType !== 'vendor' ? (
                 // Debit: Confirmation
                 <div className="text-center mb-4 sm:mb-6">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
@@ -7807,7 +7977,7 @@ const NewTransaction = () => {
                   
                   </div>
                 </div>
-              ) : formData.transactionType === 'debit' ? (
+              ) : formData.transactionType === 'debit' && formData.customerType !== 'vendor' ? (
                 // Debit: Confirmation
                 <div className="max-w-6xl mx-auto">
                   {/* Transaction Summary */}

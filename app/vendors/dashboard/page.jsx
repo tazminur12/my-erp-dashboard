@@ -88,7 +88,9 @@ const VendorDashboard = () => {
       const result = await response.json();
 
       if (response.ok) {
-        setDashboardData(result.data || result);
+        // Ensure we're using the correct data structure
+        const dashboardData = result.data || result;
+        setDashboardData(dashboardData);
       } else {
         throw new Error(result.error || 'Failed to fetch dashboard data');
       }
@@ -121,6 +123,11 @@ const VendorDashboard = () => {
   // Extract data from dashboard response
   const statistics = dashboardData?.statistics || {};
   const bills = dashboardData?.bills || {};
+  
+  // Debug logging to see actual data structure
+  console.log('Dashboard Data:', dashboardData);
+  console.log('Statistics:', statistics);
+  console.log('Bills:', bills);
   
   // Get vendors from recent activity and merge with full vendor data to get logos
   const vendors = useMemo(() => {

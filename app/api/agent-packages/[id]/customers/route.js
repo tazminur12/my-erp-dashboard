@@ -5,7 +5,7 @@ import { getDb } from '../../../../../lib/mongodb';
 // POST - Assign customers to agent package
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { customerIds } = body;
 
@@ -24,10 +24,17 @@ export async function POST(request, { params }) {
     }
 
     const db = await getDb();
-    const packagesCollection = db.collection('agent_packages');
+    let packagesCollection = db.collection('agent_packages');
 
-    // Check if package exists
-    const pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+    // Check if package exists in agent_packages
+    let pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+    
+    // If not found, check in packages collection
+    if (!pkg) {
+      packagesCollection = db.collection('packages');
+      pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+    }
+
     if (!pkg) {
       return NextResponse.json(
         { error: 'Package not found' },
@@ -128,7 +135,7 @@ export async function POST(request, { params }) {
 // GET - Get assigned customers for a package
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -138,9 +145,14 @@ export async function GET(request, { params }) {
     }
 
     const db = await getDb();
-    const packagesCollection = db.collection('agent_packages');
+    let packagesCollection = db.collection('agent_packages');
 
-    const pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+    let pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!pkg) {
+      packagesCollection = db.collection('packages');
+      pkg = await packagesCollection.findOne({ _id: new ObjectId(id) });
+    }
 
     if (!pkg) {
       return NextResponse.json(

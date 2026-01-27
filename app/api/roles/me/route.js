@@ -68,6 +68,16 @@ export async function GET() {
     const permissions = role.permissions || [];
     const moduleAccess = role.moduleAccess || [];
 
+    // Force 'transactions' module access for admin and accountant roles if missing
+    // This fixes the issue where legacy role data might be missing this access
+    if (['admin', 'accountant'].includes(role.slug) && !moduleAccess.includes('transactions')) {
+      moduleAccess.push('transactions');
+    }
+    // Force 'dashboard' module access for admin and accountant roles if missing
+    if (['admin', 'accountant'].includes(role.slug) && !moduleAccess.includes('dashboard')) {
+        moduleAccess.push('dashboard');
+    }
+
     return NextResponse.json({
       success: true,
       role: {
