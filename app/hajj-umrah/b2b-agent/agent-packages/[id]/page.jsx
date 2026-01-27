@@ -20,6 +20,7 @@ import {
   TrendingDown
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import Modal from '../../../../component/Modal';
 
 const AgentPackageDetails = () => {
   const params = useParams();
@@ -359,7 +360,14 @@ const AgentPackageDetails = () => {
                 </button>
                 <div>
                   <p className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">Package Details</p>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white leading-tight">{packageInfo.packageName}</h1>
+                  <div className="flex items-baseline gap-3">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white leading-tight">{packageInfo.packageName}</h1>
+                    {packageInfo.uniqueId && (
+                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-mono px-2 py-1 rounded">
+                        {packageInfo.uniqueId}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{packageInfo.customPackageType || packageInfo.packageType}</p>
                 </div>
               </div>
@@ -687,136 +695,133 @@ const AgentPackageDetails = () => {
       </div>
 
       {/* Customer Selection Modal */}
-      {showCustomerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Customers</h3>
-                <button
-                  onClick={() => {
-                    setShowCustomerModal(false);
-                    setSearchTerm('');
-                    setCustomerFilter('all');
-                    setSelectedCustomers([]);
-                  }}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+      <Modal
+        isOpen={showCustomerModal}
+        onClose={() => {
+          setShowCustomerModal(false);
+          setSearchTerm('');
+          setCustomerFilter('all');
+          setSelectedCustomers([]);
+        }}
+        title="Select Customers"
+        description="Search and select customers to assign to this package"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Filter Buttons */}
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setCustomerFilter('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                customerFilter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              All Customers
+            </button>
+            <button
+              onClick={() => setCustomerFilter('hajj')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                customerFilter === 'hajj'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Hajj
+            </button>
+            <button
+              onClick={() => setCustomerFilter('umrah')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                customerFilter === 'umrah'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              Umrah
+            </button>
+          </div>
+          
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search customers by name, mobile, email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          
+          {/* Customer List */}
+          <div className="max-h-96 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+            {filteredCustomers.length > 0 ? (
+              filteredCustomers.map((customer) => (
+                <div
+                  key={customer._id}
+                  onClick={() => handleCustomerSelect(customer)}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedCustomers.find(c => c._id === customer._id)
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                  }`}
                 >
-                  <XCircle className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              {/* Filter Buttons */}
-              <div className="mb-4">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setCustomerFilter('all')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      customerFilter === 'all'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    All Customers
-                  </button>
-                  <button
-                    onClick={() => setCustomerFilter('hajj')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      customerFilter === 'hajj'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Hajj
-                  </button>
-                  <button
-                    onClick={() => setCustomerFilter('umrah')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      customerFilter === 'umrah'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Umrah
-                  </button>
-                </div>
-              </div>
-              
-              {/* Search */}
-              <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search customers..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-              </div>
-              
-              {/* Customer List */}
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                {filteredCustomers.map((customer) => (
-                  <div
-                    key={customer._id}
-                    onClick={() => handleCustomerSelect(customer)}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                      selectedCustomers.find(c => c._id === customer._id)
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900 dark:text-white">{customer.name || 'N/A'}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{customer.mobile || customer.phone || 'N/A'}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">{customer.name || 'N/A'}</h4>
+                        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                          <span>{customer.mobile || customer.phone || 'N/A'}</span>
+                          <span>•</span>
+                          <span className="capitalize">{customer.type || 'Customer'}</span>
                         </div>
                       </div>
-                      {selectedCustomers.find(c => c._id === customer._id) && (
-                        <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      )}
                     </div>
+                    {selectedCustomers.find(c => c._id === customer._id) && (
+                      <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    )}
                   </div>
-                ))}
-              </div>
-              
-              {/* Actions */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {selectedCustomers.length} customer(s) selected
-                </span>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowCustomerModal(false);
-                      setSearchTerm('');
-                      setCustomerFilter('all');
-                      setSelectedCustomers([]);
-                    }}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAssignCustomers}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                  >
-                    Assign Customers
-                  </button>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No customers found matching your criteria
               </div>
+            )}
+          </div>
+          
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {selectedCustomers.length} customer(s) selected
+            </span>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => {
+                  setShowCustomerModal(false);
+                  setSearchTerm('');
+                  setCustomerFilter('all');
+                  setSelectedCustomers([]);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignCustomers}
+                disabled={selectedCustomers.length === 0}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              >
+                Assign Selected
+              </button>
             </div>
           </div>
         </div>
-      )}
+      </Modal>
     </DashboardLayout>
   );
 };

@@ -35,6 +35,58 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Get package price (from profitLoss or totals)
+    let packagePrice = 0;
+    if (pkg.profitLoss && pkg.profitLoss.sellingPrice) {
+      packagePrice = parseFloat(pkg.profitLoss.sellingPrice);
+    } else if (pkg.profitLoss && pkg.profitLoss.packagePrice) {
+      packagePrice = parseFloat(pkg.profitLoss.packagePrice);
+    } else if (pkg.totalPrice) {
+      packagePrice = parseFloat(pkg.totalPrice);
+    } else if (pkg.totals && pkg.totals.subtotal) {
+      packagePrice = parseFloat(pkg.totals.subtotal);
+    }
+
+    const hajisCollection = db.collection('hajis');
+    const umrahsCollection = db.collection('umrahs');
+
+    // Update customers with package info
+    const updatePromises = customerIds.map(async (customerId) => {
+      let objectId;
+      try {
+        objectId = new ObjectId(customerId);
+      } catch (e) {
+        objectId = customerId; // Keep as string if not valid ObjectId
+      }
+
+      const updateData = {
+        agentPackageId: id, // Store as string for consistency
+        agentPackageName: pkg.packageName,
+        agentPackagePrice: packagePrice,
+        packageId: id, // Also set standard packageId
+        packageName: pkg.packageName,
+        packagePrice: packagePrice,
+        amount: packagePrice, // Set amount for financial calculations
+        updatedAt: new Date()
+      };
+
+      // Try to update in hajis collection
+      const hajiUpdate = await hajisCollection.updateOne(
+        { _id: objectId },
+        { $set: updateData }
+      );
+
+      // If not found in hajis, try umrahs
+      if (hajiUpdate.matchedCount === 0) {
+        await umrahsCollection.updateOne(
+          { _id: objectId },
+          { $set: updateData }
+        );
+      }
+    });
+
+    await Promise.all(updatePromises);
+
     // Get existing assigned customers
     const existingCustomers = pkg.assignedCustomers || [];
     

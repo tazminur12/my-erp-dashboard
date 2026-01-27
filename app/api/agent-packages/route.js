@@ -87,6 +87,7 @@ export async function GET(request) {
           return {
             id: pkg._id ? pkg._id.toString() : '',
             _id: pkg._id ? pkg._id.toString() : '',
+            uniqueId: pkg.uniqueId || '',
             packageName: pkg.packageName || '',
             packageYear: pkg.packageYear || '',
             packageType: pkg.packageType || '',
@@ -239,8 +240,16 @@ export async function POST(request) {
     // Calculate grand total from totals
     const grandTotal = totals?.grandTotal || 0;
 
+    // Generate Unique ID
+    const year = packageYear || new Date().getFullYear().toString();
+    // Count packages for this year to generate sequence
+    const count = await packagesCollection.countDocuments({ packageYear: year });
+    const sequence = (count + 1).toString().padStart(4, '0');
+    const uniqueId = `AP-${year}-${sequence}`;
+
     // Create new package
     const newPackage = {
+      uniqueId,
       packageName: packageName.trim(),
       packageYear,
       packageType: packageType || 'Regular',
