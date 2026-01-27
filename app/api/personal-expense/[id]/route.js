@@ -30,12 +30,12 @@ export async function GET(request, { params }) {
     const formatted = {
       id: item._id.toString(),
       _id: item._id.toString(),
-      name: item.name || '',
-      fatherName: item.fatherName || '',
-      motherName: item.motherName || '',
-      relationship: item.relationship || '',
-      mobile: item.mobile || '',
-      photo: item.photo || '',
+      category: item.category || '',
+      expenseType: item.expenseType || '',
+      frequency: item.frequency || '',
+      amount: item.amount || 0,
+      date: item.date || '',
+      note: item.note || '',
       createdAt: item.createdAt ? item.createdAt.toISOString() : item._id.getTimestamp().toISOString(),
       updatedAt: item.updatedAt ? item.updatedAt.toISOString() : null
     };
@@ -65,26 +65,20 @@ export async function PUT(request, { params }) {
     const collection = db.collection('personal_expense_profiles');
 
     const update = {
-      name: body.name?.trim() || '',
-      fatherName: body.fatherName || '',
-      motherName: body.motherName || '',
-      relationship: body.relationship?.trim() || '',
-      mobile: body.mobile?.trim() || '',
-      photo: body.photo?.trim() || '',
+      category: body.category?.trim() || '',
+      expenseType: body.expenseType || 'Regular',
+      frequency: body.frequency || 'Monthly',
+      amount: parseFloat(body.amount) || 0,
+      date: body.date || new Date().toISOString().split('T')[0],
+      note: body.note ? body.note.trim() : '',
       updatedAt: new Date()
     };
 
-    if (!update.name) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    if (!update.category) {
+      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
     }
-    if (!update.relationship) {
-      return NextResponse.json({ error: 'Relationship is required' }, { status: 400 });
-    }
-    if (!update.mobile) {
-      return NextResponse.json({ error: 'Mobile number is required' }, { status: 400 });
-    }
-    if (!update.photo) {
-      return NextResponse.json({ error: 'Photo is required' }, { status: 400 });
+    if (!update.amount) {
+      return NextResponse.json({ error: 'Amount is required' }, { status: 400 });
     }
 
     const filter = ObjectId.isValid(id) ? { _id: new ObjectId(id) } : { _id: id };

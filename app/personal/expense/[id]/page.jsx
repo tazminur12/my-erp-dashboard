@@ -1,35 +1,25 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../component/DashboardLayout';
-import { ArrowLeft, User, Phone, Users, Loader2, XCircle, AlertCircle } from 'lucide-react';
-
-const relationshipLabels = {
-  brother: 'ভাই',
-  sister: 'বোন',
-  aunt: 'ফুফি',
-  son: 'ছেলে',
-  daughter: 'মেয়ে'
-};
+import { ArrowLeft, Receipt, Calendar, TrendingUp, Loader2, XCircle, Trash2 } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation';
 
 const PersonalExpenseDetails = () => {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id;
-  const [profile, setProfile] = useState(null);
+  const [expense, setExpense] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [transactions, setTransactions] = useState([]);
-  const [txLoading, setTxLoading] = useState(true);
-  const [txError, setTxError] = useState(null);
-  const [showAllTx, setShowAllTx] = useState(false);
-
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchExpense = async () => {
       if (!id) {
-        setError(new Error('Profile ID is required'));
+        setError(new Error('Expense ID is required'));
         setIsLoading(false);
         return;
       }
@@ -38,49 +28,73 @@ const PersonalExpenseDetails = () => {
         const response = await fetch(`/api/personal-expense/${id}`);
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.message || data.error || 'প্রোফাইল পাওয়া যায়নি');
+          throw new Error(data.message || data.error || 'খরচ পাওয়া যায়নি');
         }
-        setProfile(data.item || data.data);
+        setExpense(data.item || data.data);
       } catch (err) {
         setError(err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProfile();
+    fetchExpense();
   }, [id]);
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!id) return;
-      try {
-        setTxLoading(true);
-        const response = await fetch(`/api/transactions?scope=personal-expense&personalExpenseProfileId=${id}&limit=50`);
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || data.error || 'ট্রানজেকশন পাওয়া যায়নি');
-        }
-        setTransactions(Array.isArray(data.data) ? data.data : []);
-      } catch (err) {
-        setTxError(err);
-      } finally {
-        setTxLoading(false);
+  const handleDelete = async () => {
+    const res = await Swal.fire({
+      title: 'নিশ্চিত করুন',
+      text: 'এই খরচটি মুছে ফেলতে চান?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'হ্যাঁ, মুছে ফেলুন',
+      cancelButtonText: 'বাতিল'
+    });
+
+    if (!res.isConfirmed) return;
+
+    try {
+      const response = await fetch(`/api/personal-expense/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'মুছে ফেলতে ব্যর্থ');
       }
-    };
-    fetchTransactions();
-  }, [id]);
+      Swal.fire({
+        icon: 'success',
+        title: 'মুছে ফেলা হয়েছে',
+        timer: 1500,
+        showConfirmButton: false
+      });
+      router.push('/personal/expense');
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি',
+        text: err.message || 'মুছে ফেলতে ব্যর্থ',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  };
 
-  const totalTaken = useMemo(() => {
-    const txSum = transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-    if (transactions.length > 0) return txSum;
-    if (typeof profile?.totalTaken === 'number') return profile.totalTaken;
-    return txSum;
-  }, [profile?.totalTaken, transactions]);
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-BD', {
+      style: 'currency',
+      currency: 'BDT',
+      minimumFractionDigits: 2
+    }).format(amount || 0);
+  };
 
-  const visibleTransactions = useMemo(() => {
-    if (showAllTx) return transactions;
-    return transactions.slice(0, 8);
-  }, [showAllTx, transactions]);
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
 
   if (isLoading) {
     return (
@@ -89,7 +103,7 @@ const PersonalExpenseDetails = () => {
           <div className="flex items-center justify-center min-h-[300px]">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">প্রোফাইল লোড হচ্ছে...</p>
+              <p className="text-gray-600 dark:text-gray-400">খরচ লোড হচ্ছে...</p>
             </div>
           </div>
         </div>
@@ -97,14 +111,14 @@ const PersonalExpenseDetails = () => {
     );
   }
 
-  if (error || !profile) {
+  if (error || !expense) {
     return (
       <DashboardLayout>
         <div className="space-y-6 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center min-h-[300px]">
             <div className="text-center">
               <XCircle className="w-12 h-12 text-red-600 dark:text-red-400 mx-auto mb-4" />
-              <p className="text-red-600 dark:text-red-400 mb-4">{error?.message || 'প্রোফাইল পাওয়া যায়নি'}</p>
+              <p className="text-red-600 dark:text-red-400 mb-4">{error?.message || 'খরচ পাওয়া যায়নি'}</p>
               <Link
                 href="/personal/expense"
                 className="inline-block px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
@@ -130,149 +144,79 @@ const PersonalExpenseDetails = () => {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
-              <Users className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <Receipt className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{profile.name}</h1>
-              <p className="text-gray-600 dark:text-gray-400">Personal Expense প্রোফাইল বিস্তারিত</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">খরচের বিস্তারিত</h1>
+              <p className="text-gray-600 dark:text-gray-400">{expense.category}</p>
             </div>
           </div>
 
-          <Link
-            href={`/personal/expense/${id}/edit`}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2.5"
-          >
-            Edit
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/personal/expense/${id}/edit`}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 transition-colors"
+            >
+              সম্পাদনা করুন
+            </Link>
+            <button
+              onClick={handleDelete}
+              className="inline-flex items-center gap-2 rounded-lg bg-gray-100 hover:bg-red-50 text-red-600 dark:bg-gray-700 dark:hover:bg-red-900/30 dark:text-red-400 px-4 py-2.5 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              মুছে ফেলুন
+            </button>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between flex-wrap gap-6">
-            <div className="flex items-center gap-6">
-              {profile.photo ? (
-                <img
-                  src={profile.photo}
-                  alt={profile.name}
-                  className="w-24 h-24 rounded-2xl object-cover border border-gray-200 dark:border-gray-700"
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-2xl bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                  <User className="w-8 h-8 text-red-600 dark:text-red-400" />
-                </div>
-              )}
-              <div className="space-y-2">
-                <p className="text-xl font-semibold text-gray-900 dark:text-white">{profile.name}</p>
-                <div className="flex items-center flex-wrap gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                    {relationshipLabels[profile.relationship] || profile.relationship}
-                  </span>
-                  <span className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    {profile.mobile}
-                  </span>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400">তারিখ</p>
+              <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                {formatDate(expense.date)}
               </div>
             </div>
 
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">মোট নেওয়া</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                ৳{Number(totalTaken || 0).toLocaleString('bn-BD')}
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400">খাত</p>
+              <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+                <TrendingUp className="w-4 h-4 text-gray-400" />
+                {expense.category}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400">টাকার পরিমাণ</p>
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                {formatCurrency(expense.amount)}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">মোট নেওয়া</p>
             </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-red-600 dark:text-red-400" />
-              ব্যক্তিগত তথ্য
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="rounded-lg border border-gray-100 dark:border-gray-700 p-4">
-                <p className="text-gray-500 dark:text-gray-400 mb-1">পিতার নাম</p>
-                <p className="text-gray-900 dark:text-white">{profile.fatherName || '—'}</p>
-              </div>
-              <div className="rounded-lg border border-gray-100 dark:border-gray-700 p-4">
-                <p className="text-gray-500 dark:text-gray-400 mb-1">মাতার নাম</p>
-                <p className="text-gray-900 dark:text-white">{profile.motherName || '—'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">লেনদেন সারাংশ</h2>
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-              <div className="flex items-center justify-between">
-                <span>মোট নেওয়া</span>
-                <span className="font-semibold text-gray-900 dark:text-white">
-                  ৳{Number(totalTaken || 0).toLocaleString('bn-BD')}
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400">ধরন ও ফ্রিকোয়েন্সি</p>
+              <div className="flex flex-wrap gap-2">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  expense.expenseType === 'Regular' 
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                    : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                }`}>
+                  {expense.expenseType === 'Regular' ? 'নিয়মিত' : 'অনিয়মিত'}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                  {expense.frequency === 'Monthly' ? 'মাসিক' : expense.frequency === 'Yearly' ? 'বৎসারিক' : expense.frequency}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span>মোট ট্রানজেকশন</span>
-                <span className="font-semibold text-gray-900 dark:text-white">{transactions.length}</span>
-              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">ট্রানজেকশন হিস্ট্রি</h2>
-            {transactions.length > 8 && (
-              <button
-                onClick={() => setShowAllTx((prev) => !prev)}
-                className="text-sm text-red-600 hover:text-red-700"
-              >
-                {showAllTx ? 'কম দেখান' : 'সব দেখুন'}
-              </button>
-            )}
-          </div>
-
-          {txLoading && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <Loader2 className="w-4 h-4 animate-spin text-red-600" />
-              ট্রানজেকশন লোড হচ্ছে...
-            </div>
-          )}
-
-          {!txLoading && txError && (
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {txError?.message || 'ট্রানজেকশন লোড করা যায়নি'}
-            </p>
-          )}
-
-          {!txLoading && !txError && transactions.length === 0 && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">এখনও কোনো ট্রানজেকশন নেই।</p>
-          )}
-
-          {!txLoading && !txError && transactions.length > 0 && (
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {visibleTransactions.map((tx) => (
-                <div key={tx.id} className="py-3 flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {tx.description || tx.notes || 'Personal Expense'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {tx.date || '—'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {(tx.description || tx.notes) && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        {tx.description || tx.notes}
-                      </p>
-                    )}
-                    <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      ৳{Number(tx.amount || 0).toLocaleString('bn-BD')}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          {expense.note && (
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">বিবরণ / নোট</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-wrap">
+                {expense.note}
+              </p>
             </div>
           )}
         </div>

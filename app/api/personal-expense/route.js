@@ -15,11 +15,9 @@ export async function GET(request) {
     const query = {};
     if (q) {
       query.$or = [
-        { name: { $regex: q, $options: 'i' } },
-        { fatherName: { $regex: q, $options: 'i' } },
-        { motherName: { $regex: q, $options: 'i' } },
-        { relationship: { $regex: q, $options: 'i' } },
-        { mobile: { $regex: q, $options: 'i' } }
+        { category: { $regex: q, $options: 'i' } },
+        { note: { $regex: q, $options: 'i' } },
+        { expenseType: { $regex: q, $options: 'i' } }
       ];
     }
 
@@ -28,7 +26,7 @@ export async function GET(request) {
 
     const items = await collection
       .find(query)
-      .sort({ createdAt: -1 })
+      .sort({ date: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .toArray();
@@ -36,12 +34,12 @@ export async function GET(request) {
     const formatted = items.map((item) => ({
       id: item._id.toString(),
       _id: item._id.toString(),
-      name: item.name || '',
-      fatherName: item.fatherName || '',
-      motherName: item.motherName || '',
-      relationship: item.relationship || '',
-      mobile: item.mobile || '',
-      photo: item.photo || '',
+      category: item.category || '',
+      expenseType: item.expenseType || '',
+      frequency: item.frequency || '',
+      amount: item.amount || 0,
+      date: item.date || '',
+      note: item.note || '',
       createdAt: item.createdAt ? item.createdAt.toISOString() : item._id.getTimestamp().toISOString(),
       updatedAt: item.updatedAt ? item.updatedAt.toISOString() : null
     }));
@@ -71,29 +69,23 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    if (!body.name || !body.name.trim()) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    if (!body.category || !body.category.trim()) {
+      return NextResponse.json({ error: 'Category is required' }, { status: 400 });
     }
-    if (!body.relationship || !body.relationship.trim()) {
-      return NextResponse.json({ error: 'Relationship is required' }, { status: 400 });
-    }
-    if (!body.mobile || !body.mobile.trim()) {
-      return NextResponse.json({ error: 'Mobile number is required' }, { status: 400 });
-    }
-    if (!body.photo || !body.photo.trim()) {
-      return NextResponse.json({ error: 'Photo is required' }, { status: 400 });
+    if (!body.amount) {
+      return NextResponse.json({ error: 'Amount is required' }, { status: 400 });
     }
 
     const db = await getDb();
     const collection = db.collection('personal_expense_profiles');
 
     const newItem = {
-      name: body.name.trim(),
-      fatherName: body.fatherName || '',
-      motherName: body.motherName || '',
-      relationship: body.relationship.trim(),
-      mobile: body.mobile.trim(),
-      photo: body.photo.trim(),
+      category: body.category.trim(),
+      expenseType: body.expenseType || 'Regular',
+      frequency: body.frequency || 'Monthly',
+      amount: parseFloat(body.amount),
+      date: body.date || new Date().toISOString().split('T')[0],
+      note: body.note ? body.note.trim() : '',
       createdAt: new Date(),
       updatedAt: new Date()
     };
