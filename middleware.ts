@@ -47,6 +47,6 @@ export const config = {
      * - root page (/) - public landing page
      * - public files (images, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|login|otp-login|forgot-password|^/?$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|login|otp-login|forgot-password|verify/transaction|^/?$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

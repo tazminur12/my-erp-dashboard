@@ -2501,10 +2501,10 @@ const NewTransaction = () => {
         console.log('Transaction response:', response);
         
         const txId =
-          response?.transaction?._id ||
           response?.transaction?.transactionId ||
-          response?.data?.transaction?._id ||
+          response?.transaction?._id ||
           response?.data?.transaction?.transactionId ||
+          response?.data?.transaction?._id ||
           response?.data?.transactionId ||
           response?.transactionId;
         if (!txId) {

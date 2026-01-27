@@ -112,12 +112,8 @@ const createSinglePageReceipt = (data, showHeader = true) => {
     }
   }
 
-  const qrData = encodeURIComponent(JSON.stringify({
-    id: data.transactionId || 'N/A',
-    name: data.customerName || 'Customer',
-    amount: totalAmount || 0,
-    date: data.date || new Date().toISOString().split('T')[0],
-  }));
+  const verificationUrl = `https://bin-rashid-erp.vercel.app/verify/transaction/${data.transactionId || 'N/A'}`;
+  const qrData = encodeURIComponent(verificationUrl);
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${qrData}`;
 
   const amountText = new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(totalAmount);
