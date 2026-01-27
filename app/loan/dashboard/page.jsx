@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../../component/DashboardLayout';
 import {
   LayoutDashboard,
@@ -13,9 +13,7 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Loader2,
-  Calendar,
-  Filter
+  Loader2
 } from 'lucide-react';
 
 // Convert Arabic numerals to Bengali numerals
@@ -54,77 +52,87 @@ const formatCurrency = (amount) => {
 
 const StatCard = ({ label, value, icon: Icon, color = 'indigo', sub, trend, isLoading }) => {
   const colors = {
-    indigo: 'from-indigo-500 to-blue-500',
-    emerald: 'from-emerald-500 to-green-500',
-    amber: 'from-amber-500 to-orange-500',
-    purple: 'from-purple-500 to-pink-500',
-    blue: 'from-blue-500 to-indigo-500',
-    green: 'from-green-500 to-emerald-500',
-    red: 'from-red-500 to-pink-500',
-    slate: 'from-slate-500 to-gray-600',
+    indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+    amber: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+    purple: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
+    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+    green: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+    red: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+    slate: 'bg-slate-50 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400',
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{label}</p>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-200 group">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{label}</p>
           {isLoading ? (
             <div className="flex items-center gap-2 mt-2">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-              <span className="text-gray-400">লোড হচ্ছে...</span>
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
             </div>
           ) : (
-            <>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{value}</p>
+            <div className="mt-2">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white truncate" title={String(value)}>
+                {value}
+              </h3>
               {sub && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{sub}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{sub}</p>
               )}
-              {trend && (
-                <div className={`flex items-center gap-1 mt-2 text-xs ${trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                  {trend > 0 ? <TrendingUp className="w-3 h-3" /> : trend < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                  <span>{Math.abs(trend)}%</span>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
-        <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${colors[color] || colors.indigo} text-white flex items-center justify-center shadow-lg`}>
-          <Icon className="w-7 h-7" />
+        <div className={`p-3 rounded-lg ${colors[color] || colors.indigo} transition-transform group-hover:scale-110 duration-200`}>
+          <Icon className="w-6 h-6" />
         </div>
       </div>
+      {trend && (
+        <div className={`flex items-center gap-1 text-xs font-medium ${trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+          {trend > 0 ? <TrendingUp className="w-3 h-3" /> : trend < 0 ? <TrendingDown className="w-3 h-3" /> : null}
+          <span>{Math.abs(trend)}%</span>
+          <span className="text-gray-400 font-normal ml-1">গত মাসের চেয়ে</span>
+        </div>
+      )}
     </div>
   );
 };
 
 const LoanDashboard = () => {
-  const [filters, setFilters] = useState({
-    fromDate: '',
-    toDate: '',
-    loanDirection: '',
-    branchId: '',
-  });
-
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('monthly');
 
-  const cleanedFilters = useMemo(() => {
-    const entries = Object.entries(filters).filter(([, value]) => value !== '' && value !== undefined);
-    return Object.fromEntries(entries);
-  }, [filters]);
+  const getDateRange = (range) => {
+    const now = new Date();
+    const from = new Date(now);
+    const to = new Date(now);
+
+    if (range === 'day') {
+      from.setHours(0, 0, 0, 0);
+      to.setHours(23, 59, 59, 999);
+    } else if (range === 'monthly') {
+      from.setDate(1);
+      from.setHours(0, 0, 0, 0);
+      to.setMonth(to.getMonth() + 1);
+      to.setDate(0);
+      to.setHours(23, 59, 59, 999);
+    } else if (range === 'yearly') {
+      from.setMonth(0);
+      from.setDate(1);
+      from.setHours(0, 0, 0, 0);
+      to.setMonth(11);
+      to.setDate(31);
+      to.setHours(23, 59, 59, 999);
+    }
+    return { from: from.toISOString(), to: to.toISOString() };
+  };
 
   const fetchDashboardData = async () => {
     try {
-      const queryParams = new URLSearchParams();
-      Object.entries(cleanedFilters).forEach(([key, value]) => {
-        if (value !== '' && value !== undefined && value !== null) {
-          queryParams.append(key, value);
-        }
-      });
-
-      const url = `/api/loans/dashboard${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const { from, to } = getDateRange(timeRange);
+      const url = `/api/loans/dashboard?fromDate=${from}&toDate=${to}`;
       const response = await fetch(url);
       const result = await response.json();
 
@@ -145,7 +153,7 @@ const LoanDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [cleanedFilters]);
+  }, [timeRange]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -208,6 +216,16 @@ const LoanDashboard = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm cursor-pointer"
+                >
+                  <option value="day">আজকের</option>
+                  <option value="monthly">এই মাসের</option>
+                  <option value="yearly">এই বছরের</option>
+                </select>
+
                 <button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
@@ -219,63 +237,7 @@ const LoanDashboard = () => {
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">ফিল্টার</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    শুরু তারিখ
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.fromDate}
-                    onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    শেষ তারিখ
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.toDate}
-                    onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    ঋণের ধরন
-                  </label>
-                  <select
-                    value={filters.loanDirection}
-                    onChange={(e) => setFilters({ ...filters, loanDirection: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">সব</option>
-                    <option value="receiving">ঋণ গ্রহণ</option>
-                    <option value="giving">ঋণ প্রদান</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    শাখা
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.branchId}
-                    onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
-                    placeholder="শাখা ID"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
+
           </div>
 
           {/* Error Message */}
@@ -287,7 +249,7 @@ const LoanDashboard = () => {
           )}
 
           {/* Main Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
             <StatCard
               label="মোট লোন"
               value={isLoading ? '...' : toBengaliNumeral(totals.totalLoans?.toLocaleString())}
@@ -296,31 +258,6 @@ const LoanDashboard = () => {
               color="indigo"
               isLoading={isLoading}
             />
-            <StatCard
-              label="সক্রিয়"
-              value={isLoading ? '...' : toBengaliNumeral(totals.active?.toLocaleString())}
-              icon={CheckCircle}
-              color="emerald"
-              isLoading={isLoading}
-            />
-            <StatCard
-              label="বিচারাধীন"
-              value={isLoading ? '...' : toBengaliNumeral(totals.pending?.toLocaleString())}
-              icon={AlertCircle}
-              color="amber"
-              isLoading={isLoading}
-            />
-            <StatCard
-              label="সম্পন্ন"
-              value={isLoading ? '...' : toBengaliNumeral(totals.closed?.toLocaleString())}
-              icon={CheckCircle}
-              color="blue"
-              isLoading={isLoading}
-            />
-          </div>
-
-          {/* Financial Summary - Receiving & Giving */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               label="মোট ঋণ গ্রহণ"
               value={isLoading ? '...' : formatCurrency(receivingFinancial.taken || 0)}
@@ -353,71 +290,77 @@ const LoanDashboard = () => {
 
           {/* Balance Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">প্রদত্ত ঋণ ব্যালেন্স</p>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">প্রদত্ত ঋণ ব্যালেন্স</p>
                   {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-400 mt-2" />
+                    <div className="flex items-center gap-2 mt-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    </div>
                   ) : (
-                    <>
-                      <p className={`text-3xl font-bold mt-2 ${givingBalance >= 0 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                    <div className="mt-2">
+                      <p className={`text-2xl font-bold truncate ${givingBalance >= 0 ? 'text-amber-600 dark:text-amber-500' : 'text-emerald-600 dark:text-emerald-500'}`} title={formatCurrency(Math.abs(givingBalance))}>
                         {formatCurrency(Math.abs(givingBalance))}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                         {givingBalance >= 0 ? 'বকেয়া' : 'অতিরিক্ত পরিশোধ'}
                       </p>
-                    </>
+                    </div>
                   )}
                 </div>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 text-white flex items-center justify-center shadow-lg">
-                  <ArrowUpRight className="w-7 h-7" />
+                <div className="p-3 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 transition-transform group-hover:scale-110 duration-200">
+                  <ArrowUpRight className="w-6 h-6" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">গ্রহীত ঋণ ব্যালেন্স</p>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">গ্রহীত ঋণ ব্যালেন্স</p>
                   {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-400 mt-2" />
+                    <div className="flex items-center gap-2 mt-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    </div>
                   ) : (
-                    <>
-                      <p className={`text-3xl font-bold mt-2 ${receivingBalance >= 0 ? 'text-red-600 dark:text-red-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                    <div className="mt-2">
+                      <p className={`text-2xl font-bold truncate ${receivingBalance >= 0 ? 'text-red-600 dark:text-red-500' : 'text-emerald-600 dark:text-emerald-500'}`} title={formatCurrency(Math.abs(receivingBalance))}>
                         {formatCurrency(Math.abs(receivingBalance))}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                         {receivingBalance >= 0 ? 'বকেয়া' : 'অতিরিক্ত পরিশোধ'}
                       </p>
-                    </>
+                    </div>
                   )}
                 </div>
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 text-white flex items-center justify-center shadow-lg">
-                  <ArrowDownRight className="w-7 h-7" />
+                <div className="p-3 rounded-lg bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 transition-transform group-hover:scale-110 duration-200">
+                  <ArrowDownRight className="w-6 h-6" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">নেট ব্যালেন্স</p>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-200 group">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">নেট ব্যালেন্স</p>
                   {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-gray-400 mt-2" />
+                    <div className="flex items-center gap-2 mt-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                    </div>
                   ) : (
-                    <>
-                      <p className={`text-3xl font-bold mt-2 ${totalBalance >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`}>
+                    <div className="mt-2">
+                      <p className={`text-2xl font-bold truncate ${totalBalance >= 0 ? 'text-emerald-600 dark:text-emerald-500' : 'text-red-600 dark:text-red-500'}`} title={formatCurrency(Math.abs(totalBalance))}>
                         {totalBalance >= 0 ? '+' : '-'}{formatCurrency(Math.abs(totalBalance))}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                         {totalBalance >= 0 ? 'নিট পাওনা' : 'নিট দেনা'}
                       </p>
-                    </>
+                    </div>
                   )}
                 </div>
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${totalBalance >= 0 ? 'from-emerald-500 to-green-500' : 'from-red-500 to-pink-500'} text-white flex items-center justify-center shadow-lg`}>
-                  <Calculator className="w-7 h-7" />
+                <div className={`p-3 rounded-lg ${totalBalance >= 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400'} transition-transform group-hover:scale-110 duration-200`}>
+                  <Calculator className="w-6 h-6" />
                 </div>
               </div>
             </div>
