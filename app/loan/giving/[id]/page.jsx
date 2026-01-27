@@ -261,11 +261,13 @@ const LoanDetails = () => {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 dark:text-white">ঋণের বিস্তারিত তথ্য</h1>
+
                   <p className="text-gray-600 dark:text-gray-400 mt-2">
                     ঋণ প্রদান - {loan.loanId || id}
                   </p>
                 </div>
               </div>
+
               
               <div className="flex items-center gap-3">
                 <button
@@ -492,7 +494,6 @@ const LoanDetails = () => {
                       </div>
                     </div>
                   )}
-                </div>
 
                 {/* Contact & Address Information */}
                 <div>
@@ -572,8 +573,6 @@ const LoanDetails = () => {
                     )}
                   </div>
                 </div>
-              </div>
-
               {/* Business Information */}
               {(loan.businessName || loan.businessType || loan.businessAddress) && (
                 <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -629,6 +628,9 @@ const LoanDetails = () => {
                       </div>
                     )}
                   </div>
+              </div>
+              )}
+                </div>
               </div>
             )}
 
@@ -844,8 +846,6 @@ const LoanDetails = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
 
               {/* Loan Information */}
               <div className="mb-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -989,7 +989,8 @@ const LoanDetails = () => {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
