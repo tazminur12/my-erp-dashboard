@@ -8,7 +8,8 @@ export const metadata = {
 };
 
 export default async function VerifyTransactionPage({ params }) {
-  const { id } = params;
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
   
   if (!id) {
     return (
