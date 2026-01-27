@@ -60,23 +60,77 @@ export default async function VerifyTransactionPage({ params }) {
       );
     }
 
-    // Format data for display
-    const {
-      transactionId,
-      date,
-      amount,
-      customerName,
-      customerPhone,
-      transactionType,
-      paymentMethod,
-      category,
-      serviceCategory,
-      notes,
-      createdAt
-    } = transaction;
+    // Helper to get customer name safely
+    const getCustomerName = (t) => {
+      // For transfer transactions, use account names
+      if (t.transactionType === 'transfer') {
+        if (t.fromAccount && t.toAccount) {
+          const fromName = t.fromAccount.bankName || t.fromAccount.accountName || t.fromAccount.name || 'Account';
+          const toName = t.toAccount.bankName || t.toAccount.accountName || t.toAccount.name || 'Account';
+          return `${fromName} → ${toName}`;
+        }
+        if (t.debitAccount && t.creditAccount) {
+          const fromName = t.debitAccount.bankName || t.debitAccount.accountName || t.debitAccount.name || 'Account';
+          const toName = t.creditAccount.bankName || t.creditAccount.accountName || t.creditAccount.name || 'Account';
+          return `${fromName} → ${toName}`;
+        }
+        return 'Account Transfer';
+      }
+      
+      // For personal expense
+      if (t.scope === 'personal-expense' || t.personalExpenseProfileId) {
+        return t.partyName || t.customerName || 'Personal Expense';
+      }
 
-    const formattedDate = date ? new Date(date).toLocaleDateString('en-GB') : new Date(createdAt).toLocaleDateString('en-GB');
-    const formattedAmount = new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(amount || 0);
+      // For money exchange
+      if (t.partyType === 'money-exchange' || t.partyType === 'money_exchange') {
+        const moneyExchangeInfo = t.moneyExchangeInfo || {};
+        const currencyName = moneyExchangeInfo.currencyName || t.party?.currencyName;
+        const type = moneyExchangeInfo.type || '';
+        const currencyCode = moneyExchangeInfo.currencyCode || '';
+        
+        if (type && currencyName) {
+          return `${type === 'Buy' ? 'ক্রয়' : type === 'Sell' ? 'বিক্রয়' : type} - ${currencyCode ? `${currencyCode} (${currencyName})` : currencyName}`;
+        }
+        if (currencyName) return currencyName;
+        if (t.partyName) return t.partyName;
+      }
+      
+      return t.customerName || t.partyName || t.customer?.name || t.party?.name || 'N/A';
+    };
+
+    // Helper to get category safely
+    const getCategory = (t) => {
+      // Account Transfer
+      if (t.transactionType === 'transfer') {
+        return 'Account Transfer';
+      }
+
+      if (t.category && typeof t.category === 'object') {
+        return t.category.name || t.category.label || t.category.title || t.category.categoryName || 'N/A';
+      }
+      
+      const raw = t.category || t.serviceCategory || '';
+      
+      // If category is an ID or empty, try to map from customerType/partyType
+      if (!raw || (typeof raw === 'string' && raw.length === 24 && /^[0-9a-fA-F]{24}$/.test(raw))) {
+        const type = t.customerType || t.partyType || '';
+        if (type === 'haji' || type === 'hajj') return 'হাজ্জ প্যাকেজ';
+        if (type === 'umrah') return 'ওমরাহ প্যাকেজ';
+        if (type === 'airCustomer') return 'এয়ার টিকেট';
+        if (type === 'visa') return 'ভিসা সার্ভিস';
+        if (type === 'hotel') return 'হোটেল বুকিং';
+        if (type === 'money-exchange' || type === 'moneyExchange') return 'মানি এক্সচেঞ্জ';
+        if (type === 'office' || type === 'officeExpenses') return 'অফিস ব্যয়';
+        if (type === 'vendor') return 'ভেন্ডর';
+        if (type === 'agent') return 'এজেন্ট';
+      }
+      
+      return raw || 'N/A';
+    };
+
+    const finalCustomerName = getCustomerName(transaction);
+    const finalCategory = getCategory(transaction);
 
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 font-sans">
@@ -119,26 +173,26 @@ export default async function VerifyTransactionPage({ params }) {
 
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">নাম</span>
-                <span className="font-medium text-gray-900 dark:text-white">{customerName || 'N/A'}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{finalCustomerName}</span>
               </div>
 
-              {customerPhone && (
+              {transaction.customerPhone && (
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 dark:text-gray-400">ফোন</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{customerPhone}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{transaction.customerPhone}</span>
                 </div>
               )}
 
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">পেমেন্ট মেথড</span>
-                <span className="font-medium text-gray-900 dark:text-white capitalize">{paymentMethod || 'N/A'}</span>
+                <span className="font-medium text-gray-900 dark:text-white capitalize">{transaction.paymentMethod || 'N/A'}</span>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">ক্যাটাগরি</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {typeof category === 'string' ? category : (category?.name || 'N/A')}
-                  {serviceCategory && <span className="text-gray-500 text-sm ml-1">({serviceCategory})</span>}
+                  {finalCategory}
+                  {transaction.serviceCategory && finalCategory !== transaction.serviceCategory && <span className="text-gray-500 text-sm ml-1">({transaction.serviceCategory})</span>}
                 </span>
               </div>
 
