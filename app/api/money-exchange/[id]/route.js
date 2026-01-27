@@ -45,6 +45,7 @@ export async function GET(request, { params }) {
       exchangeRate: exchange.exchangeRate || 0,
       quantity: exchange.quantity || 0,
       amount_bdt: exchange.amount_bdt || 0,
+      paidAmount: exchange.paidAmount || 0,
       customerType: exchange.customerType || 'normal',
       dilarId: exchange.dilarId || exchange.selectedDilarId || '',
       isActive: exchange.isActive !== false,
@@ -101,6 +102,9 @@ export async function PUT(request, { params }) {
     }
     if (updateData.amount_bdt !== undefined) {
       updateData.amount_bdt = Number(updateData.amount_bdt);
+    }
+    if (updateData.paidAmount !== undefined) {
+      updateData.paidAmount = Number(updateData.paidAmount);
     }
 
     let result;

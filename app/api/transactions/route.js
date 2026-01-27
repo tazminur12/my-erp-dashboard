@@ -296,7 +296,7 @@ export async function POST(request) {
       if (!party) {
         console.warn('⚠️ Loan not found in either collection:', searchPartyId);
       }
-    } else if (finalPartyType === 'money-exchange' || finalPartyType === 'money_exchange') {
+    } else if (finalPartyType === 'money-exchange' || finalPartyType === 'money_exchange' || finalPartyType === 'moneyexchange') {
       const exchangeCondition = isValidObjectId
         ? { _id: new ObjectId(searchPartyId), isActive: { $ne: false } }
         : { _id: searchPartyId, isActive: { $ne: false } };
@@ -1301,6 +1301,57 @@ export async function POST(request) {
           await personalExpenseProfiles.updateOne(
             { _id: new ObjectId(profileId) },
             { $inc: { totalTaken: numericAmount }, $set: { updatedAt: new Date() } },
+            { session: mongoSession }
+          );
+        }
+      }
+
+      // 8.9 If party is a money exchange, update its paidAmount
+      if ((finalPartyType === 'money-exchange' || finalPartyType === 'money_exchange' || finalPartyType === 'moneyexchange') && party && party._id) {
+        console.log('💰 Updating money exchange balance:', {
+          exchangeId: party._id.toString(),
+          transactionType,
+          amount: numericAmount,
+          exchangeType: party.type
+        });
+
+        // Determine if this transaction counts as "payment" based on exchange type
+        // Buy: We pay customer (Debit) -> Increases Paid Amount
+        // Sell: Customer pays us (Credit) -> Increases Paid Amount
+        let isPayment = false;
+        if (party.type === 'Buy' && transactionType === 'debit') isPayment = true;
+        if (party.type === 'Sell' && transactionType === 'credit') isPayment = true;
+        
+        // Also allow the reverse to decrease paid amount (refunds/corrections)
+        let amountDelta = 0;
+        if (isPayment) {
+          amountDelta = numericAmount;
+        } else {
+          // If it's the opposite transaction type, treat as reversal?
+          // Buy + Credit = We got money back (Refund) -> Decrease Paid Amount
+          // Sell + Debit = We gave money back (Refund) -> Decrease Paid Amount
+          amountDelta = -numericAmount;
+        }
+
+        const exchangeUpdate = { 
+          $set: { updatedAt: new Date() }, 
+          $inc: { paidAmount: amountDelta } 
+        };
+
+        const updateResult = await exchanges.updateOne(
+          { _id: party._id },
+          exchangeUpdate,
+          { session: mongoSession }
+        );
+
+        console.log('📝 Money exchange update result:', { modifiedCount: updateResult.modifiedCount });
+        
+        // Clamp negative paidAmount
+        const afterExchange = await exchanges.findOne({ _id: party._id }, { session: mongoSession });
+        if ((afterExchange?.paidAmount || 0) < 0) {
+           await exchanges.updateOne(
+            { _id: party._id },
+            { $set: { paidAmount: 0, updatedAt: new Date() } },
             { session: mongoSession }
           );
         }

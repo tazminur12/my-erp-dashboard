@@ -143,30 +143,46 @@ export async function DELETE(request, { params }) {
   try {
     const { id } = params;
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: 'Invalid branch ID' },
-        { status: 400 }
-      );
-    }
-
+    // Direct deletion if ID is provided, skip ObjectId check if it's a string ID
+    // (some systems might use string IDs instead of ObjectIds)
     const db = await getDb();
     const branchesCollection = db.collection('branches');
+    
+    let query;
+    if (ObjectId.isValid(id)) {
+      query = { _id: new ObjectId(id) };
+    } else {
+      query = { id: id }; // Try matching by string 'id' field if ObjectId fails
+    }
 
     // Check if branch exists
-    const existingBranch = await branchesCollection.findOne({ _id: new ObjectId(id) });
+    const existingBranch = await branchesCollection.findOne(query);
+    
+    // Fallback: if not found by _id, try finding by id string field
+    if (!existingBranch && ObjectId.isValid(id)) {
+        const byStringId = await branchesCollection.findOne({ id: id });
+        if (byStringId) query = { id: id };
+    }
+
+    if (!existingBranch && !query) {
+       // If query wasn't set successfully or initial find failed and fallback didn't help
+       // Actually let's just proceed to delete with whatever query we constructed
+    }
+    
+    // If we still haven't found it, maybe just try to delete by _id anyway if valid
     if (!existingBranch) {
+        // Just proceed with delete attempt using best guess
+    }
+
+    // Hard delete for now as per user request to "delete"
+    const deleteResult = await branchesCollection.deleteOne(query);
+
+    if (deleteResult.deletedCount === 0) {
       return NextResponse.json(
-        { error: 'Branch not found' },
+        { error: 'Branch not found or already deleted' },
         { status: 404 }
       );
     }
-
-    // Soft delete - set status to inactive instead of deleting
-    await branchesCollection.updateOne(
-      { _id: new ObjectId(id) },
-      { $set: { status: 'inactive', updated_at: new Date() } }
-    );
 
     return NextResponse.json(
       { message: 'Branch deleted successfully' },

@@ -77,6 +77,8 @@ const initialForm = {
   currencyName: 'মার্কিন ডলার',
   exchangeRate: '',
   quantity: '',
+  bdtAmount: '',
+  foreignAmount: '',
 };
 
 const validate = (v) => {
@@ -147,7 +149,7 @@ const NewExchange = () => {
   }, [form.currencyCode]);
 
   useEffect(() => {
-    setForm((f) => ({ ...f, quantity: '', exchangeRate: '' }));
+    setForm((f) => ({ ...f, quantity: '', exchangeRate: '', bdtAmount: '', foreignAmount: '' }));
     setErrors((e) => ({ ...e, quantity: undefined, exchangeRate: undefined }));
   }, [form.type]);
 
@@ -199,32 +201,142 @@ const NewExchange = () => {
   const isBuy = form.type === 'Buy';
 
   const amount = useMemo(() => {
+    // If we have an explicit BDT amount (from manual edit or sync), use it
+    if (form.bdtAmount && !Number.isNaN(Number(form.bdtAmount))) {
+      return Number(form.bdtAmount);
+    }
+
     const r = Number(form.exchangeRate);
     const q = Number(form.quantity);
     if (!Number.isFinite(r) || !Number.isFinite(q) || r <= 0 || q <= 0) return 0;
     
     if (isBuy) {
-      return q;
+      return q; // For Buy: quantity IS the BDT amount
     } else {
-      return q * r;
+      return q * r; // For Sell: quantity is Foreign amount
     }
-  }, [form.exchangeRate, form.quantity, isBuy]);
+  }, [form.exchangeRate, form.quantity, form.bdtAmount, isBuy]);
 
   const foreignCurrencyAmount = useMemo(() => {
+    // If we have an explicit Foreign amount (from manual edit or sync), use it
+    if (form.foreignAmount && !Number.isNaN(Number(form.foreignAmount))) {
+      return Number(form.foreignAmount);
+    }
+
     const r = Number(form.exchangeRate);
     const q = Number(form.quantity);
     if (!Number.isFinite(r) || !Number.isFinite(q) || r <= 0 || q <= 0) return 0;
     
     if (isBuy) {
-      return q / r;
+      return q / r; // For Buy: quantity (BDT) / rate
     } else {
-      return q;
+      return q; // For Sell: quantity IS the foreign amount
     }
-  }, [form.exchangeRate, form.quantity, isBuy]);
+  }, [form.exchangeRate, form.quantity, form.foreignAmount, isBuy]);
 
   const handleChange = (name, value) => {
     setForm((f) => ({ ...f, [name]: value }));
     if (errors[name]) setErrors((e) => ({ ...e, [name]: undefined }));
+  };
+
+  const handleQuantityChange = (val) => {
+    const q = Number(val);
+    const r = Number(form.exchangeRate);
+    const fa = Number(form.foreignAmount);
+    const bdt = Number(form.bdtAmount);
+    let updates = { quantity: val };
+    
+    if (isBuy) {
+      if (r > 0) {
+        // Buy mode: Quantity (BDT) & Rate exists -> Update Foreign
+        updates.foreignAmount = q > 0 ? (q / r).toFixed(4) : '';
+      } else if (fa > 0 && q > 0) {
+        // Buy mode: Quantity (BDT) & Foreign exists -> Update Rate
+        updates.exchangeRate = (q / fa).toFixed(4);
+      }
+    } else {
+      if (r > 0) {
+        // Sell mode: Quantity (Foreign) & Rate exists -> Update BDT
+        updates.bdtAmount = q > 0 ? (q * r).toFixed(2) : '';
+      } else if (bdt > 0 && q > 0) {
+        // Sell mode: Quantity (Foreign) & BDT exists -> Update Rate
+        updates.exchangeRate = (bdt / q).toFixed(4);
+      }
+    }
+    
+    setForm(prev => ({ ...prev, ...updates }));
+    if (errors.quantity) setErrors(e => ({ ...e, quantity: undefined }));
+  };
+
+  const handleExchangeRateChange = (val) => {
+    const r = Number(val);
+    const q = Number(form.quantity);
+    const fa = Number(form.foreignAmount);
+    const bdt = Number(form.bdtAmount);
+    let updates = { exchangeRate: val };
+    
+    if (isBuy) {
+      if (q > 0) {
+        // Buy mode: Rate & Quantity (BDT) exists -> Update Foreign
+        updates.foreignAmount = r > 0 ? (q / r).toFixed(4) : '';
+      } else if (fa > 0 && r > 0) {
+        // Buy mode: Rate & Foreign exists -> Update Quantity (BDT)
+        updates.quantity = (fa * r).toFixed(2);
+      }
+    } else {
+      if (q > 0) {
+        // Sell mode: Rate & Quantity (Foreign) exists -> Update BDT
+        updates.bdtAmount = r > 0 ? (q * r).toFixed(2) : '';
+      } else if (bdt > 0 && r > 0) {
+        // Sell mode: Rate & BDT exists -> Update Quantity (Foreign)
+        updates.quantity = (bdt / r).toFixed(4);
+      }
+    }
+    
+    setForm(prev => ({ ...prev, ...updates }));
+    if (errors.exchangeRate) setErrors(e => ({ ...e, exchangeRate: undefined }));
+  };
+
+  const handleBdtAmountChange = (val) => {
+    if (isBuy) return; 
+
+    const bdt = Number(val);
+    const q = Number(form.quantity);
+    const r = Number(form.exchangeRate);
+    let updates = { bdtAmount: val };
+    
+    if (!isBuy) {
+      if (q > 0) {
+        // Sell mode: BDT & Quantity (Foreign) exists -> Update Rate
+        updates.exchangeRate = bdt > 0 ? (bdt / q).toFixed(4) : '';
+      } else if (r > 0) {
+        // Sell mode: BDT & Rate exists -> Update Quantity (Foreign)
+        updates.quantity = bdt > 0 ? (bdt / r).toFixed(4) : '';
+      }
+    }
+    
+    setForm(prev => ({ ...prev, ...updates }));
+  };
+
+  const handleForeignAmountChange = (val) => {
+    if (!isBuy) return;
+
+    const fa = Number(val);
+    const q = Number(form.quantity); // BDT Amount
+    const r = Number(form.exchangeRate);
+    let updates = { foreignAmount: val };
+
+    if (isBuy) {
+      if (q > 0) {
+        // Buy mode: Foreign & Quantity (BDT) exists -> Update Rate
+        updates.exchangeRate = fa > 0 ? (q / fa).toFixed(4) : '';
+      } else if (r > 0) {
+        // Buy mode: Foreign & Rate exists -> Update Quantity (BDT)
+        updates.quantity = fa > 0 ? (fa * r).toFixed(2) : '';
+      }
+    }
+
+    setForm(prev => ({ ...prev, ...updates }));
   };
 
   useEffect(() => {
@@ -248,7 +360,7 @@ const NewExchange = () => {
       const payload = {
         ...form,
         quantity: isBuy ? foreignCurrencyAmount : Number(form.quantity),
-        amount_bdt: amount,
+        amount_bdt: form.bdtAmount ? Number(form.bdtAmount) : amount,
         customerType: form.customerType || 'normal',
         selectedDilarId: form.selectedDilarId || '',
         dilarId: form.customerType === 'dilar' ? (form.selectedDilarId || form.dilarId) : undefined,
@@ -582,8 +694,8 @@ const NewExchange = () => {
                       <h3 className="text-sm font-semibold text-green-800 dark:text-green-300 mb-3">ক্রয় (Buy) - BDT প্রদান করে বিদেশি মুদ্রা গ্রহণ</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Amount to Pay (প্রদান করতে হবে) <span className="text-red-500">*</span>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Amount to Pay (প্রদান করতে হবে) <span className="text-red-500">*</span></div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">BDT</span>
                           </label>
                           <input
@@ -593,15 +705,15 @@ const NewExchange = () => {
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="0.00"
                             value={form.quantity}
-                            onChange={(e) => handleChange('quantity', e.target.value)}
+                            onChange={(e) => handleQuantityChange(e.target.value)}
                             disabled={isSubmitting}
                           />
                           {errors.quantity && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.quantity}</p>}
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Exchange Rate (এক্সচেঞ্জ রেট) <span className="text-red-500">*</span>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Exchange Rate (এক্সচেঞ্জ রেট) <span className="text-red-500">*</span></div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">1 {form.currencyCode} = ? BDT</span>
                           </label>
                           <input
@@ -611,20 +723,27 @@ const NewExchange = () => {
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                             placeholder="0.0000"
                             value={form.exchangeRate}
-                            onChange={(e) => handleChange('exchangeRate', e.target.value)}
+                            onChange={(e) => handleExchangeRateChange(e.target.value)}
                             disabled={isSubmitting}
                           />
                           {errors.exchangeRate && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.exchangeRate}</p>}
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Foreign Currency to Receive (প্রাপ্ত হবে)
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Foreign Currency to Receive (প্রাপ্ত হবে)</div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">{form.currencyCode}</span>
                           </label>
-                          <div className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white tabular-nums">
-                            {foreignCurrencyAmount.toFixed(4)}
-                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.0001"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            placeholder="0.0000"
+                            value={form.foreignAmount}
+                            onChange={(e) => handleForeignAmountChange(e.target.value)}
+                            disabled={isSubmitting}
+                          />
                         </div>
                       </div>
                     </div>
@@ -633,8 +752,8 @@ const NewExchange = () => {
                       <h3 className="text-sm font-semibold text-red-800 dark:text-red-300 mb-3">বিক্রয় (Sell) - বিদেশি মুদ্রা প্রদান করে BDT গ্রহণ</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Foreign Currency to Sell (বিক্রয় করতে হবে) <span className="text-red-500">*</span>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Foreign Currency to Sell (বিক্রয় করতে হবে) <span className="text-red-500">*</span></div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">{form.currencyCode}</span>
                           </label>
                           <input
@@ -644,15 +763,15 @@ const NewExchange = () => {
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
                             placeholder="0.00"
                             value={form.quantity}
-                            onChange={(e) => handleChange('quantity', e.target.value)}
+                            onChange={(e) => handleQuantityChange(e.target.value)}
                             disabled={isSubmitting}
                           />
                           {errors.quantity && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.quantity}</p>}
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Exchange Rate (এক্সচেঞ্জ রেট) <span className="text-red-500">*</span>
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Exchange Rate (এক্সচেঞ্জ রেট) <span className="text-red-500">*</span></div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">1 {form.currencyCode} = ? BDT</span>
                           </label>
                           <input
@@ -662,20 +781,27 @@ const NewExchange = () => {
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
                             placeholder="0.0000"
                             value={form.exchangeRate}
-                            onChange={(e) => handleChange('exchangeRate', e.target.value)}
+                            onChange={(e) => handleExchangeRateChange(e.target.value)}
                             disabled={isSubmitting}
                           />
                           {errors.exchangeRate && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.exchangeRate}</p>}
                         </div>
 
                         <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Amount to Receive (প্রাপ্ত হবে)
+                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 h-10 flex flex-col justify-end">
+                            <div>Amount to Receive (প্রাপ্ত হবে)</div>
                             <span className="text-xs text-gray-500 dark:text-gray-400 block">BDT</span>
                           </label>
-                          <div className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white tabular-nums">
-                            {formatBDT(amount)}
-                          </div>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            placeholder="0.00"
+                            value={form.bdtAmount}
+                            onChange={(e) => handleBdtAmountChange(e.target.value)}
+                            disabled={isSubmitting}
+                          />
                         </div>
                       </div>
                     </div>

@@ -253,6 +253,8 @@ const Details = () => {
 
   const status = exchange.isActive !== false ? 'completed' : 'cancelled';
   const isBuy = exchange.type === 'Buy';
+  const paidAmount = exchange.paidAmount || 0;
+  const dueAmount = (exchange.amount_bdt || 0) - paidAmount;
 
   return (
     <DashboardLayout>
@@ -288,6 +290,17 @@ const Details = () => {
                   <span className="hidden sm:inline">প্রিন্ট</span>
                 </button>
                 <button
+                  onClick={() => {
+                    const transactionType = isBuy ? 'debit' : 'credit'; // Buy = We pay (Debit), Sell = We receive (Credit)
+                    router.push(`/transactions/new?partyType=moneyExchange&partyId=${exchange.id || exchange._id}&transactionType=${transactionType}&amount=${dueAmount > 0 ? dueAmount : ''}`);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 transition-colors shadow-sm"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span className="hidden sm:inline">পেমেন্ট যোগ করুন</span>
+                  <span className="sm:hidden">পেমেন্ট</span>
+                </button>
+                <button
                   onClick={() => router.push(`/money-exchange/edit/${exchange.id || exchange._id}`)}
                   className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 flex items-center gap-2 transition-colors shadow-sm"
                 >
@@ -321,7 +334,7 @@ const Details = () => {
                       <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                         {isBuy ? 'ক্রয় (Buy)' : 'বিক্রয় (Sell)'}
                       </h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">লেনদেন আইডি: {exchange.id || exchange._id}</p>
+                      
                     </div>
                   </div>
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold ${getStatusColor(status)}`}>
@@ -450,6 +463,40 @@ const Details = () => {
                     </label>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
                       {formatBDT(exchange.amount_bdt || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  পেমেন্ট তথ্য
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600">
+                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      মোট পরিমাণ
+                    </label>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
+                      {formatBDT(exchange.amount_bdt || 0)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
+                    <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-1">
+                      পরিশোধিত
+                    </label>
+                    <p className="text-xl font-bold text-green-700 dark:text-green-400 tabular-nums">
+                      {formatBDT(paidAmount)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800">
+                    <label className="block text-sm font-medium text-red-700 dark:text-red-300 mb-1">
+                      বাকি
+                    </label>
+                    <p className="text-xl font-bold text-red-700 dark:text-red-400 tabular-nums">
+                      {formatBDT(dueAmount)}
                     </p>
                   </div>
                 </div>

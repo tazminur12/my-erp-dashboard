@@ -202,7 +202,8 @@ export const navigation = [
       { name: 'খাদ্য ব্যবস্থাপনা', href: '/miraj-industries/feed-management', icon: Utensils },
       { name: 'স্বাস্থ্য ও পশুচিকিৎসা', href: '/miraj-industries/health-records', icon: Shield },
       { name: 'প্রজনন ও বাচ্চা প্রসব', href: '/miraj-industries/breeding-records', icon: Plus },
-      { name: 'আয়-খরচ রিপোর্ট', href: '/miraj-industries/financial-report', icon: BarChart3 },
+      { name: 'আয় ব্যবস্থাপনা', href: '/miraj-industries/income', icon: BarChart3 },
+      { name: 'ব্যয় ব্যবস্থাপনা', href: '/miraj-industries/expense', icon: BarChart3 },
       { name: 'কর্মচারী ব্যবস্থাপনা', href: '/miraj-industries/employee-management', icon: Users }
     ]
   },

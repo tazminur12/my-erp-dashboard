@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import DashboardLayout from '../../../component/DashboardLayout';
+import DashboardLayout from '../../../../component/DashboardLayout';
 import { 
   Save, 
   ArrowLeft, 
@@ -35,6 +35,8 @@ const Modal = ({ isOpen, onClose, title, size = 'md', children }) => {
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
   };
+
+
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -69,8 +71,11 @@ const ModalFooter = ({ children }) => {
   );
 };
 
-const NewTicket = () => {
+const EditTicket = () => {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id;
+  const [initialLoading, setInitialLoading] = useState(true);
   
   // Get today's date in YYYY-MM-DD format for default value
   const getTodayDate = () => {
@@ -201,6 +206,61 @@ const NewTicket = () => {
   const [addingCustomer, setAddingCustomer] = useState(false);
 
   const markTouched = (name) => setTouched(prev => ({ ...prev, [name]: true }));
+
+  // Fetch ticket data
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchTicket = async () => {
+      setInitialLoading(true);
+      try {
+        const res = await fetch(`/api/air-tickets/${id}`);
+        const data = await res.json();
+        
+        if (res.ok && (data.ticket || data.data)) {
+          const ticket = data.ticket || data.data;
+          
+          // Format date helper
+          const toDateStr = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+
+          // Populate formData
+          setFormData(prev => ({
+            ...prev,
+            ...ticket,
+            date: toDateStr(ticket.date) || prev.date,
+            flightDate: toDateStr(ticket.flightDate) || prev.flightDate,
+            returnDate: toDateStr(ticket.returnDate) || prev.returnDate,
+            dueDate: toDateStr(ticket.dueDate) || prev.dueDate,
+            segments: ticket.segments && ticket.segments.length > 0 ? ticket.segments.map(s => ({
+              ...s,
+              date: toDateStr(s.date)
+            })) : prev.segments,
+            customerId: ticket.customerId || ticket.customer?._id || prev.customerId,
+            customerName: ticket.customerName || ticket.customer?.name || prev.customerName,
+            customerPhone: ticket.customerPhone || ticket.customer?.phone || prev.customerPhone,
+          }));
+          
+          // Set search queries
+          if (ticket.customerName) setCustomerQuery(ticket.customerName);
+          if (ticket.agent) setAgentQuery(ticket.agent);
+          if (ticket.airline) setAirlineQuery(ticket.airline);
+          if (ticket.vendor) setVendorQuery(ticket.vendor);
+          
+        } else {
+          setError(data.message || 'Failed to load ticket');
+        }
+      } catch (err) {
+        console.error(err);
+        setError('Error loading ticket');
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    
+    fetchTicket();
+  }, [id]);
+
+
 
   // Debounced backend search for air customers
   useEffect(() => {
@@ -1308,6 +1368,16 @@ const NewTicket = () => {
     'রিভিউ ও নিশ্চিতকরণ'
   ];
 
+  if (initialLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -1323,10 +1393,10 @@ const NewTicket = () => {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  নতুন টিকিট বিক্রয়
+                  Edit Ticket
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  গ্রাহকের জন্য নতুন এয়ার টিকিট বুক করুন
+                  Update ticket information
                 </p>
               </div>
             </div>
@@ -2383,7 +2453,7 @@ const NewTicket = () => {
 
                 {/* Additional Details */}
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Segment Count</label>
                     <input
                       type="number"
@@ -2393,7 +2463,7 @@ const NewTicket = () => {
                       min="1"
                       className="block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
-                  </div>
+                  </div> */}
                   <div className="flex items-center mt-7">
                     <input
                       id="flownSegment"
@@ -2955,4 +3025,4 @@ const NewTicket = () => {
   );
 };
 
-export default NewTicket;
+export default EditTicket;

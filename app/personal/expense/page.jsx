@@ -97,22 +97,11 @@ const PersonalExpenses = () => {
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage]);
 
-  // Calculate total expenses
-  const totalExpenses = expenseCategories.reduce((sum, category) => sum + (Number(category.totalAmount) || 0), 0);
-  const avgPerCategory = expenseCategories.length > 0 ? totalExpenses / expenseCategories.length : 0;
-  const totalMonthlyDue = expenseCategories.reduce((sum, c) => {
-    if (c.frequency === 'monthly') {
-      return sum + (Number(c.monthlyAmount) || 0);
-    }
-    return sum;
-  }, 0);
-  const totalYearlyDue = expenseCategories.reduce((sum, c) => {
-    if (c.frequency === 'yearly') {
-      return sum + (Number(c.monthlyAmount) || 0);
-    }
-    return sum;
-  }, 0);
-  const isFirstDay = new Date().getDate() === 1;
+  // Calculate total expenses and budget
+  const totalMonthlyBudget = expenseCategories.reduce((sum, c) => sum + (Number(c.monthlyAmount) || 0), 0);
+  const totalThisMonthExpense = expenseCategories.reduce((sum, c) => sum + (Number(c.thisMonthExpense) || 0), 0);
+  const totalRemaining = Math.max(0, totalMonthlyBudget - totalThisMonthExpense);
+  const totalLifetimeExpense = expenseCategories.reduce((sum, c) => sum + (Number(c.totalAmount) || 0), 0);
 
   const formatCurrency = (amount = 0) => `৳${Number(amount || 0).toLocaleString('bn-BD')}`;
 
@@ -228,9 +217,23 @@ const PersonalExpenses = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">মোট খরচ</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">মাসিক বাজেট (গড়)</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(totalMonthlyBudget)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                  <Scale className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">এই মাসের ব্যয়</p>
                   <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {formatCurrency(totalExpenses)}
+                    {formatCurrency(totalThisMonthExpense)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center">
@@ -242,27 +245,13 @@ const PersonalExpenses = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">ক্যাটাগরি</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {expenseCategories.length}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">এই মাস</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">আনুমানিক ব্যয় বাকি</p>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(totalExpenses)}
+                    {formatCurrency(totalRemaining)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
@@ -270,40 +259,17 @@ const PersonalExpenses = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">মাসিক বাকি</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">সর্বমোট খরচ</p>
                   <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {formatCurrency(totalMonthlyDue)}
+                    {formatCurrency(totalLifetimeExpense)}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </div>
           </div>
-
-          {isFirstDay && (
-            <div className="bg-gradient-to-r from-purple-50 via-blue-50 to-cyan-50 dark:from-purple-900/20 dark:via-blue-900/10 dark:to-cyan-900/10 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <p className="text-sm text-purple-700 dark:text-purple-300">
-                    আজ মাসের ১ তারিখ — এই মাসে বাকি পরিশোধযোগ্য
-                  </p>
-                  <p className="text-xl font-bold text-purple-700 dark:text-purple-300">
-                    {formatCurrency(totalMonthlyDue)}
-                  </p>
-                </div>
-                {totalYearlyDue > 0 && (
-                  <div className="text-right">
-                    <p className="text-xs text-blue-700 dark:text-blue-300">বাৎসরিক বাকি</p>
-                    <p className="text-lg font-semibold text-blue-700 dark:text-blue-300">
-                      {formatCurrency(totalYearlyDue)}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Categories Table */}
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -312,20 +278,16 @@ const PersonalExpenses = () => {
                 <thead className="bg-gray-50 dark:bg-gray-900/50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ক্যাটাগরি</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">বাংলা নাম</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">বর্ণনা</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ধরন</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">ফ্রিকোয়েন্সি</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">মাসিক/বাৎসরিক</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">মোট খরচ</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">সর্বশেষ আপডেট</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">মাসিক গড়</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">এই মাসের ব্যয়</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">আনুমানিক ব্যয় বাকি</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">অ্যাকশন</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={5} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
                           লোড হচ্ছে...
@@ -347,35 +309,26 @@ const PersonalExpenses = () => {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{category.name}</div>
+                              {category.banglaName && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{category.banglaName}</div>
+                              )}
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-sm text-gray-900 dark:text-gray-100">
-                            {category.banglaName || '—'}
+                          <div className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                            {formatCurrency(category.monthlyAmount)}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate" title={category.description || ''}>
-                            {category.description || '—'}
+                          <div className="text-sm font-semibold text-red-600 dark:text-red-400">
+                            {formatCurrency(category.thisMonthExpense)}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                            {category.expenseType === 'regular' ? 'নিয়মিত' : category.expenseType === 'irregular' ? 'অনিয়মিত' : '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                          {category.frequency === 'monthly' ? 'মাসিক' : category.frequency === 'yearly' ? 'বাৎসরিক' : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                          {category.monthlyAmount ? formatCurrency(category.monthlyAmount) : '—'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(category.totalAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {category.lastUpdated ? new Date(category.lastUpdated).toLocaleDateString('bn-BD') : '—'}
+                          <div className={`text-sm font-semibold ${category.estimatedRemaining > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {formatCurrency(category.estimatedRemaining)}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -399,7 +352,7 @@ const PersonalExpenses = () => {
                     );
                   }) : (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
+                      <td colSpan={5} className="px-4 py-10 text-center text-gray-500 dark:text-gray-400">
                         {query ? 'কোন ক্যাটাগরি পাওয়া যায়নি' : 'কোন ক্যাটাগরি নেই। নতুন ক্যাটাগরি তৈরি করুন।'}
                       </td>
                     </tr>

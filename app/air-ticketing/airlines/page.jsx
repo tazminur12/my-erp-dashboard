@@ -7,6 +7,7 @@ import { Plus, Edit, Trash2, Search, Filter, Eye, Plane, Building, Phone, Mail, 
 import { CLOUDINARY_CONFIG, validateCloudinaryConfig } from '../../../config/cloudinary';
 import Swal from 'sweetalert2';
 import DashboardLayout from '../../component/DashboardLayout';
+import Modal from '../../component/Modal';
 
 const AirlineList = () => {
   const router = useRouter();
@@ -666,19 +667,16 @@ const AirlineList = () => {
         </div>
 
         {/* Add/Edit Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {editingAirline ? 'Edit Airline' : 'Add New Airline'}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {editingAirline ? 'Update airline information' : 'Enter airline details'}
-                </p>
-              </div>
-              
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingAirline(null);
+            resetForm();
+          }}
+          title={editingAirline ? 'Edit Airline' : 'Add New Airline'}
+        >
+          <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Logo Upload Section */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -913,10 +911,8 @@ const AirlineList = () => {
                     )}
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+          </form>
+        </Modal>
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (

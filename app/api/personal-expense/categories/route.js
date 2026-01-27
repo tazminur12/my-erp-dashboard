@@ -1,33 +1,73 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../lib/mongodb';
 
-// GET all categories
+// GET all categories with current month stats
 export async function GET(request) {
   try {
     const db = await getDb();
     const categoriesCollection = db.collection('personal_expense_categories');
+    const transactionsCollection = db.collection('transactions');
 
     const categories = await categoriesCollection.find({}).toArray();
 
-    const formattedCategories = categories.map((category) => ({
-      id: category._id.toString(),
-      _id: category._id.toString(),
-      name: category.name || '',
-      banglaName: category.banglaName || '',
-      description: category.description || '',
-      iconKey: category.iconKey || 'FileText',
-      color: category.color || '',
-      bgColor: category.bgColor || '',
-      iconColor: category.iconColor || '',
-      expenseType: category.expenseType || '',
-      frequency: category.frequency || '',
-      monthlyAmount: Number(category.monthlyAmount) || 0,
-      totalAmount: category.totalAmount || 0,
-      itemCount: category.itemCount || 0,
-      lastUpdated: category.updatedAt ? category.updatedAt.toISOString() : category.createdAt ? category.createdAt.toISOString() : new Date().toISOString(),
-      createdAt: category.createdAt ? category.createdAt.toISOString() : new Date().toISOString(),
-      updatedAt: category.updatedAt ? category.updatedAt.toISOString() : category.createdAt ? category.createdAt.toISOString() : new Date().toISOString(),
-    }));
+    // Get current month date range
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Fetch current month transactions for personal expenses
+    const currentMonthTransactions = await transactionsCollection.aggregate([
+      {
+        $match: {
+          scope: 'personal-expense',
+          date: {
+            $gte: startOfMonth.toISOString(), // Assuming date is stored as ISO string
+            $lte: endOfMonth.toISOString()
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$categoryId', // Group by categoryId
+          total: { $sum: '$amount' }
+        }
+      }
+    ]).toArray();
+
+    // Create a map for quick lookup
+    const expensesMap = {};
+    currentMonthTransactions.forEach(item => {
+      if (item._id) {
+        expensesMap[item._id.toString()] = item.total;
+      }
+    });
+
+    const formattedCategories = categories.map((category) => {
+      const catId = category._id.toString();
+      const thisMonthExpense = expensesMap[catId] || 0;
+      const monthlyBudget = Number(category.monthlyAmount) || 0;
+      const remaining = Math.max(0, monthlyBudget - thisMonthExpense);
+
+      return {
+        id: catId,
+        _id: catId,
+        name: category.name || '',
+        banglaName: category.banglaName || '',
+        description: category.description || '',
+        iconKey: category.iconKey || 'FileText',
+        color: category.color || '',
+        bgColor: category.bgColor || '',
+        iconColor: category.iconColor || '',
+        expenseType: category.expenseType || '',
+        frequency: category.frequency || '',
+        monthlyAmount: monthlyBudget, // This acts as "Monthly Average" / Budget
+        thisMonthExpense: thisMonthExpense, // New Field
+        estimatedRemaining: remaining, // New Field
+        totalAmount: category.totalAmount || 0,
+        itemCount: category.itemCount || 0,
+        lastUpdated: category.updatedAt ? category.updatedAt.toISOString() : category.createdAt ? category.createdAt.toISOString() : new Date().toISOString(),
+      };
+    });
 
     return NextResponse.json({
       success: true,

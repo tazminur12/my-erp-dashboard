@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '../../component/DashboardLayout';
 import { 
   CreditCard, 
@@ -50,6 +51,7 @@ import { generateSalmaReceiptPDF } from '../../utils/pdfGenerator';
 import Swal from 'sweetalert2';
 
 const NewTransaction = () => {
+  const searchParams = useSearchParams();
   // All queries removed - using empty data/defaults
   const isDark = false; // Default theme
   const userProfile = { email: 'user@example.com', branchId: 'main_branch' }; // Default user
@@ -527,6 +529,51 @@ const NewTransaction = () => {
     // Selected investment info (when picking investment)
     investmentInfo: null
   });
+
+  // Handle URL query parameters for pre-filling
+  useEffect(() => {
+    if (!searchParams) return;
+
+    const type = searchParams.get('transactionType');
+    const pType = searchParams.get('partyType');
+    const pId = searchParams.get('partyId');
+    const amt = searchParams.get('amount');
+
+    if (type || pType || pId || amt) {
+      setFormData(prev => {
+        const newData = { ...prev };
+        
+        if (type) newData.transactionType = type;
+        
+        if (pType) {
+          newData.selectedCustomerType = pType;
+          // Map to internal customerType if needed, though mostly selectedCustomerType drives logic
+          if (pType === 'moneyExchange') newData.customerType = 'moneyExchange';
+        }
+        
+        if (pId) {
+          newData.customerId = pId;
+          newData.uniqueId = pId; // Sometimes used for selection
+        }
+        
+        if (amt) {
+          newData.paymentDetails = {
+            ...newData.paymentDetails,
+            amount: amt
+          };
+        }
+
+        return newData;
+      });
+
+      // Jump to appropriate step
+      if (type && pType) {
+        setCurrentStep(3); // Skip to customer/party selection
+      } else if (type) {
+        setCurrentStep(2); // Skip to party type selection
+      }
+    }
+  }, [searchParams]);
 
   // Invoice query hook - removed, using empty data
   const invoices = [];

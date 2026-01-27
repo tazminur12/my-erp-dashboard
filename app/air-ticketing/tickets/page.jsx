@@ -267,8 +267,7 @@ const TicketList = () => {
 
   const handleViewTicket = (ticket) => {
     const ticketId = ticket.ticketId || ticket._id || ticket.id || ticket.bookingId;
-    setSelectedTicketId(ticketId);
-    setShowTicketModal(true);
+    router.push(`/air-ticketing/tickets/${ticketId}`);
   };
 
   const handleEditTicket = (ticket) => {
