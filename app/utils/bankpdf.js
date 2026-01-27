@@ -1,10 +1,10 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-// Official Islami Bank Logo URL (high resolution)
+// Official Islami Bank Logo URL (high resolution) - Example fallback
 const BANK_LOGO_URL = 'https://ecdn.dhakatribune.net/contents/cache/images/1200x630x1xxxxx1/uploads/media/2025/09/28/Islami-Bank-Bangladesh-PLC-c4d7c1c3b411a194bba8574afa1bbc64.png';
 
-const ITEMS_PER_PAGE = 25; // প্রতিটি পেজে কতগুলো ট্রানজেকশন দেখাবে
+const ITEMS_PER_PAGE = 20; // Reduced slightly to ensure better fit with larger headers
 
 const createBankStatementElement = (statementData, pageNumber = 1) => {
   const {
@@ -15,12 +15,14 @@ const createBankStatementElement = (statementData, pageNumber = 1) => {
     periodEnd
   } = statementData;
 
-  const formatCurrency = (amount, currency = 'BDT') => {
-    if (!amount && amount !== 0) return '0.00';
-    return `${Number(amount).toLocaleString('en-US', { 
+  const currencySymbol = bankAccount.currency === 'USD' ? '$' : '৳';
+
+  const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return '0.00';
+    return Number(amount).toLocaleString('en-US', { 
       minimumFractionDigits: 2, 
       maximumFractionDigits: 2 
-    })}`;
+    });
   };
 
   const formatDate = (date) => {
@@ -35,14 +37,53 @@ const createBankStatementElement = (statementData, pageNumber = 1) => {
   };
 
   const getDescription = (transaction) => {
-    if (transaction.description) return transaction.description;
+    const isObjectId = (str) => {
+      if (!str || typeof str !== 'string') return false;
+      return /^[0-9a-fA-F]{24}$/.test(str);
+    };
+
+    // Helper to capitalize words
+    const capitalize = (str) => str.split(/[-_ ]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+    if (transaction.serviceCategory) {
+      const category = String(transaction.serviceCategory).toLowerCase();
+      if (!isObjectId(category)) {
+        return capitalize(category);
+      }
+    }
+    
+    if (transaction.meta?.selectedOption) {
+      const option = String(transaction.meta.selectedOption).toLowerCase();
+      if (!isObjectId(option)) {
+        return capitalize(option);
+      }
+    }
+    
+    if (transaction.category) {
+      if (typeof transaction.category === 'string' && !isObjectId(transaction.category)) {
+        return transaction.category;
+      } else if (typeof transaction.category === 'object' && transaction.category.name) {
+        return transaction.category.name;
+      }
+    }
+    
+    if (transaction.notes && transaction.notes.trim() && !isObjectId(transaction.notes.trim())) {
+      const notes = transaction.notes.trim();
+      return notes.length > 50 ? notes.substring(0, 50) + '...' : notes;
+    }
+    
+    if (transaction.description) {
+      const desc = String(transaction.description);
+      if (!isObjectId(desc)) {
+        return desc;
+      }
+    }
+
     if (transaction.isTransfer) {
       const ref = transaction.transferDetails?.reference || transaction.transferDetails?.chequeNo || '';
       return `Transfer ${ref}`.trim();
     }
-    if (transaction.notes) return transaction.notes;
-    if (transaction.category) return transaction.category;
-    if (transaction.serviceCategory) return transaction.serviceCategory;
+    
     return 'Transaction';
   };
 
@@ -62,236 +103,177 @@ const createBankStatementElement = (statementData, pageNumber = 1) => {
   });
 
   const container = document.createElement('div');
+  // A4 size in pixels at 96 DPI is approx 794x1123
   container.style.cssText = `
     width: 794px;
-    min-height: ${pageNumber === 1 ? '1123px' : '1123px'};
-    padding: ${pageNumber === 1 ? '30px 40px 20px' : '20px 40px 20px'};
+    min-height: 1123px;
+    padding: 40px;
     background: white;
-    font-family: 'Arial', 'Helvetica', sans-serif;
+    font-family: 'NotoSansBengali', 'Arial', sans-serif;
     font-size: 10px;
     color: #000;
     box-sizing: border-box;
     position: relative;
+    line-height: 1.4;
   `;
 
-  container.innerHTML = `
+  // Inject font face
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @font-face {
+      font-family: 'NotoSansBengali';
+      src: url('/fonts/NotoSansBengali-Regular.ttf') format('truetype');
+    }
+  `;
+  container.appendChild(style);
+
+  container.innerHTML += `
     <!-- Header - Only on first page -->
     ${pageNumber === 1 ? `
-    <div style="text-align: center; margin-bottom: 15px;">
+    <div style="text-align: center; margin-bottom: 25px;">
       ${bankAccount.logo ? `
       <img src="${bankAccount.logo}" 
-           style="height: 70px; margin-bottom: 5px; object-fit: contain;" 
-           alt="${bankAccount.bankName || 'Bank'} Logo" 
+           style="height: 60px; margin-bottom: 10px; object-fit: contain;" 
+           alt="Bank Logo" 
            onerror="this.style.display='none'" />
       ` : ''}
-      <h1 style="margin: 0; font-size: 20px; font-weight: bold; color: #1E3A8A; letter-spacing: 0.5px;">
-        ${bankAccount.bankName ? bankAccount.bankName.toUpperCase() : 'BANK'}
+      <h1 style="margin: 0; font-size: 22px; font-weight: bold; color: #1E3A8A; letter-spacing: 0.5px; text-transform: uppercase;">
+        ${bankAccount.bankName || 'BANK STATEMENT'}
       </h1>
-      <p style="margin: 3px 0; font-size: 11px; color: #555;">
-        ${bankAccount.branchName || 'Head Office'} Branch
+      <p style="margin: 5px 0 0; font-size: 11px; color: #555;">
+        ${bankAccount.branchName ? `${bankAccount.branchName} Branch` : ''} 
+        ${bankAccount.branchAddress ? `| ${bankAccount.branchAddress}` : ''}
       </p>
-      <div style="border-top: 3px solid #1E3A8A; width: 100%; margin: 10px 0 8px;"></div>
-      <p style="margin: 5px 0; font-size: 12px; font-weight: bold; color: #1E3A8A;">
-        ACCOUNT STATEMENT
-      </p>
-      <p style="margin: 3px 0; font-size: 10px; color: #666;">
-        Period: ${formatDate(periodStart)} to ${formatDate(periodEnd)}
-      </p>
-      <p style="margin: 10px 0 5px; text-align: right; font-size: 9px; color: #777;">
-        Generated: ${reportDate} at ${reportTime}
-      </p>
+      
+      <div style="margin-top: 20px; border-bottom: 2px solid #1E3A8A; width: 100%;"></div>
     </div>
 
-    <!-- Account Information Section -->
-    <div style="margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 4px; border-left: 4px solid #1E3A8A;">
-      <table style="width: 100%; border-collapse: collapse; font-size: 9.5px;">
-        <tr>
-          <td style="width: 35%;">
-            <table style="width: 100%;">
-              ${bankAccount.accountHolder ? `<tr><td style="font-weight: bold; width: 110px;">Account Holder:</td><td>${bankAccount.accountHolder}</td></tr>` : ''}
-              ${bankAccount.accountNumber ? `<tr><td style="font-weight: bold;">Account No:</td><td>${bankAccount.accountNumber}</td></tr>` : ''}
-              ${bankAccount.accountType ? `<tr><td style="font-weight: bold;">Account Type:</td><td>${bankAccount.accountType}</td></tr>` : ''}
-            </table>
-          </td>
-          <td style="width: 35%;">
-            <table style="width: 100%;">
-              ${bankAccount.customerId ? `<tr><td style="font-weight: bold; width: 110px;">Customer ID:</td><td>${bankAccount.customerId}</td></tr>` : ''}
-              ${bankAccount.routingNumber ? `<tr><td style="font-weight: bold;">Routing No:</td><td>${bankAccount.routingNumber}</td></tr>` : ''}
-              ${bankAccount.createdAt ? `<tr><td style="font-weight: bold;">Opening Date:</td><td>${formatDate(bankAccount.createdAt)}</td></tr>` : ''}
-            </table>
-          </td>
-          <td style="width: 30%; vertical-align: top;">
-            <div style="background: white; padding: 8px; border-radius: 3px; border: 1px solid #ddd;">
-              <p style="margin: 0; font-size: 9px; font-weight: bold;">Summary</p>
-              <p style="margin: 3px 0; font-size: 8.5px;">Opening: ${formatCurrency(totals.openingBalance || 0)}</p>
-              <p style="margin: 3px 0; font-size: 8.5px;">Total Deposit: ${formatCurrency(totals.deposits || 0)}</p>
-              <p style="margin: 3px 0; font-size: 8.5px;">Total Withdrawal: ${formatCurrency(totals.withdrawals || 0)}</p>
-              <p style="margin: 3px 0; font-size: 8.5px; font-weight: bold;">Closing: ${formatCurrency(totals.closingBalance || 0)}</p>
-            </div>
-          </td>
-        </tr>
-      </table>
-      ${bankAccount.address ? `<p style="margin: 5px 0 0; font-size: 9px;"><strong>Address:</strong> ${bankAccount.address}</p>` : ''}
+    <!-- Account Summary Section -->
+    <div style="margin-bottom: 25px; display: flex; justify-content: space-between; gap: 20px;">
+      <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #1E3A8A;">
+        <h3 style="margin: 0 0 10px; font-size: 12px; font-weight: bold; color: #1E3A8A; border-bottom: 1px solid #ddd; padding-bottom: 5px;">ACCOUNT DETAILS</h3>
+        <table style="width: 100%; font-size: 10px;">
+          <tr><td style="color: #666; padding: 2px 0; width: 90px;">Account Name:</td><td style="font-weight: bold;">${bankAccount.accountHolder || bankAccount.accountTitle || 'N/A'}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Account No:</td><td style="font-weight: bold;">${bankAccount.accountNumber || 'N/A'}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Account Type:</td><td>${bankAccount.accountType || 'N/A'}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Currency:</td><td>${bankAccount.currency || 'BDT'}</td></tr>
+        </table>
+      </div>
+
+      <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #059669;">
+        <h3 style="margin: 0 0 10px; font-size: 12px; font-weight: bold; color: #059669; border-bottom: 1px solid #ddd; padding-bottom: 5px;">STATEMENT SUMMARY</h3>
+        <table style="width: 100%; font-size: 10px;">
+          <tr><td style="color: #666; padding: 2px 0;">Period:</td><td style="text-align: right;">${formatDate(periodStart)} to ${formatDate(periodEnd)}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Opening Balance:</td><td style="text-align: right; font-weight: bold;">${formatCurrency(totals.openingBalance)}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Total Credits:</td><td style="text-align: right; color: #059669;">+${formatCurrency(totals.deposits)}</td></tr>
+          <tr><td style="color: #666; padding: 2px 0;">Total Debits:</td><td style="text-align: right; color: #DC2626;">-${formatCurrency(totals.withdrawals)}</td></tr>
+          <tr><td style="border-top: 1px solid #ddd; padding-top: 4px; font-weight: bold;">Closing Balance:</td><td style="border-top: 1px solid #ddd; padding-top: 4px; text-align: right; font-weight: bold; color: #1E3A8A;">${formatCurrency(totals.closingBalance)}</td></tr>
+        </table>
+      </div>
     </div>
     ` : ''}
 
      <!-- Page Header (for subsequent pages) -->
      ${pageNumber > 1 ? `
-     <div style="margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
-       <table style="width: 100%; font-size: 9px;">
-         <tr>
-           <td>
-             <strong style="color: #1E3A8A;">${bankAccount.bankName || 'Bank'}</strong><br/>
-             <span style="color: #666;">${bankAccount.branchName || 'Head Office'} Branch</span>
-           </td>
-          <td style="text-align: right;">
-            <strong>Account No:</strong> ${bankAccount.accountNumber || 'N/A'}<br/>
-            <strong>Page:</strong> ${pageNumber} of ${totalPages}
-          </td>
-        </tr>
-      </table>
-      <p style="margin: 5px 0 0; font-size: 9px; color: #666;">
-        Continuation of statement from ${formatDate(periodStart)} to ${formatDate(periodEnd)}
-      </p>
+     <div style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc;">
+       <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+         <div>
+           <strong style="color: #1E3A8A; font-size: 12px;">${bankAccount.bankName || 'Bank Statement'}</strong>
+           <div style="font-size: 10px; color: #666;">Account: ${bankAccount.accountNumber}</div>
+         </div>
+         <div style="text-align: right; font-size: 9px; color: #666;">
+           Page ${pageNumber} of ${totalPages}<br/>
+           Statement Period: ${formatDate(periodStart)} - ${formatDate(periodEnd)}
+         </div>
+       </div>
     </div>
     ` : ''}
 
     <!-- Transaction Table -->
-    <div style="margin-top: ${pageNumber === 1 ? '5px' : '0'};">
-      <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; margin-bottom: 10px;">
+    <div style="margin-top: ${pageNumber === 1 ? '10px' : '0'};">
+      <table style="width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 10px;">
         <thead>
-          <tr style="background: linear-gradient(to right, #1E3A8A, #2D4A9E); color: white; height: 32px;">
-            <th style="padding: 8px 5px; text-align: left; font-weight: 600; border-right: 1px solid #3a5bc7;">Date</th>
-            <th style="padding: 8px 5px; text-align: left; font-weight: 600; border-right: 1px solid #3a5bc7;">Post Date</th>
-            <th style="padding: 8px 5px; text-align: left; font-weight: 600; border-right: 1px solid #3a5bc7; width: 200px;">Description</th>
-            <th style="padding: 8px 5px; text-align: right; font-weight: 600; border-right: 1px solid #3a5bc7;">Withdrawal (৳)</th>
-            <th style="padding: 8px 5px; text-align: right; font-weight: 600; border-right: 1px solid #3a5bc7;">Deposit (৳)</th>
-            <th style="padding: 8px 5px; text-align: right; font-weight: 600;">Balance (৳)</th>
+          <tr style="background: #1E3A8A; color: white;">
+            <th style="padding: 10px 6px; text-align: left; font-weight: 600; width: 70px;">Date</th>
+            <th style="padding: 10px 6px; text-align: left; font-weight: 600; width: 60px;">Type</th>
+            <th style="padding: 10px 6px; text-align: left; font-weight: 600;">Description</th>
+            <th style="padding: 10px 6px; text-align: right; font-weight: 600; width: 85px;">Deposit (${currencySymbol})</th>
+            <th style="padding: 10px 6px; text-align: right; font-weight: 600; width: 85px;">Withdraw (${currencySymbol})</th>
+            <th style="padding: 10px 6px; text-align: right; font-weight: 600; width: 60px;">Charge</th>
+            <th style="padding: 10px 6px; text-align: right; font-weight: 600; width: 90px;">Balance (${currencySymbol})</th>
           </tr>
         </thead>
         <tbody>
           ${pageTransactions.length > 0 ? pageTransactions.map((t, i) => {
             const isCredit = t.transactionType === 'credit' || (t.isTransfer && t.transferDetails?.direction === 'in');
             const amount = Number(t.amount) || 0;
-            const withdraw = !isCredit ? amount : 0;
-            const deposit = isCredit ? amount : 0;
-            const balance = t.balanceAfter !== undefined ? t.balanceAfter : (totals.closingBalance || 0);
+            const withdraw = !isCredit && !t.isTransfer ? amount : 0;
+            const deposit = isCredit || t.isTransfer ? amount : 0;
+            const charge = Number(t.charge) || 0;
+            // Use provided balanceAfter if available, otherwise it's hard to calculate per row without full history
+            // We'll display '-' if not available to avoid confusion, or closing balance on last row if matches
+            const balance = t.balanceAfter !== undefined ? t.balanceAfter : null;
             
             return `
-              <tr style="background: ${i % 2 === 0 ? '#f8f9fa' : 'white'}; border-bottom: 1px solid #eee;">
-                <td style="padding: 6px 5px; border-right: 1px solid #eee;">${formatDate(t.date)}</td>
-                <td style="padding: 6px 5px; border-right: 1px solid #eee;">${formatDate(t.postDate || t.date)}</td>
-                <td style="padding: 6px 5px; border-right: 1px solid #eee; max-width: 200px; word-wrap: break-word; line-height: 1.3;">
-                  <div style="font-weight: ${t.isImportant ? 'bold' : 'normal'};">
-                    ${getDescription(t)}
-                    ${t.referenceNo ? `<br/><small style="color: #666; font-size: 7.5px;">Ref: ${t.referenceNo}</small>` : ''}
-                  </div>
+              <tr style="background: ${i % 2 === 0 ? '#ffffff' : '#f8f9fa'}; border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px 6px; color: #374151;">${formatDate(t.date || t.createdAt)}</td>
+                <td style="padding: 8px 6px;">
+                  <span style="font-size: 8px; padding: 2px 4px; border-radius: 3px; font-weight: 500; 
+                    background: ${t.isTransfer ? '#F3E8FF' : isCredit ? '#DCFCE7' : '#FEE2E2'}; 
+                    color: ${t.isTransfer ? '#6B21A8' : isCredit ? '#166534' : '#991B1B'};">
+                    ${t.isTransfer ? 'TRANSFER' : (t.transactionType || 'TXN').toUpperCase()}
+                  </span>
                 </td>
-                <td style="padding: 6px 5px; text-align: right; border-right: 1px solid #eee; color: ${withdraw > 0 ? '#DC2626' : '#666'}; font-family: 'Courier New', monospace;">
-                  ${withdraw > 0 ? formatCurrency(withdraw) : '-'}
+                <td style="padding: 8px 6px; color: #1f2937; line-height: 1.3;">
+                  <div style="font-weight: 500;">${getDescription(t)}</div>
+                  ${t.referenceNo || t.transactionId ? `<div style="font-size: 8px; color: #6b7280; margin-top: 2px;">Ref: ${t.referenceNo || t.transactionId}</div>` : ''}
                 </td>
-                <td style="padding: 6px 5px; text-align: right; border-right: 1px solid #eee; color: ${deposit > 0 ? '#059669' : '#666'}; font-family: 'Courier New', monospace;">
+                <td style="padding: 8px 6px; text-align: right; color: #059669; font-weight: ${deposit > 0 ? '500' : 'normal'};">
                   ${deposit > 0 ? formatCurrency(deposit) : '-'}
                 </td>
-                <td style="padding: 6px 5px; text-align: right; font-weight: ${i === pageTransactions.length - 1 ? 'bold' : 'normal'}; font-family: 'Courier New', monospace;">
-                  ${formatCurrency(balance)}
+                <td style="padding: 8px 6px; text-align: right; color: #DC2626; font-weight: ${withdraw > 0 ? '500' : 'normal'};">
+                  ${withdraw > 0 ? formatCurrency(withdraw) : '-'}
+                </td>
+                <td style="padding: 8px 6px; text-align: right; color: #6b7280;">
+                  ${charge > 0 ? formatCurrency(charge) : '-'}
+                </td>
+                <td style="padding: 8px 6px; text-align: right; font-weight: 600; color: #111827;">
+                  ${balance !== null ? formatCurrency(balance) : '-'}
                 </td>
               </tr>
             `;
           }).join('') : `
             <tr>
-              <td colspan="6" style="padding: 20px; text-align: center; color: #666; font-style: italic;">
-                No transactions found for this period
+              <td colspan="7" style="padding: 30px; text-align: center; color: #6b7280; font-style: italic; background: #f9fafb;">
+                No transactions found for this period.
               </td>
             </tr>
           `}
 
-          <!-- Page info row (only if not last page) -->
-          ${pageTransactions.length > 0 && pageNumber !== totalPages ? `
-            <tr style="background: #f1f5f9; border-top: 1px solid #cbd5e1;">
-              <td colspan="6" style="padding: 6px 5px; text-align: center; font-size: 8.5px; color: #666;">
-                Page ${pageNumber} - Transactions ${startIndex + 1} to ${endIndex} of ${transactions.length} (Continued...)
-              </td>
-            </tr>
-          ` : ''}
-
-          <!-- Grand totals row (only on last page) -->
-          ${pageTransactions.length > 0 && pageNumber === totalPages ? `
-            <tr style="background: #f1f5f9; border-top: 3px solid #1E3A8A; font-weight: bold;">
-              <td colspan="3" style="padding: 10px 5px; text-align: center; font-size: 10px; color: #1E3A8A;">
-                TOTAL (Transactions 1 - ${transactions.length})
-              </td>
-              <td style="padding: 10px 5px; text-align: right; color: #DC2626; font-family: 'Courier New', monospace; font-size: 10px; border-top: 2px solid #DC2626;">
-                ${formatCurrency(totals.withdrawals || 0)}
-              </td>
-              <td style="padding: 10px 5px; text-align: right; color: #059669; font-family: 'Courier New', monospace; font-size: 10px; border-top: 2px solid #059669;">
-                ${formatCurrency(totals.deposits || 0)}
-              </td>
-              <td style="padding: 10px 5px; text-align: right; font-family: 'Courier New', monospace; font-size: 10px; font-weight: bold; border-top: 2px solid #1E3A8A;">
-                ${formatCurrency(totals.closingBalance || 0)}
-              </td>
+          <!-- Totals Row (Only on last page) -->
+          ${pageNumber === totalPages && pageTransactions.length > 0 ? `
+            <tr style="background: #f0f9ff; border-top: 2px solid #1E3A8A; font-weight: bold;">
+              <td colspan="3" style="padding: 12px 6px; text-align: right; color: #1E3A8A;">TOTALS:</td>
+              <td style="padding: 12px 6px; text-align: right; color: #059669;">${formatCurrency(totals.deposits)}</td>
+              <td style="padding: 12px 6px; text-align: right; color: #DC2626;">${formatCurrency(totals.withdrawals)}</td>
+              <td style="padding: 12px 6px; text-align: right; color: #DC2626;">${formatCurrency(totals.charges || 0)}</td>
+              <td style="padding: 12px 6px; text-align: right; color: #1E3A8A;">${formatCurrency(totals.closingBalance)}</td>
             </tr>
           ` : ''}
         </tbody>
       </table>
     </div>
 
-    <!-- Grand totals on last page -->
-    ${pageNumber === totalPages && transactions.length > 0 ? `
-    <div style="margin-top: 20px; border-top: 2px solid #1E3A8A; padding-top: 10px;">
-      <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; background: #f0f7ff; padding: 10px; border-radius: 4px;">
-        <tr>
-          <td style="width: 25%; padding: 8px;">
-            <div style="text-align: center;">
-              <div style="font-weight: bold; color: #1E3A8A;">Opening Balance</div>
-              <div style="font-size: 11px; font-weight: bold; margin-top: 3px;">${formatCurrency(totals.openingBalance || 0)}</div>
-            </div>
-          </td>
-          <td style="width: 25%; padding: 8px;">
-            <div style="text-align: center;">
-              <div style="font-weight: bold; color: #059669;">Total Deposits</div>
-              <div style="font-size: 11px; font-weight: bold; margin-top: 3px; color: #059669;">${formatCurrency(totals.deposits || 0)}</div>
-            </div>
-          </td>
-          <td style="width: 25%; padding: 8px;">
-            <div style="text-align: center;">
-              <div style="font-weight: bold; color: #DC2626;">Total Withdrawals</div>
-              <div style="font-size: 11px; font-weight: bold; margin-top: 3px; color: #DC2626;">${formatCurrency(totals.withdrawals || 0)}</div>
-            </div>
-          </td>
-          <td style="width: 25%; padding: 8px;">
-            <div style="text-align: center;">
-              <div style="font-weight: bold; color: #1E3A8A;">Closing Balance</div>
-              <div style="font-size: 11px; font-weight: bold; margin-top: 3px;">${formatCurrency(totals.closingBalance || 0)}</div>
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>
-    ` : ''}
-
     <!-- Footer -->
-    <div style="position: absolute; bottom: 20px; left: 40px; right: 40px; font-size: 8px; color: #666; border-top: 1px solid #ddd; padding-top: 8px;">
-      <table style="width: 100%;">
-        <tr>
-          <td>
-            <div style="color: #1E3A8A; font-weight: bold;">${bankAccount.bankName || 'Bank'}</div>
-            <div style="font-size: 7.5px; margin-top: 2px;">
-              ${bankAccount.branchAddress || 'Head Office, Dhaka'} | Phone: ${bankAccount.telephone || '(+880) 2-XXXXXXX'}
-            </div>
-          </td>
-          <td style="text-align: right; vertical-align: bottom;">
-            <div style="font-family: 'Courier New', monospace; font-size: 8.5px;">
-              Page ${pageNumber} of ${totalPages}
-            </div>
-            <div style="font-size: 7.5px; margin-top: 2px; color: #999;">
-              Generated on: ${reportDate}
-            </div>
-          </td>
-        </tr>
-      </table>
-      <div style="text-align: center; margin-top: 5px; font-size: 7px; color: #999; font-style: italic;">
-        This is a computer-generated statement. No signature required.
+    <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; font-size: 8px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 10px;">
+      <div style="display: flex; justify-content: space-between;">
+        <div>
+          Generated on ${reportDate} at ${reportTime}<br/>
+          System Generated Report
+        </div>
+        <div style="text-align: right;">
+          Page ${pageNumber} of ${totalPages}
+        </div>
       </div>
     </div>
   `;
@@ -303,7 +285,7 @@ export const generateBankStatementPDF = async (statementData, options = {}) => {
   const { download = true, filename } = options;
 
   try {
-    const totalPages = Math.ceil(statementData.transactions.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil((statementData.transactions?.length || 0) / ITEMS_PER_PAGE) || 1;
     const pdf = new jsPDF('p', 'pt', 'a4');
     
     for (let page = 1; page <= totalPages; page++) {
@@ -315,9 +297,9 @@ export const generateBankStatementPDF = async (statementData, options = {}) => {
       container.style.top = '-9999px';
       document.body.appendChild(container);
 
-      // Convert to canvas with better quality
+      // Convert to canvas with high quality
       const canvas = await html2canvas(container, {
-        scale: 2,
+        scale: 2, // Higher scale for better quality
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#FFFFFF',
@@ -329,7 +311,7 @@ export const generateBankStatementPDF = async (statementData, options = {}) => {
       // Remove container from DOM
       document.body.removeChild(container);
 
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pdfWidth;
@@ -342,7 +324,7 @@ export const generateBankStatementPDF = async (statementData, options = {}) => {
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, `page${page}`, 'FAST');
     }
 
-    const finalFilename = filename || `Bank_Statement_${statementData.bankAccount?.accountNumber || 'account'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const finalFilename = filename || `Statement_${statementData.bankAccount?.accountNumber || 'Account'}.pdf`;
     
     if (download) {
       pdf.save(finalFilename);
@@ -350,19 +332,14 @@ export const generateBankStatementPDF = async (statementData, options = {}) => {
 
     return { 
       success: true, 
-      filename: finalFilename, 
-      pdf,
-      totalPages,
-      pageSize: 'A4',
-      generatedAt: new Date().toISOString()
+      filename: finalFilename
     };
     
   } catch (error) {
     console.error('PDF Generation Error:', error);
     return { 
       success: false, 
-      error: error.message,
-      stack: error.stack 
+      error: error.message 
     };
   }
 };

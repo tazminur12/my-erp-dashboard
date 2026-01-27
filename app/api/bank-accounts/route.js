@@ -14,6 +14,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const accountCategory = searchParams.get('accountCategory'); // Optional filter
     const status = searchParams.get('status'); // Optional filter by status
+    const period = searchParams.get('period') || 'monthly'; // Default to monthly
 
     const db = await getDb();
     const bankAccountsCollection = db.collection('bank_accounts');
@@ -33,28 +34,112 @@ export async function GET(request) {
       .toArray();
 
     // Format bank accounts for frontend
-    const formattedAccounts = bankAccounts.map((account) => ({
-      id: account._id.toString(),
-      _id: account._id.toString(),
-      bankName: account.bankName || '',
-      accountNumber: account.accountNumber || '',
-      accountType: account.accountType || 'Current',
-      accountCategory: account.accountCategory || 'bank',
-      branchName: account.branchName || '',
-      accountHolder: account.accountHolder || '',
-      accountTitle: account.accountTitle || '',
-      routingNumber: account.routingNumber || '',
-      logo: account.logo || '',
-      initialBalance: account.initialBalance || 0,
-      currentBalance: account.currentBalance || 0,
-      currency: account.currency || 'BDT',
-      contactNumber: account.contactNumber || '',
-      createdBy: account.createdBy || '',
-      branchId: account.branchId || '',
-      userBranchName: account.userBranchName || '', // System branch that created this account
-      status: account.status || 'active',
-      created_at: account.created_at ? account.created_at.toISOString() : new Date().toISOString(),
-      updated_at: account.updated_at ? account.updated_at.toISOString() : new Date().toISOString(),
+    const formattedAccounts = await Promise.all(bankAccounts.map(async (account) => {
+      // Aggregate transactions for this account
+      const transactionsCollection = db.collection('transactions');
+      
+      const accountIdStr = account._id.toString();
+      
+      // Build date filter for calculation
+      let dateFilter = {};
+      const now = new Date();
+      
+      if (period === 'daily') {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        dateFilter = { createdAt: { $gte: startOfDay } };
+      } else if (period === 'monthly') {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        dateFilter = { createdAt: { $gte: startOfMonth } };
+      } else if (period === 'yearly') {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        dateFilter = { createdAt: { $gte: startOfYear } };
+      }
+
+      // Aggregate deposits (Credits + Transfers In)
+      const deposits = await transactionsCollection.aggregate([
+        {
+          $match: {
+            $or: [
+              { toAccountId: accountIdStr, transactionType: 'transfer' }, // Transfer In
+              { accountId: accountIdStr, transactionType: 'credit' }      // Direct Deposit
+            ],
+            ...dateFilter
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" }
+          }
+        }
+      ]).toArray();
+
+      // Aggregate withdrawals (Debits + Transfers Out)
+      const withdrawals = await transactionsCollection.aggregate([
+        {
+          $match: {
+            $or: [
+              { fromAccountId: accountIdStr, transactionType: 'transfer' }, // Transfer Out
+              { accountId: accountIdStr, transactionType: 'debit' }         // Direct Withdrawal
+            ],
+            ...dateFilter
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" }
+          }
+        }
+      ]).toArray();
+
+      // Aggregate charges (Only for Transfers Out where charge exists)
+      const charges = await transactionsCollection.aggregate([
+        {
+          $match: {
+            fromAccountId: accountIdStr,
+            transactionType: 'transfer',
+            charge: { $exists: true, $ne: 0 },
+            ...dateFilter
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $abs: "$charge" } } // Ensure positive sum
+          }
+        }
+      ]).toArray();
+
+      return {
+        id: account._id.toString(),
+        _id: account._id.toString(),
+        bankName: account.bankName || '',
+        accountNumber: account.accountNumber || '',
+        accountType: account.accountType || 'Current',
+        accountCategory: account.accountCategory || 'bank',
+        branchName: account.branchName || '',
+        accountHolder: account.accountHolder || '',
+        accountTitle: account.accountTitle || '',
+        routingNumber: account.routingNumber || '',
+        logo: account.logo || '',
+        initialBalance: account.initialBalance || 0,
+        currentBalance: account.currentBalance || 0,
+        
+        // Calculated fields
+        totalDeposit: deposits[0]?.total || 0,
+        totalWithdraw: withdrawals[0]?.total || 0,
+        totalCharges: charges[0]?.total || 0,
+
+        currency: account.currency || 'BDT',
+        contactNumber: account.contactNumber || '',
+        createdBy: account.createdBy || '',
+        branchId: account.branchId || '',
+        userBranchName: account.userBranchName || '', 
+        status: account.status || 'active',
+        created_at: account.created_at ? account.created_at.toISOString() : new Date().toISOString(),
+        updated_at: account.updated_at ? account.updated_at.toISOString() : new Date().toISOString(),
+      };
     }));
 
     return NextResponse.json(

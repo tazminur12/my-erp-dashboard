@@ -424,10 +424,11 @@ export async function POST(request) {
         }, { status: 404 });
       }
       // Check if source account has enough balance for amount + charge
-      if ((fromAccount.currentBalance || 0) < (numericAmount + chargeAmount)) {
+      const totalDeduction = numericAmount + Math.abs(chargeAmount);
+      if ((fromAccount.currentBalance || 0) < totalDeduction) {
         return NextResponse.json({
           success: false,
-          message: `Insufficient balance in source account (Need ${numericAmount + chargeAmount}, Available: ${fromAccount.currentBalance || 0})`
+          message: `Insufficient balance in source account (Need ${totalDeduction}, Available: ${fromAccount.currentBalance || 0})`
         }, { status: 400 });
       }
     }
@@ -485,7 +486,9 @@ export async function POST(request) {
         const toBalance = Number(toAccount.currentBalance || 0);
         
         // Subtract both amount and charge from sender's account
-        const fromNewBalance = fromBalance - numericAmount - chargeAmount;
+        // Note: chargeAmount might be negative from frontend, so we take Math.abs to ensure deduction
+        const absCharge = Math.abs(chargeAmount);
+        const fromNewBalance = fromBalance - numericAmount - absCharge;
         const toNewBalance = toBalance + numericAmount;
 
         await bankAccounts.updateOne(
@@ -495,9 +498,9 @@ export async function POST(request) {
             $push: {
               balanceHistory: {
                 amount: numericAmount,
-                charge: chargeAmount, // Record charge in history
+                charge: absCharge, // Record positive charge in history
                 type: 'withdrawal',
-                note: `Transfer to ${toAccount.bankName || ''} - ${toAccount.accountNumber || ''} (Charge: ${chargeAmount})`.trim(),
+                note: `Transfer to ${toAccount.bankName || ''} - ${toAccount.accountNumber || ''} (Charge: ${absCharge})`.trim(),
                 at: new Date()
               }
             }

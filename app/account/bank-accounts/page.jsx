@@ -319,10 +319,12 @@ const BankAccounts = () => {
     branchId: 'BRANCH001'
   });
 
+  const [calculationFilter, setCalculationFilter] = useState('monthly');
+
   // Fetch bank accounts
   useEffect(() => {
     fetchBankAccounts();
-  }, [filters]);
+  }, [filters, calculationFilter]);
 
   const fetchBankAccounts = async () => {
     setIsLoading(true);
@@ -331,6 +333,7 @@ const BankAccounts = () => {
       const queryParams = new URLSearchParams();
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.accountCategory) queryParams.append('accountCategory', filters.accountCategory);
+      if (calculationFilter) queryParams.append('period', calculationFilter);
       
       const url = `/api/bank-accounts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       const response = await fetch(url);
@@ -358,13 +361,21 @@ const BankAccounts = () => {
         
         // Calculate stats
         const totalAccounts = accounts.length;
-        const totalBalance = accounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
+        // const totalBalance = accounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0); // Removed total balance
         const totalInitialBalance = accounts.reduce((sum, acc) => sum + (acc.initialBalance || 0), 0);
         const activeAccounts = accounts.filter(acc => acc.status === 'active').length;
         
+        const totalDeposit = accounts.reduce((sum, acc) => sum + (acc.totalDeposit || 0), 0);
+        const totalWithdraw = accounts.reduce((sum, acc) => sum + (acc.totalWithdraw || 0), 0);
+        const totalCharges = accounts.reduce((sum, acc) => sum + (acc.totalCharges || 0), 0);
+        const currentBalance = accounts.reduce((sum, acc) => sum + (acc.currentBalance || 0), 0);
+
         setStats({
           totalAccounts,
-          totalBalance,
+          totalDeposit,
+          totalWithdraw,
+          totalCharges,
+          currentBalance,
           totalInitialBalance,
           activeAccounts
         });
@@ -629,75 +640,20 @@ const BankAccounts = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
+                  Calculation Period
                 </label>
                 <select
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  value={calculationFilter}
+                  onChange={(e) => setCalculationFilter(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="daily">Daily</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Account Type
-                </label>
-                <select
-                  value={filters.accountType}
-                  onChange={(e) => handleFilterChange('accountType', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">All Types</option>
-                  <option value="Current">Current</option>
-                  <option value="Savings">Savings</option>
-                  <option value="Business">Business</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Account Category
-                </label>
-                <select
-                  value={filters.accountCategory}
-                  onChange={(e) => handleFilterChange('accountCategory', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">All Categories</option>
-                  <option value="cash">Cash</option>
-                  <option value="bank">Bank</option>
-                  <option value="mobile_banking">Mobile Banking</option>
-                  <option value="check">Check</option>
-                  <option value="others">Others</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Currency
-                </label>
-                <select
-                  value={filters.currency}
-                  onChange={(e) => handleFilterChange('currency', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="">All Currencies</option>
-                  <option value="BDT">BDT</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={clearFilters}
-                  className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg transition-colors duration-200"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            </div>
           </div>
+        </div>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -744,9 +700,6 @@ const BankAccounts = () => {
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Logo
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Bank Name
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -759,10 +712,16 @@ const BankAccounts = () => {
                         Category
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Initial Balance
+                        Deposit
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Current Balance
+                        Withdraw
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Charges
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Balance
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Status
@@ -778,28 +737,30 @@ const BankAccounts = () => {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {banks.length === 0 ? (
                       <tr>
-                        <td colSpan="10" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td colSpan="12" className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                           No bank accounts found
                         </td>
                       </tr>
                     ) : (
                       banks.map((bank) => (
                         <tr key={bank._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {bank.logo ? (
-                              <img 
-                                src={bank.logo} 
-                                alt="Bank Logo" 
-                                className="w-8 h-8 rounded-full object-cover border border-gray-200 dark:border-gray-600"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                                <Building2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                              </div>
-                            )}
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                            {bank.bankName}
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-8 w-8 mr-3">
+                                {bank.logo ? (
+                                  <img 
+                                    src={bank.logo} 
+                                    alt="Bank Logo" 
+                                    className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-600"
+                                  />
+                                ) : (
+                                  <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                                    <Building2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <span>{bank.bankName}</span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {bank.accountTitle}
@@ -825,7 +786,13 @@ const BankAccounts = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
-                            {bank.currency} {bank.initialBalance?.toLocaleString()}
+                            {bank.currency} {bank.totalDeposit?.toLocaleString() || '0'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600 dark:text-red-400">
+                            {bank.currency} {bank.totalWithdraw?.toLocaleString() || '0'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600 dark:text-red-400">
+                            {bank.currency} {bank.totalCharges?.toLocaleString() || '0'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 dark:text-blue-400">
                             {bank.currency} {bank.currentBalance?.toLocaleString()}
@@ -851,13 +818,6 @@ const BankAccounts = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex items-center space-x-2">
                               <button
-                                onClick={() => handleCopyBankInfo(bank)}
-                                className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 transition-colors duration-200"
-                                title="Copy Account Info"
-                              >
-                                <Copy className="w-4 h-4" />
-                              </button>
-                              <button
                                 onClick={() => handleViewProfile(bank)}
                                 className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors duration-200"
                                 title="View Details"
@@ -870,20 +830,6 @@ const BankAccounts = () => {
                                 title="Edit"
                               >
                                 <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleBalanceAdjustment(bank)}
-                                className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors duration-200"
-                                title="Adjust Balance"
-                              >
-                                <Banknote className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleViewTransactions(bank)}
-                                className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 transition-colors duration-200"
-                                title="View Transactions"
-                              >
-                                <History className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteBank(bank)}

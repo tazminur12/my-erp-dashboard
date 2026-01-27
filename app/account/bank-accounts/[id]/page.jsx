@@ -29,6 +29,7 @@ import {
   Loader2
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { generateBankStatementPDF } from '../../../utils/bankpdf';
 
 // Modal Component
 const Modal = ({ isOpen, onClose, title, size = 'md', children }) => {
@@ -77,162 +78,74 @@ const ModalFooter = ({ children }) => {
   );
 };
 
+// Helper Functions
+const isObjectId = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  return /^[0-9a-fA-F]{24}$/.test(str);
+};
+
+const getTransactionDescription = (transaction) => {
+  if (transaction.serviceCategory) {
+    const category = String(transaction.serviceCategory).toLowerCase();
+    if (!isObjectId(category)) {
+      if (category === 'hajj') return 'Hajj';
+      if (category === 'umrah') return 'Umrah';
+      if (category === 'loan-giving') return 'Loan Giving';
+      if (category === 'loan-repayment') return 'Loan Repayment';
+      if (category === 'money-exchange') return 'Money Exchange';
+      if (category === 'air-ticketing') return 'Air Ticketing';
+      if (category === 'visa-processing') return 'Visa Processing';
+      return category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+  }
+  
+  if (transaction.meta?.selectedOption) {
+    const option = String(transaction.meta.selectedOption).toLowerCase();
+    if (!isObjectId(option)) {
+      if (option === 'hajj') return 'Hajj';
+      if (option === 'umrah') return 'Umrah';
+      return option.charAt(0).toUpperCase() + option.slice(1);
+    }
+  }
+  
+  if (transaction.category) {
+    if (typeof transaction.category === 'string' && !isObjectId(transaction.category)) {
+      return transaction.category;
+    } else if (typeof transaction.category === 'object' && transaction.category.name) {
+      return transaction.category.name;
+    }
+  }
+  
+  if (transaction.notes && transaction.notes.trim() && !isObjectId(transaction.notes.trim())) {
+    const notes = transaction.notes.trim();
+    return notes.length > 50 ? notes.substring(0, 50) + '...' : notes;
+  }
+  
+  if (transaction.description) {
+    const desc = String(transaction.description);
+    if (!isObjectId(desc)) {
+      return desc;
+    }
+  }
+  
+  return 'N/A';
+};
+
 // Transaction History Component
-const TransactionHistory = ({ accountId }) => {
-  const [page, setPage] = useState(1);
-  const [dateRange, setDateRange] = useState('');
-  const [filters, setFilters] = useState({
-    type: '',
-    fromDate: '',
-    toDate: ''
-  });
-  const [transactions, setTransactions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [pagination, setPagination] = useState({});
-  const [summary, setSummary] = useState({});
-
-  useEffect(() => {
-    if (accountId) {
-      fetchTransactions();
-    }
-  }, [accountId, page, filters, dateRange]);
-
-  const getDateRange = (range) => {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const toDate = today.toISOString().split('T')[0];
-
-    let fromDate = '';
-
-    switch (range) {
-      case 'today':
-        fromDate = today.toISOString().split('T')[0];
-        break;
-      case 'week':
-        const weekAgo = new Date(today);
-        weekAgo.setDate(today.getDate() - 7);
-        weekAgo.setHours(0, 0, 0, 0);
-        fromDate = weekAgo.toISOString().split('T')[0];
-        break;
-      case 'monthly':
-        const monthAgo = new Date(today);
-        monthAgo.setMonth(today.getMonth() - 1);
-        monthAgo.setHours(0, 0, 0, 0);
-        fromDate = monthAgo.toISOString().split('T')[0];
-        break;
-      case 'yearly':
-        const yearAgo = new Date(today);
-        yearAgo.setFullYear(today.getFullYear() - 1);
-        yearAgo.setHours(0, 0, 0, 0);
-        fromDate = yearAgo.toISOString().split('T')[0];
-        break;
-      case 'custom':
-        return { fromDate: filters.fromDate, toDate: filters.toDate };
-      default:
-        return { fromDate: '', toDate: '' };
-    }
-
-    return { fromDate, toDate };
-  };
-
-  const handleDateRangeChange = (range) => {
-    setDateRange(range);
-    if (range === 'custom') {
-      return;
-    }
-    const dates = getDateRange(range);
-    setFilters(prev => ({
-      ...prev,
-      fromDate: dates.fromDate,
-      toDate: dates.toDate
-    }));
-  };
-
-  const handleCustomDateChange = (field, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        ...(filters.type && { type: filters.type }),
-        ...(filters.fromDate && { fromDate: filters.fromDate }),
-        ...(filters.toDate && { toDate: filters.toDate }),
-      });
-      
-      const response = await fetch(`/api/bank-accounts/${accountId}/transactions?${queryParams}`);
-      const data = await response.json();
-      
-      if (response.ok) {
-        setTransactions(data.transactions || []);
-        setPagination(data.pagination || {});
-        setSummary(data.summary || {});
-      }
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isObjectId = (str) => {
-    if (!str || typeof str !== 'string') return false;
-    return /^[0-9a-fA-F]{24}$/.test(str);
-  };
-
-  const getTransactionDescription = (transaction) => {
-    if (transaction.serviceCategory) {
-      const category = String(transaction.serviceCategory).toLowerCase();
-      if (!isObjectId(category)) {
-        if (category === 'hajj') return 'Hajj';
-        if (category === 'umrah') return 'Umrah';
-        if (category === 'loan-giving') return 'Loan Giving';
-        if (category === 'loan-repayment') return 'Loan Repayment';
-        if (category === 'money-exchange') return 'Money Exchange';
-        if (category === 'air-ticketing') return 'Air Ticketing';
-        if (category === 'visa-processing') return 'Visa Processing';
-        return category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-      }
-    }
-    
-    if (transaction.meta?.selectedOption) {
-      const option = String(transaction.meta.selectedOption).toLowerCase();
-      if (!isObjectId(option)) {
-        if (option === 'hajj') return 'Hajj';
-        if (option === 'umrah') return 'Umrah';
-        return option.charAt(0).toUpperCase() + option.slice(1);
-      }
-    }
-    
-    if (transaction.category) {
-      if (typeof transaction.category === 'string' && !isObjectId(transaction.category)) {
-        return transaction.category;
-      } else if (typeof transaction.category === 'object' && transaction.category.name) {
-        return transaction.category.name;
-      }
-    }
-    
-    if (transaction.notes && transaction.notes.trim() && !isObjectId(transaction.notes.trim())) {
-      const notes = transaction.notes.trim();
-      return notes.length > 50 ? notes.substring(0, 50) + '...' : notes;
-    }
-    
-    if (transaction.description) {
-      const desc = String(transaction.description);
-      if (!isObjectId(desc)) {
-        return desc;
-      }
-    }
-    
-    return 'N/A';
-  };
-
+const TransactionHistory = ({ 
+  transactions, 
+  isLoading, 
+  pagination, 
+  summary, 
+  filters, 
+  setFilters, 
+  dateRange, 
+  setDateRange, 
+  handleDateRangeChange, 
+  handleCustomDateChange, 
+  page, 
+  setPage 
+}) => {
   if (isLoading) {
     return (
       <div className="text-center py-8">
@@ -411,7 +324,7 @@ const TransactionHistory = ({ accountId }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {transaction.isTransfer
-                      ? transaction.transferDetails?.transferAmount?.toLocaleString() || '0'
+                      ? transaction.amount?.toLocaleString() || '0'
                       : transaction.paymentDetails?.amount?.toLocaleString() || transaction.amount?.toLocaleString() || '0'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
@@ -423,7 +336,7 @@ const TransactionHistory = ({ accountId }) => {
                       : transaction.paymentDetails?.reference || transaction.transactionId || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-red-500 dark:text-red-400">
-                    {transaction.charge > 0 ? `৳${transaction.charge.toLocaleString()}` : '-'}
+                    {transaction.charge && transaction.charge !== 0 ? `৳${Math.abs(transaction.charge).toLocaleString()}` : '-'}
                   </td>
                 </tr>
               ))
@@ -491,6 +404,7 @@ const BankAccountsProfile = () => {
   const [bankAccount, setBankAccount] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -511,11 +425,114 @@ const BankAccountsProfile = () => {
     branchId: 'BRANCH001'
   });
 
+  // Transaction History State
+  const [page, setPage] = useState(1);
+  const [dateRange, setDateRange] = useState('');
+  const [filters, setFilters] = useState({
+    type: '',
+    fromDate: '',
+    toDate: ''
+  });
+  const [transactions, setTransactions] = useState([]);
+  const [transactionLoading, setTransactionLoading] = useState(false);
+  const [pagination, setPagination] = useState({});
+  const [summary, setSummary] = useState({});
+
   useEffect(() => {
     if (id) {
       fetchBankAccount();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchTransactions();
+    }
+  }, [id, page, filters, dateRange]);
+
+  const getDateRange = (range) => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const toDate = today.toISOString().split('T')[0];
+
+    let fromDate = '';
+
+    switch (range) {
+      case 'today':
+        fromDate = today.toISOString().split('T')[0];
+        break;
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        weekAgo.setHours(0, 0, 0, 0);
+        fromDate = weekAgo.toISOString().split('T')[0];
+        break;
+      case 'monthly':
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(today.getMonth() - 1);
+        monthAgo.setHours(0, 0, 0, 0);
+        fromDate = monthAgo.toISOString().split('T')[0];
+        break;
+      case 'yearly':
+        const yearAgo = new Date(today);
+        yearAgo.setFullYear(today.getFullYear() - 1);
+        yearAgo.setHours(0, 0, 0, 0);
+        fromDate = yearAgo.toISOString().split('T')[0];
+        break;
+      case 'custom':
+        return { fromDate: filters.fromDate, toDate: filters.toDate };
+      default:
+        return { fromDate: '', toDate: '' };
+    }
+
+    return { fromDate, toDate };
+  };
+
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
+    if (range === 'custom') {
+      return;
+    }
+    const dates = getDateRange(range);
+    setFilters(prev => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate
+    }));
+  };
+
+  const handleCustomDateChange = (field, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const fetchTransactions = async () => {
+    setTransactionLoading(true);
+    try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        ...(filters.type && { type: filters.type }),
+        ...(filters.fromDate && { fromDate: filters.fromDate }),
+        ...(filters.toDate && { toDate: filters.toDate }),
+      });
+      
+      const response = await fetch(`/api/bank-accounts/${id}/transactions?${queryParams}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setTransactions(data.transactions || []);
+        setPagination(data.pagination || {});
+        setSummary(data.summary || {});
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
 
   const fetchBankAccount = async () => {
     setIsLoading(true);
@@ -619,21 +636,63 @@ const BankAccountsProfile = () => {
 
     try {
       setIsGeneratingPdf(true);
-      // Note: You'll need to implement PDF generation
-      Swal.fire({
-        title: 'সফল!',
-        text: 'ব্যাংক স্টেটমেন্ট সফলভাবে ডাউনলোড হয়েছে।',
-        icon: 'success',
-        confirmButtonText: 'ঠিক আছে',
-        confirmButtonColor: '#10B981',
+      
+      // 1. Fetch all matching transactions (no pagination)
+      const queryParams = new URLSearchParams({
+        page: '1',
+        limit: '10000', // Fetch a large number to get all
+        ...(filters.type && { type: filters.type }),
+        ...(filters.fromDate && { fromDate: filters.fromDate }),
+        ...(filters.toDate && { toDate: filters.toDate }),
       });
+      
+      const response = await fetch(`/api/bank-accounts/${id}/transactions?${queryParams}`);
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error('Failed to fetch transaction data');
+      
+      const statementTransactions = data.transactions || [];
+      const statementSummary = data.summary || {};
+
+      // 2. Prepare data for PDF utility
+      const statementData = {
+        bankAccount: bankAccount,
+        transactions: statementTransactions,
+        totals: {
+          openingBalance: bankAccount.initialBalance || 0,
+          deposits: statementSummary.totalCredit || 0,
+          withdrawals: statementSummary.totalDebit || 0,
+          closingBalance: bankAccount.currentBalance || 0,
+        },
+        periodStart: filters.fromDate || (statementTransactions.length > 0 ? statementTransactions[statementTransactions.length - 1].date : new Date()),
+        periodEnd: filters.toDate || new Date()
+      };
+
+      // 3. Generate PDF using utility
+      const result = await generateBankStatementPDF(statementData, {
+        download: true,
+        filename: `Bank_Statement_${bankAccount.accountNumber}_${new Date().toISOString().split('T')[0]}.pdf`
+      });
+
+      if (result.success) {
+        Swal.fire({
+          title: 'Success!',
+          text: 'Statement downloaded successfully.',
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10B981',
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate PDF');
+      }
+
     } catch (error) {
       console.error('Statement generation failed:', error);
       Swal.fire({
-        title: 'ত্রুটি!',
-        text: 'স্টেটমেন্ট তৈরি করতে সমস্যা হয়েছে।',
+        title: 'Error!',
+        text: 'Failed to generate statement.',
         icon: 'error',
-        confirmButtonText: 'ঠিক আছে',
+        confirmButtonText: 'OK',
         confirmButtonColor: '#EF4444',
       });
     } finally {
@@ -737,6 +796,168 @@ const BankAccountsProfile = () => {
     }
   };
 
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: Activity },
+    { id: 'details', label: 'Account Details', icon: Building2 },
+    { id: 'transactions', label: 'Transaction History', icon: History }
+  ];
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      {/* Balance Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Balance</h3>
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+              <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {bankAccount.currency} {bankAccount.currentBalance?.toLocaleString()}
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Initial Balance</h3>
+            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <Banknote className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {bankAccount.currency} {bankAccount.initialBalance?.toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Key Details Summary */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Details</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Bank Name</p>
+            <p className="font-medium text-gray-900 dark:text-white">{bankAccount.bankName}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Account Number</p>
+            <p className="font-medium text-gray-900 dark:text-white">{bankAccount.accountNumber}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Branch</p>
+            <p className="font-medium text-gray-900 dark:text-white">{bankAccount.branchName || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Status</p>
+            <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
+              bankAccount.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+              'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+            }`}>
+              {bankAccount.status}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAccountInfo = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-100 dark:border-gray-700 p-6">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Full Account Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Account Title</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.accountTitle}</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Bank Name</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.bankName}</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Account Number</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.accountNumber}</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Routing Number</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.routingNumber || 'N/A'}</span>
+          </div>
+        </div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Account Type</span>
+            <span className={`px-2 py-1 text-xs rounded-full ${
+              bankAccount.accountType === 'Current' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+              bankAccount.accountType === 'Savings' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+              'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+            }`}>
+              {bankAccount.accountType}
+            </span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Currency</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.currency}</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Branch Name</span>
+            <span className="font-medium text-gray-900 dark:text-white">{bankAccount.branchName || 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+            <span className="text-gray-600 dark:text-gray-400">Created Date</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {new Date(bankAccount.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTransactions = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transaction History</h2>
+          <div className="flex items-center space-x-2">
+            <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Account: {bankAccount.accountNumber}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="p-6">
+        <TransactionHistory 
+          transactions={transactions}
+          isLoading={transactionLoading}
+          pagination={pagination}
+          summary={summary}
+          filters={filters}
+          setFilters={setFilters}
+          dateRange={dateRange}
+          setDateRange={setDateRange}
+          handleDateRangeChange={handleDateRangeChange}
+          handleCustomDateChange={handleCustomDateChange}
+          page={page}
+          setPage={setPage}
+        />
+      </div>
+    </div>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverview();
+      case 'details':
+        return renderAccountInfo();
+      case 'transactions':
+        return renderTransactions();
+      default:
+        return renderOverview();
+    }
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -776,8 +997,8 @@ const BankAccountsProfile = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <div className="flex items-center space-x-4 mb-4 sm:mb-0">
               <button
                 onClick={() => router.push('/account/bank-accounts')}
                 className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors duration-200"
@@ -789,236 +1010,75 @@ const BankAccountsProfile = () => {
                   {bankAccount.bankName}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Account Details & Transaction History
+                  {bankAccount.accountNumber} • {bankAccount.branchName}
                 </p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={handleEditAccount}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                onClick={handleCreateTransaction}
+                className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200"
               >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Account
+                <Plus className="w-4 h-4 mr-2" />
+                New Transaction
               </button>
               <button
-                onClick={handleDeleteAccount}
-                className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200"
+                onClick={handleDownloadStatement}
+                disabled={isGeneratingPdf}
+                className="inline-flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white font-medium rounded-lg transition-colors duration-200"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
+                {isGeneratingPdf ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Statement
               </button>
-            </div>
-          </div>
-
-          {/* Account Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            {/* Account Information */}
-            <div className="lg:col-span-2">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Account Information</h2>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={handleBalanceAdjustment}
-                      className="p-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors duration-200"
-                      title="Adjust Balance"
-                    >
-                      <Banknote className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={handleCreateTransaction}
-                      className="p-2 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors duration-200"
-                      title="Create Transaction"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <Building2 className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Bank Name</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{bankAccount.bankName}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <CreditCard className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Number</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{bankAccount.accountNumber}</p>
-                      </div>
-                    </div>
-
-                    {bankAccount.routingNumber && (
-                      <div className="flex items-center space-x-3">
-                        <Hash className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Routing Number</p>
-                          <p className="font-medium text-gray-900 dark:text-white">{bankAccount.routingNumber}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center space-x-3">
-                      <Shield className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Type</p>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          bankAccount.accountType === 'Current' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                          bankAccount.accountType === 'Savings' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                          'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
-                        }`}>
-                          {bankAccount.accountType}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <DollarSign className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Currency</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{bankAccount.currency}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Title</p>
-                        <p className="font-medium text-gray-900 dark:text-white">{bankAccount.accountTitle}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <Activity className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          bankAccount.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                        }`}>
-                          {bankAccount.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Created Date</p>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(bankAccount.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {bankAccount.branchName && (
-                      <div className="flex items-center space-x-3">
-                        <MapPin className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Branch</p>
-                          <p className="font-medium text-gray-900 dark:text-white">{bankAccount.branchName}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Balance Statistics */}
-            <div className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Balance Overview</h3>
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Current Balance</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      {bankAccount.currency} {bankAccount.currentBalance?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Initial Balance</p>
-                    <p className="text-2xl font-semibold text-gray-600 dark:text-gray-400">
-                      {bankAccount.currency} {bankAccount.initialBalance?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Balance Change</p>
-                    <p className={`text-xl font-semibold ${
-                      (bankAccount.currentBalance - bankAccount.initialBalance) >= 0 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {bankAccount.currency} {(bankAccount.currentBalance - bankAccount.initialBalance).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
-                <div className="space-y-3">
-                  <button
-                    onClick={handleBalanceAdjustment}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
-                  >
-                    <Banknote className="w-4 h-4 mr-2" />
-                    Adjust Balance
-                  </button>
-                  <button
-                    onClick={handleCreateTransaction}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Transaction
-                  </button>
-                  <button
-                    onClick={handleDownloadStatement}
-                    disabled={isGeneratingPdf}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
-                  >
-                    {isGeneratingPdf ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Preparing...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Statement
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div className="flex space-x-2 border-l pl-2 ml-2 border-gray-300 dark:border-gray-600">
+                <button
+                  onClick={handleEditAccount}
+                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  title="Edit Account"
+                >
+                  <Edit className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  title="Delete Account"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Transaction History */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Transaction History</h2>
-                <div className="flex items-center space-x-2">
-                  <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Account: {bankAccount.accountNumber}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <TransactionHistory accountId={id} />
-            </div>
+          {/* Tabs */}
+          <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Tab Content */}
+          <div className="min-h-[600px]">
+            {renderTabContent()}
           </div>
 
           {/* Balance Adjustment Modal */}
