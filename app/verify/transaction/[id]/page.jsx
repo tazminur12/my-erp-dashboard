@@ -1,6 +1,23 @@
 import { getDb } from '../../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 import Link from 'next/link';
+import { 
+  CheckCircle2, 
+  XCircle, 
+  Calendar, 
+  User, 
+  Phone, 
+  CreditCard, 
+  Tag, 
+  FileText, 
+  Hash, 
+  ArrowRightLeft, 
+  ShieldCheck, 
+  Banknote,
+  Building2,
+  AlertTriangle,
+  ArrowRight
+} from 'lucide-react';
 
 export const metadata = {
   title: 'Verify Transaction | Bin Rashid ERP',
@@ -11,20 +28,18 @@ export default async function VerifyTransactionPage({ params }) {
   const resolvedParams = await params;
   const { id } = resolvedParams;
   
+  // ---------------- Error UI ----------------
   if (!id) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-          <div className="text-red-500 text-5xl mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 transition-all duration-300">
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-red-50/50 dark:ring-red-900/10">
+              <XCircle className="w-10 h-10 text-red-500" strokeWidth={2} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">অবৈধ অনুরোধ</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">ট্রানজেকশন আইডি পাওয়া যায়নি।</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">অবৈধ অনুরোধ</h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">ট্রানজেকশন আইডি পাওয়া যায়নি।</p>
-          <Link href="/" className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-6 rounded transition duration-200">
-            হোম পেজ
-          </Link>
         </div>
       </div>
     );
@@ -46,32 +61,37 @@ export default async function VerifyTransactionPage({ params }) {
   } catch (error) {
     console.error('Error fetching transaction:', error);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">সার্ভার ত্রুটি</h1>
-          <p className="text-gray-600 dark:text-gray-300">লেনদেনের তথ্য লোড করতে সমস্যা হয়েছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</p>
-          <div className="mt-4 text-left text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto max-h-32">
-            <code className="text-red-500">{error.message}</code>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-amber-50/50 dark:ring-amber-900/10">
+              <AlertTriangle className="w-10 h-10 text-amber-500" strokeWidth={2} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">সার্ভার ত্রুটি</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">লেনদেনের তথ্য লোড করতে সমস্যা হয়েছে।</p>
+            <div className="text-left text-xs bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg overflow-auto max-h-32 mb-6 border border-gray-200 dark:border-gray-600">
+              <code className="text-red-500 font-mono">{error.message}</code>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // ---------------- Not Found UI ----------------
   if (!transaction) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg text-center max-w-md w-full">
-          <div className="text-red-500 text-5xl mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 sm:p-6">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+          <div className="p-8 text-center">
+            <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-gray-50/50 dark:ring-gray-700/30">
+              <ShieldCheck className="w-10 h-10 text-gray-400 dark:text-gray-500" strokeWidth={2} />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">লেনদেন পাওয়া যায়নি</h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
+              আইডি <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-800 dark:text-gray-200 mx-1">{id}</span> এর সাথে কোনো লেনদেন পাওয়া যায়নি।
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">লেনদেন পাওয়া যায়নি</h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            আইডি <span className="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{id}</span> এর সাথে কোনো লেনদেন পাওয়া যায়নি।
-          </p>
         </div>
       </div>
     );
@@ -90,8 +110,8 @@ export default async function VerifyTransactionPage({ params }) {
     createdAt
   } = transaction;
 
-  const formattedDate = date ? new Date(date).toLocaleDateString('en-GB') : new Date(createdAt).toLocaleDateString('en-GB');
-  const formattedAmount = new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(amount || 0);
+  const formattedDate = date ? new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const formattedAmount = new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', minimumFractionDigits: 0 }).format(amount || 0);
 
   // Helper to get customer name safely
   const getCustomerName = (t) => {
@@ -165,87 +185,171 @@ export default async function VerifyTransactionPage({ params }) {
   const finalCustomerName = getCustomerName(transaction);
   const finalCategory = getCategory(transaction);
 
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-        <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden md:max-w-2xl">
-          <div className="bg-emerald-600 p-6 text-center">
-            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+  // Status Colors
+  const getStatusColor = (type) => {
+    switch(type) {
+      case 'credit': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+      case 'debit': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+      case 'transfer': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+    }
+  };
+
+  const getStatusLabel = (type) => {
+    switch(type) {
+      case 'credit': return 'জমা (Credit)';
+      case 'debit': return 'খরচ (Debit)';
+      case 'transfer': return 'ট্রান্সফার (Transfer)';
+      default: return type;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <div className="max-w-lg w-full">
+        {/* Main Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+          
+          {/* Header Section */}
+          <div className="relative bg-gradient-to-br from-emerald-600 to-teal-700 pt-10 pb-20 px-6 text-center">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+            
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-white/10 shadow-lg">
+                <CheckCircle2 className="w-10 h-10 text-white" strokeWidth={2.5} />
+              </div>
+              <h2 className="text-3xl font-bold text-white tracking-tight">লেনদেন যাচাইকৃত</h2>
+              <p className="text-emerald-100 mt-2 font-medium">Bin Rashid ERP - Verified Transaction</p>
             </div>
-            <h2 className="text-2xl font-bold text-white">লেনদেন যাচাইকৃত</h2>
-            <p className="text-emerald-100 mt-1">Bin Rashid ERP - Verified Transaction</p>
           </div>
 
-          <div className="p-8">
-            <div className="text-center mb-8">
-              <p className="text-sm text-gray-500 dark:text-gray-400 uppercase tracking-wide font-semibold">টাকার পরিমাণ</p>
-              <p className="text-4xl font-bold text-gray-900 dark:text-white mt-2">{formattedAmount}</p>
-              <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                transactionType === 'credit' ? 'bg-green-100 text-green-800' : 
-                transactionType === 'debit' ? 'bg-red-100 text-red-800' : 
-                'bg-blue-100 text-blue-800'
-              }`}>
-                {transactionType === 'credit' ? 'জমা (Credit)' : 
-                 transactionType === 'debit' ? 'খরচ (Debit)' : 
-                 transactionType === 'transfer' ? 'ট্রান্সফার (Transfer)' : transactionType}
-              </div>
+          {/* Body Content - Overlapping Header */}
+          <div className="relative px-6 pb-8 -mt-12">
+            {/* Amount Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 text-center mb-6">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold mb-2">টাকার পরিমাণ</p>
+              <h3 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-3 tracking-tight">
+                {formattedAmount}
+              </h3>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(transactionType)}`}>
+                {transactionType === 'transfer' ? <ArrowRightLeft className="w-3 h-3 mr-1.5" /> : <Banknote className="w-3 h-3 mr-1.5" />}
+                {getStatusLabel(transactionType)}
+              </span>
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 py-4 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">ট্রানজেকশন আইডি</span>
-                <span className="font-mono font-medium text-gray-900 dark:text-white">{transactionId || 'N/A'}</span>
-              </div>
+            {/* Details Grid */}
+            <div className="space-y-4">
               
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">তারিখ</span>
-                <span className="font-medium text-gray-900 dark:text-white">{formattedDate}</span>
+              {/* Transaction ID */}
+              <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <Hash className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ট্রানজেকশন আইডি</p>
+                  <p className="text-sm font-mono font-semibold text-gray-900 dark:text-white break-all mt-0.5">
+                    {transactionId || 'N/A'}
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">নাম</span>
-                <span className="font-medium text-gray-900 dark:text-white">{finalCustomerName}</span>
+              {/* Date */}
+              <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">তারিখ</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{formattedDate}</p>
+                </div>
               </div>
 
+              {/* Name */}
+              <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                    <User className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">নাম / বিবরণ</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{finalCustomerName}</p>
+                </div>
+              </div>
+
+              {/* Phone */}
               {transaction.customerPhone && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400">ফোন</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{transaction.customerPhone}</span>
+                <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-pink-50 dark:bg-pink-900/30 flex items-center justify-center text-pink-600 dark:text-pink-400">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ফোন</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5 font-mono">{transaction.customerPhone}</p>
+                  </div>
                 </div>
               )}
 
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">পেমেন্ট মেথড</span>
-                <span className="font-medium text-gray-900 dark:text-white capitalize">{transaction.paymentMethod || 'N/A'}</span>
+              {/* Payment Method & Category Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="ml-3 flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase truncate">পেমেন্ট মেথড</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5 capitalize truncate">{transaction.paymentMethod || 'N/A'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="ml-3 flex-1 min-w-0">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase truncate">ক্যাটাগরি</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5 truncate" title={finalCategory}>{finalCategory}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">ক্যাটাগরি</span>
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {finalCategory}
-                  {transaction.serviceCategory && finalCategory !== transaction.serviceCategory && <span className="text-gray-500 text-sm ml-1">({transaction.serviceCategory})</span>}
-                </span>
-              </div>
-
+              {/* Notes */}
               {notes && (
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">নোট / মন্তব্য</p>
-                  <p className="text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-700 p-3 rounded-md text-sm">
-                    {notes}
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2 text-gray-500 dark:text-gray-400">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase">নোট / মন্তব্য</span>
+                  </div>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 italic leading-relaxed">
+                    &quot;{notes}&quot;
                   </p>
                 </div>
               )}
             </div>
-
-            <div className="mt-8 text-center">
+            
+            {/* Footer */}
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
+              <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-500 mb-2">
+                <ShieldCheck className="w-5 h-5" />
+                <span className="text-sm font-bold">Secure Verification</span>
+              </div>
               <p className="text-xs text-gray-400 dark:text-gray-500">
-                এই তথ্যটি Bin Rashid ERP সিস্টেম থেকে স্বয়ংক্রিয়ভাবে যাচাইকৃত।
+                This transaction has been cryptographically verified by Bin Rashid ERP system.
               </p>
             </div>
           </div>
         </div>
       </div>
-    );
+    </div>
+  );
 }

@@ -42,7 +42,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, role, branchId, branchName, password } = body;
+    const { name, email, phone, role, branchId, branchName, password, employeeId } = body;
 
     // Validation
     if (!email || !password) {
@@ -89,6 +89,7 @@ export async function POST(request) {
       role: role || 'reservation',
       branchId: branchId || '',
       branchName: branchName || '',
+      employeeId: employeeId || null,
       password: hashedPassword,
       status: 'active',
       created_at: new Date(),
@@ -106,6 +107,7 @@ export async function POST(request) {
       role: newUser.role,
       branchId: newUser.branchId,
       branchName: newUser.branchName,
+      employeeId: newUser.employeeId,
       status: newUser.status,
       created_at: newUser.created_at.toISOString(),
     };

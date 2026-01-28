@@ -42,6 +42,7 @@ export async function POST(request) {
       customerBankAccount,
       employeeReference,
       operatingExpenseCategoryId,
+      employeeId,
       type,
       moneyExchangeInfo,
       meta: incomingMeta,
@@ -641,11 +642,12 @@ export async function POST(request) {
         branchId: branch.branchId,
         branchName: branch.branchName,
         branchCode: branch.branchCode,
-        createdBy: createdBy || 'SYSTEM',
+        createdBy: createdBy || userSession?.user?.id || 'SYSTEM',
         description: description || '',
         notes: notes || '',
         reference: reference || paymentDetails?.reference || transactionId,
         employeeReference: employeeReference || null,
+        employeeId: employeeId || userSession?.user?.employeeId || null,
         operatingExpenseCategoryId: finalOperatingExpenseCategoryId && ObjectId.isValid(String(finalOperatingExpenseCategoryId)) ? String(finalOperatingExpenseCategoryId) : null,
         status: 'completed',
         date: new Date(),
@@ -1770,6 +1772,46 @@ export async function GET(request) {
             if (!enriched.categoryName) {
               enriched.categoryName = 'Personal Expense';
             }
+          }
+        }
+        
+        // Populate Account Manager / Created By
+        if (item.createdBy || item.accountManagerId) {
+          const usersCollection = db.collection('users');
+          let user = null;
+          // Prefer accountManagerId if available, otherwise createdBy
+          const userId = item.accountManagerId || item.createdBy;
+          
+          if (userId && userId !== 'SYSTEM') {
+            if (ObjectId.isValid(userId)) {
+               user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+            } 
+            
+            if (!user) {
+               // Try matching other fields
+               user = await usersCollection.findOne({ 
+                 $or: [
+                   { id: userId }, 
+                   { email: userId },
+                   { employeeId: userId }
+                 ] 
+               });
+            }
+            
+            if (user) {
+              enriched.accountManagerName = user.name || user.fullName || user.email?.split('@')[0] || 'Unknown';
+              enriched.accountManager = {
+                id: user._id?.toString(),
+                name: enriched.accountManagerName,
+                phone: user.phone || '',
+                email: user.email || '',
+                designation: user.designation || user.role || ''
+              };
+            }
+          }
+          
+          if (!enriched.accountManagerName && item.createdBy === 'SYSTEM') {
+             enriched.accountManagerName = 'SYSTEM';
           }
         }
         

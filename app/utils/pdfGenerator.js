@@ -112,7 +112,17 @@ const createSinglePageReceipt = (data, showHeader = true) => {
     }
   }
 
-  const verificationUrl = `https://bin-rashid-erp.vercel.app/verify/transaction/${data.transactionId || 'N/A'}`;
+  // Extract Account Manager Name
+  let accountManagerName = data.accountManagerName || '';
+  if (!accountManagerName && data.accountManager) {
+    if (typeof data.accountManager === 'string') {
+      accountManagerName = data.accountManager;
+    } else if (typeof data.accountManager === 'object') {
+      accountManagerName = data.accountManager.name || data.accountManager.fullName || data.accountManager.accountManagerName || '';
+    }
+  }
+
+  const verificationUrl = `${process.env.NEXT_PUBLIC_VERIFY_TRANSACTION_API_URL}/verify/transaction/${data.verificationId || data.transactionId || 'N/A'}`;
   const qrData = encodeURIComponent(verificationUrl);
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${qrData}`;
 
@@ -208,7 +218,7 @@ const createSinglePageReceipt = (data, showHeader = true) => {
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.paymentMethod}:</td><td>${data.paymentMethod || 'Bank Transfer'}</td></tr>
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.debitAccount}:</td><td>${data.debitAccountName || '[Debit Account]'}</td></tr>
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.creditAccount}:</td><td>${data.creditAccountName || '[Credit Account]'}</td></tr>
-            ${(data.accountManagerName && String(data.accountManagerName).trim()) ? `<tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.accountManager}:</td><td>${String(data.accountManagerName).trim()}</td></tr>` : ''}
+            ${(accountManagerName && String(accountManagerName).trim()) ? `<tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.accountManager}:</td><td>${String(accountManagerName).trim()}</td></tr>` : ''}
             ` : `
             <tr><td style="padding: 2px 0; width: 35%; font-weight: bold; color: #444;">${L.date}:</td><td>${data.date || 'DD-MM-YYYY'}</td></tr>
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.customerId}:</td><td>${displayCustomerId || ''}</td></tr>
@@ -220,7 +230,7 @@ const createSinglePageReceipt = (data, showHeader = true) => {
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.bank}:</td><td>${data.bankName || '[Bank Name]'}</td></tr>
             <tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.receivingAcc}:</td><td>${data.accountNumber || '[Acc No]'}</td></tr>
             ` : ''}
-            ${(data.accountManagerName && String(data.accountManagerName).trim()) ? `<tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.accountManager}:</td><td>${String(data.accountManagerName).trim()}</td></tr>` : ''}
+            ${(accountManagerName && String(accountManagerName).trim()) ? `<tr><td style="padding: 2px 0; font-weight: bold; color: #444;">${L.accountManager}:</td><td>${String(accountManagerName).trim()}</td></tr>` : ''}
             `}
           </tbody>
         </table>

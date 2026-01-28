@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from '../../hooks/useSession';
 import DashboardLayout from '../../component/DashboardLayout';
 import { 
   CreditCard, 
@@ -52,9 +53,9 @@ import Swal from 'sweetalert2';
 
 const NewTransaction = () => {
   const searchParams = useSearchParams();
+  const { user } = useSession();
   // All queries removed - using empty data/defaults
   const isDark = false; // Default theme
-  const userProfile = { email: 'user@example.com', branchId: 'main_branch' }; // Default user
   const axiosSecure = null; // Not used without queries
   
   // Transaction mutations - implemented with useState and fetch
@@ -619,8 +620,6 @@ const NewTransaction = () => {
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [debitAccountSearchTerm, setDebitAccountSearchTerm] = useState('');
   const [creditAccountSearchTerm, setCreditAccountSearchTerm] = useState('');
-  const [accountManagerSearchTerm, setAccountManagerSearchTerm] = useState('');
-  const [showAccountManagerDropdown, setShowAccountManagerDropdown] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState({});
   const [errors, setErrors] = useState({});
@@ -926,87 +925,6 @@ const NewTransaction = () => {
     // Fetch bank accounts when component mounts or when payment step (4 or 5) is reached
     fetchBankAccounts();
   }, [currentStep]);
-
-  // Fetch Employees for Account Manager Selection
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      // Only fetch if dropdown is shown or search term is provided
-      if (!showAccountManagerDropdown && (!accountManagerSearchTerm || accountManagerSearchTerm.trim().length < 2)) {
-        return;
-      }
-
-      try {
-        setEmployeeLoading(true);
-        setEmployeeSearchError(null);
-        
-        const searchTerm = accountManagerSearchTerm.trim();
-        const response = await fetch(`/api/employees?status=active&limit=100`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          const employees = data.employees || data.data || [];
-          
-          // Filter employees based on search term (if provided)
-          let filteredEmployees = employees;
-          if (searchTerm && searchTerm.length >= 2) {
-            filteredEmployees = employees.filter(employee => {
-              const searchLower = searchTerm.toLowerCase();
-              const fullName = employee.fullName || `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
-              const position = employee.position || '';
-              const phone = employee.phone || '';
-              const email = employee.email || '';
-              const employeeId = employee.employeeId || '';
-              
-              return (
-                fullName.toLowerCase().includes(searchLower) ||
-                position.toLowerCase().includes(searchLower) ||
-                phone.includes(searchTerm) ||
-                email.toLowerCase().includes(searchLower) ||
-                employeeId.toLowerCase().includes(searchLower)
-              );
-            });
-          }
-
-          // Format employees for display
-          const formattedEmployees = filteredEmployees.map(employee => {
-            const fullName = employee.fullName || `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
-            return {
-              _id: employee.id || employee._id,
-              id: employee.id || employee._id,
-              name: fullName,
-              fullName: fullName,
-              firstName: employee.firstName || '',
-              lastName: employee.lastName || '',
-              designation: employee.position || '',
-              position: employee.position || '',
-              phone: employee.phone || '',
-              email: employee.email || '',
-              employeeId: employee.employeeId || '',
-              department: employee.department || '',
-              branch: employee.branch || ''
-            };
-          });
-
-          setEmployeeSearchResults(formattedEmployees);
-        } else {
-          const errorData = await response.json();
-          setEmployeeSearchError(errorData.error || 'Failed to fetch employees');
-        }
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        setEmployeeSearchError(error.message || 'Failed to fetch employees');
-      } finally {
-        setEmployeeLoading(false);
-      }
-    };
-
-    // Debounce the search
-    const timer = setTimeout(() => {
-      fetchEmployees();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [accountManagerSearchTerm, showAccountManagerDropdown]);
   
   // Search hooks - using state (declared above)
 
@@ -1030,13 +948,6 @@ const NewTransaction = () => {
   const umrahDetail = null;
   const umrahDetailLoading = false;
   
-  // Account Manager search - state for employees
-  const accountManagerSearchTermStr = accountManagerSearchTerm ? String(accountManagerSearchTerm).trim() : '';
-  const shouldSearch = accountManagerSearchTermStr.length >= 2;
-  const [employeeSearchResults, setEmployeeSearchResults] = useState([]);
-  const [employeeLoading, setEmployeeLoading] = useState(false);
-  const [employeeSearchError, setEmployeeSearchError] = useState(null);
-
   // Loans search - using state (declared above)
   
   // Miraj Industries: employees, আয়, খরচ
@@ -1183,31 +1094,6 @@ const NewTransaction = () => {
   
   // Bank accounts are now fetched via React Query
   
-  // Mock account managers
-  const [accountManagers] = useState([
-    {
-      id: 'AM-001',
-      name: 'মোঃ রফিকুল ইসলাম',
-      phone: '+8801712345678',
-      email: 'rafiqul@company.com',
-      designation: 'সিনিয়র একাউন্ট ম্যানেজার'
-    },
-    {
-      id: 'AM-002',
-      name: 'মোসাঃ ফাতেমা খাতুন',
-      phone: '+8801812345678',
-      email: 'fatema@company.com',
-      designation: 'একাউন্ট ম্যানেজার'
-    },
-    {
-      id: 'AM-003',
-      name: 'মোঃ করিম উদ্দিন',
-      phone: '+8801912345678',
-      email: 'karim@company.com',
-      designation: 'এসোসিয়েট একাউন্ট ম্যানেজার'
-    }
-  ]);
-  
   // Filter invoices based on search term
   const filteredInvoices = effectiveInvoices.filter(invoice => {
     if (!invoiceSearchTerm.trim()) return true;
@@ -1246,8 +1132,7 @@ const NewTransaction = () => {
     );
   });
 
-  // Use employee search results for account managers
-  const filteredAccountManagers = employeeSearchResults;
+
 
   // Customers are now fetched via React Query
 
@@ -1269,7 +1154,7 @@ const NewTransaction = () => {
         { number: 1, title: 'লেনদেন টাইপ', description: 'একাউন্ট টু একাউন্ট ট্রান্সফার' },
         { number: 2, title: 'ডেবিট একাউন্ট', description: 'ডেবিট একাউন্ট নির্বাচন করুন' },
         { number: 3, title: 'ক্রেডিট একাউন্ট', description: 'ক্রেডিট একাউন্ট নির্বাচন করুন' },
-        { number: 4, title: 'ট্রান্সফার বিবরণ', description: 'ট্রান্সফার পরিমাণ ও একাউন্ট ম্যানেজার নির্বাচন' },
+        { number: 4, title: 'ট্রান্সফার বিবরণ', description: 'ট্রান্সফার পরিমাণ' },
         { number: 5, title: 'কনফার্মেশন', description: 'এসএমএস কনফার্মেশন এবং সংরক্ষণ' }
       ];
     } else if (formData.transactionType === 'debit') {
@@ -1655,106 +1540,6 @@ const NewTransaction = () => {
     }));
   };
 
-  const handleAccountManagerSelect = (manager) => {
-    // Extract name from multiple possible fields (matching UI display logic)
-    // Check all possible name fields and skip empty strings
-    let managerName = '';
-    
-    // Priority 1: Direct name fields
-    const name1 = manager.name?.trim();
-    const name2 = manager.fullName?.trim();
-    const name3 = manager.employeeName?.trim();
-    const name4 = manager.userName?.trim();
-    const name5 = manager.displayName?.trim();
-    
-    managerName = name1 || name2 || name3 || name4 || name5 || '';
-    
-    // Priority 2: Combine firstName + lastName if no direct name found
-    if (!managerName) {
-      const firstName = manager.firstName?.trim() || '';
-      const lastName = manager.lastName?.trim() || '';
-      const combinedName = `${firstName} ${lastName}`.trim();
-      if (combinedName) managerName = combinedName;
-    }
-    
-    // Priority 3: Try other possible name fields
-    if (!managerName) {
-      managerName = manager.employeeName?.trim() 
-        || manager.accountManagerName?.trim()
-        || '';
-    }
-    
-    // Extract ID from multiple possible fields
-    const managerId = manager._id 
-      || manager.id 
-      || manager.employeeId
-      || '';
-    
-    // Extract phone from multiple possible fields
-    const managerPhone = manager.phone?.trim()
-      || manager.phoneNumber?.trim()
-      || manager.mobile?.trim()
-      || manager.mobileNumber?.trim()
-      || '';
-    
-    // Extract email from multiple possible fields
-    const managerEmail = manager.email?.trim()
-      || manager.emailAddress?.trim()
-      || '';
-    
-    // Only set accountManager if we have at least an ID or name
-    if (managerId || managerName) {
-      setFormData(prev => ({
-        ...prev,
-        accountManager: {
-          id: managerId,
-          name: managerName,
-          phone: managerPhone,
-          email: managerEmail,
-          designation: manager.designation || manager.position || '',
-          department: manager.department || ''
-        }
-      }));
-      // Update search term to show selected employee name
-      setAccountManagerSearchTerm(managerName);
-      setShowAccountManagerDropdown(false);
-      
-      // Debug log to verify data
-      console.log('Account Manager Selected:', {
-        originalManager: manager,
-        originalManagerKeys: Object.keys(manager),
-        extractedData: {
-          id: managerId,
-          name: managerName,
-          phone: managerPhone,
-          email: managerEmail
-        }
-      });
-    } else {
-      console.warn('⚠️ Account Manager selected but no ID or name found!', {
-        manager: manager,
-        managerKeys: Object.keys(manager)
-      });
-    }
-    
-    // Clear search term after selection
-    setAccountManagerSearchTerm('');
-  };
-
-  const handleEmployeeReferenceSelect = (employee) => {
-    setFormData(prev => ({
-      ...prev,
-      employeeReference: {
-        id: employee.id || employee.employeeId,
-        name: employee.firstName && employee.lastName 
-          ? `${employee.firstName} ${employee.lastName}` 
-          : employee.name || 'Unknown Employee',
-        employeeId: employee.employeeId || employee.id,
-        position: employee.position || '',
-        department: employee.department || ''
-      }
-    }));
-  };
 
   const toggleCategoryGroup = (groupId) => {
     setExpandedCategories(prev => ({
@@ -2121,9 +1906,10 @@ const NewTransaction = () => {
         charge: transferCharge || null,
         reference: formData.transferReference || `TXN-${Date.now()}`,
         notes: formData.transferNotes || `Transfer from ${formData.debitAccount.bankName} (${formData.debitAccount.accountNumber}) to ${formData.creditAccount.bankName} (${formData.creditAccount.accountNumber})`,
-        createdBy: userProfile?.email || 'unknown_user',
-        branchId: userProfile?.branchId || 'main_branch',
-        accountManager: formData.accountManager || null
+        createdBy: user?.id || user?._id || user?.email || 'unknown_user',
+        employeeId: user?.employeeId || null,
+        branchId: user?.branchId || 'main_branch',
+        accountManager: user ? { id: user.id, name: user.name, email: user.email } : null
       };
 
       // Use the dedicated bank account transfer mutation
@@ -2171,7 +1957,7 @@ const NewTransaction = () => {
             // Also add as debitAccount and creditAccount for consistency
             debitAccount: formData.debitAccount,
             creditAccount: formData.creditAccount,
-            accountManager: formData.accountManager || null
+            accountManager: user ? { id: user.id, name: user.name, email: user.email } : null
           });
 
           // Reset form after successful submission
@@ -2250,8 +2036,9 @@ const NewTransaction = () => {
               paymentDetails: { ...(formData.paymentDetails || {}), category: formData.category || undefined },
               description,
               reference,
-              createdBy: userProfile?.email || 'unknown_user',
-              branchId: userProfile?.branchId || 'main_branch',
+              createdBy: user?.id || user?._id || user?.email || 'unknown_user',
+              employeeId: user?.employeeId || null,
+              branchId: user?.branchId || 'main_branch',
               notes: formData.notes || ''
             },
             {
@@ -2276,7 +2063,7 @@ const NewTransaction = () => {
                   notes: formData.notes || '',
                   fromAccount: formData.sourceAccount || null,
                   toAccount: null,
-                  accountManager: formData.accountManager || null
+                  accountManager: user ? { id: user.id, name: user.name, email: user.email } : null
                 });
 
                 resetForm();
@@ -2533,10 +2320,11 @@ const NewTransaction = () => {
       } : undefined,
       notes: formData.notes || null,
       invoiceId: formData.invoiceId || null,
-      accountManagerId: formData.accountManager?.id || null,
+      accountManagerId: user?.id || null,
       date: new Date().toISOString().split('T')[0],
-      createdBy: userProfile?.email || 'unknown_user',
-      branchId: userProfile?.branchId || 'main_branch',
+      createdBy: user?.id || user?._id || user?.email || 'unknown_user',
+      employeeId: user?.employeeId || null,
+      branchId: user?.branchId || 'main_branch',
       employeeReference: formData.employeeReference?.id ? formData.employeeReference : null,
       // Charge with correct sign (Credit: negative, Debit: positive, Transfer: negative)
       charge: getChargeWithSign() || null,
@@ -2572,46 +2360,16 @@ const NewTransaction = () => {
     });
 
     // Capture accountManager before form reset (important for PDF generation)
-    // Extract name properly from formData.accountManager
-    let capturedAccountManager = null;
-    if (formData.accountManager) {
-      let managerName = '';
-      
-      // Extract name from multiple possible fields
-      if (typeof formData.accountManager === 'string') {
-        managerName = formData.accountManager.trim();
-      } else if (typeof formData.accountManager === 'object') {
-        const name1 = formData.accountManager.name?.trim();
-        const name2 = formData.accountManager.fullName?.trim();
-        const name3 = formData.accountManager.employeeName?.trim();
-        const name4 = formData.accountManager.userName?.trim();
-        const name5 = formData.accountManager.displayName?.trim();
-        
-        managerName = name1 || name2 || name3 || name4 || name5 || '';
-        
-        // If still no name, try firstName + lastName
-        if (!managerName) {
-          const firstName = formData.accountManager.firstName?.trim() || '';
-          const lastName = formData.accountManager.lastName?.trim() || '';
-          const combinedName = `${firstName} ${lastName}`.trim();
-          if (combinedName) managerName = combinedName;
-        }
-      }
-      
-      // Only capture if we have at least an ID or name
-      const managerId = formData.accountManager.id || formData.accountManager._id || '';
-      if (managerId || managerName) {
-        capturedAccountManager = {
-          id: managerId,
-          name: managerName,
-          phone: formData.accountManager.phone?.trim() || '',
-          email: formData.accountManager.email?.trim() || ''
-        };
-      }
-    }
+    // Use logged-in user details
+    const capturedAccountManager = user ? {
+      id: user.id || user._id,
+      name: user.name || user.fullName,
+      phone: user.phone || '',
+      email: user.email || ''
+    } : null;
     
     console.log('Captured Account Manager before submit:', {
-      formDataAccountManager: formData.accountManager,
+      user: user,
       capturedAccountManager: capturedAccountManager
     });
     
@@ -2948,8 +2706,8 @@ const NewTransaction = () => {
         paymentDetails: formData.paymentDetails,
         notes: formData.notes,
         date: formData.date,
-        createdBy: userProfile?.email || 'unknown_user',
-        branchId: userProfile?.branchId || 'main_branch'
+        createdBy: user?.email || 'unknown_user',
+        branchId: user?.branchId || 'main_branch'
       };
 
       // Try to generate PDF with HTML rendering first
@@ -3175,8 +2933,8 @@ const NewTransaction = () => {
       amount: submittedTransaction.amount || 0,
       notes: submittedTransaction.notes || '',
       date: submittedTransaction.date || new Date().toISOString().split('T')[0],
-      createdBy: userProfile?.email || 'unknown_user',
-      branchId: userProfile?.branchId || 'main_branch',
+      createdBy: user?.email || 'unknown_user',
+      branchId: user?.branchId || 'main_branch',
       language: language, // এটাই মূল — 'bn' অথবা 'en'
       // Bank Transfer specific fields
       isBankTransfer: isBankTransfer,
@@ -3374,8 +3132,8 @@ const NewTransaction = () => {
         amount: submittedTransaction.amount || 0,
         notes: submittedTransaction.notes || '',
         date: submittedTransaction.date || new Date().toISOString().split('T')[0],
-        createdBy: userProfile?.email || 'unknown_user',
-        branchId: userProfile?.branchId || 'main_branch',
+        createdBy: user?.email || 'unknown_user',
+        branchId: user?.branchId || 'main_branch',
         language: language,
         // Bank Transfer specific fields
         isBankTransfer: isBankTransfer,
@@ -5577,10 +5335,10 @@ const NewTransaction = () => {
                 // Transfer: Transfer Details and Account Manager Selection
                 <div className="text-center mb-4 sm:mb-6">
                   <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2">
-                    ট্রান্সফার বিবরণ ও একাউন্ট ম্যানেজার নির্বাচন
+                    ট্রান্সফার বিবরণ
                   </h2>
                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                    ট্রান্সফার পরিমাণ লিখুন এবং অনুমোদনের জন্য একাউন্ট ম্যানেজার সিলেক্ট করুন
+                    ট্রান্সফার পরিমাণ লিখুন
                   </p>
                 </div>
               ) : formData.transactionType === 'debit' ? (
@@ -6136,128 +5894,7 @@ const NewTransaction = () => {
                         </div>
                       </div>
 
-                      <div className="mt-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                          একাউন্ট ম্যানেজার নির্বাচন
-                          </label>
-                          
-                          {/* Account Manager Search Bar */}
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                              type="text"
-                              placeholder="একাউন্ট ম্যানেজার খুঁজুন... (নাম, পদবী, ফোন, ইমেইল)"
-                              value={accountManagerSearchTerm}
-                              onChange={(e) => setAccountManagerSearchTerm(e.target.value)}
-                              className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
-                                isDark 
-                                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                                  : 'border-gray-300'
-                              }`}
-                            />
-                          </div>
 
-                          {/* Account Manager List */}
-                          {accountManagerSearchTerm && (
-                            <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                              {employeeLoading ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                                  <span className="ml-2 text-gray-600 dark:text-gray-400">খুঁজছি...</span>
-                                </div>
-                              ) : employeeSearchError ? (
-                                <div className="text-center py-4 text-red-500 dark:text-red-400 text-sm">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <AlertCircle className="w-4 h-4" />
-                                    <span>খোঁজার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।</span>
-                                  </div>
-                                </div>
-                              ) : employeeSearchResults.length === 0 ? (
-                                <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                                  {accountManagerSearchTerm ? 'কোনো একাউন্ট ম্যানেজার পাওয়া যায়নি' : 'একাউন্ট ম্যানেজার খুঁজতে টাইপ করুন'}
-                                </div>
-                              ) : (
-                                employeeSearchResults.map((employee) => (
-                                  <button
-                                    key={employee._id || employee.id}
-                                    onClick={() => handleAccountManagerSelect(employee)}
-                                    className={`w-full p-3 rounded-lg border-2 transition-all duration-200 hover:scale-[1.01] ${
-                                      formData.accountManager?.id === employee._id
-                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                                    }`}
-                                  >
-                                    <div className="flex items-center space-x-3">
-                                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                        formData.accountManager?.id === employee._id
-                                          ? 'bg-blue-100 dark:bg-blue-800'
-                                          : 'bg-gray-100 dark:bg-gray-700'
-                                      }`}>
-                                        <User className={`w-5 h-5 ${
-                                          formData.accountManager?.id === employee._id
-                                            ? 'text-blue-600 dark:text-blue-400'
-                                            : 'text-gray-600 dark:text-gray-400'
-                                        }`} />
-                                      </div>
-                                      <div className="flex-1 text-left">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                          {employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'নাম নেই'}
-                                        </h4>
-                                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                                          {employee.designation || employee.position || 'পদবী নেই'}
-                                        </p>
-                                        <div className="flex flex-wrap gap-2 mt-1">
-                                          {(employee.phone || employee.phoneNumber) && (
-                                            <span className="text-xs text-blue-600 dark:text-blue-400">
-                                              📞 {employee.phone || employee.phoneNumber}
-                                            </span>
-                                          )}
-                                          {(employee.email || employee.emailAddress) && (
-                                            <span className="text-xs text-green-600 dark:text-green-400">
-                                              ✉️ {employee.email || employee.emailAddress}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {formData.accountManager?.id === employee._id && (
-                                        <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                      )}
-                                    </div>
-                                  </button>
-                                ))
-                              )}
-                            </div>
-                          )}
-
-                          {/* Selected Account Manager Display */}
-                          {formData.accountManager?.name && !accountManagerSearchTerm && (
-                            <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                                    <User className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                      {formData.accountManager.name}
-                                    </h4>
-                                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                                      {formData.accountManager.designation}
-                                    </p>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => setFormData(prev => ({ ...prev, accountManager: { id: '', name: '', phone: '', email: '' } }))}
-                                  className="text-red-500 hover:text-red-700 text-sm"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
                 ) : formData.transactionType === 'debit' ? (
@@ -6944,127 +6581,7 @@ const NewTransaction = () => {
                       </div>
                     </div>
 
-                    {/* Account Manager Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="একাউন্ট ম্যানেজার খুঁজুন... (নাম, পদবী, ফোন, ইমেইল)"
-                        value={accountManagerSearchTerm}
-                        onChange={(e) => setAccountManagerSearchTerm(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
-                          isDark 
-                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                            : 'border-gray-300'
-                        }`}
-                      />
-                    </div>
 
-                    {/* Account Manager List */}
-                    {accountManagerSearchTerm && (
-                      <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                        {employeeLoading ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                            <span className="ml-2 text-gray-600 dark:text-gray-400">খুঁজছি...</span>
-                          </div>
-                        ) : employeeSearchError ? (
-                          <div className="text-center py-4 text-red-500 dark:text-red-400 text-sm">
-                            <AlertCircle className="w-5 h-5 mx-auto mb-2" />
-                            <p>{typeof employeeSearchError === 'string' ? employeeSearchError : employeeSearchError.message || 'কর্মচারী লোড করতে সমস্যা হয়েছে'}</p>
-                          </div>
-                        ) : employeeSearchResults.length === 0 ? (
-                          <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                            {accountManagerSearchTerm ? 'কোনো কর্মচারী পাওয়া যায়নি' : 'কর্মচারী খুঁজতে টাইপ করুন'}
-                          </div>
-                        ) : (
-                          employeeSearchResults.slice(0, 20).map((employee) => (
-                            <button
-                              key={employee._id || employee.id}
-                              type="button"
-                              onMouseDown={(e) => {
-                                e.preventDefault(); // Prevent input blur
-                                handleAccountManagerSelect(employee);
-                                setShowAccountManagerDropdown(false);
-                                setAccountManagerSearchTerm(employee.name);
-                              }}
-                              className={`w-full p-3 rounded-lg border-2 transition-all duration-200 hover:scale-[1.01] ${
-                                formData.accountManager?.id === employee._id
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                  : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                  formData.accountManager?.id === employee._id
-                                    ? 'bg-blue-100 dark:bg-blue-800'
-                                    : 'bg-gray-100 dark:bg-gray-700'
-                                }`}>
-                                  <User className={`w-5 h-5 ${
-                                    formData.accountManager?.id === employee._id
-                                      ? 'text-blue-600 dark:text-blue-400'
-                                      : 'text-gray-600 dark:text-gray-400'
-                                  }`} />
-                                </div>
-                                <div className="flex-1 text-left">
-                                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                    {employee.name}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                                    {employee.designation}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {employee.phone && (
-                                      <span className="text-xs text-blue-600 dark:text-blue-400">
-                                        📞 {employee.phone}
-                                      </span>
-                                    )}
-                                    {employee.email && (
-                                      <span className="text-xs text-green-600 dark:text-green-400">
-                                        ✉️ {employee.email}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {formData.accountManager?.id === employee._id && (
-                                  <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                )}
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    {/* Selected Account Manager Display */}
-                    {formData.accountManager?.name && !showAccountManagerDropdown && (
-                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                              <User className="w-5 h-5 text-green-600 dark:text-green-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                {formData.accountManager.name}
-                              </h4>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                {formData.accountManager.designation}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, accountManager: { id: '', name: '', phone: '', email: '' } }));
-                              setAccountManagerSearchTerm('');
-                            }}
-                            className="text-red-500 hover:text-red-700 text-sm"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : formData.transactionType === 'debit' ? (
                   // Debit: Payment Method Selection
@@ -7367,148 +6884,6 @@ const NewTransaction = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  )}
-                  {/* Account Manager Selection for Credit */}
-                  {formData.destinationAccount.id && (
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 sm:p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <User className="w-5 h-5 text-green-600" />
-                        একাউন্ট ম্যানেজার নির্বাচন
-                      </h3>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                          একাউন্ট ম্যানেজার নির্বাচন
-                        </label>
-                        
-                        {/* Account Manager Search Bar */}
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="একাউন্ট ম্যানেজার খুঁজুন... (নাম, পদবী, ফোন, ইমেইল)"
-                            value={accountManagerSearchTerm}
-                            onChange={(e) => setAccountManagerSearchTerm(e.target.value)}
-                            className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
-                              isDark 
-                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                                : 'border-gray-300'
-                            }`}
-                          />
-                        </div>
-
-                        {/* Account Manager List */}
-                        {accountManagerSearchTerm && (
-                          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                            {employeeLoading ? (
-                              <div className="flex items-center justify-center py-4">
-                                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                                <span className="ml-2 text-gray-600 dark:text-gray-400">খুঁজছি...</span>
-                              </div>
-                            ) : employeeSearchError ? (
-                              <div className="text-center py-4 text-red-500 dark:text-red-400 text-sm">
-                                <div className="flex items-center justify-center gap-2">
-                                  <AlertCircle className="w-4 h-4" />
-                                  <span>খোঁজার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।</span>
-                                </div>
-                              </div>
-                            ) : employeeSearchResults.length === 0 ? (
-                              <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                                {accountManagerSearchTerm ? 'কোনো একাউন্ট ম্যানেজার পাওয়া যায়নি' : 'একাউন্ট ম্যানেজার খুঁজতে টাইপ করুন'}
-                              </div>
-                            ) : (
-                              employeeSearchResults.map((employee) => (
-                                <button
-                                  key={employee._id || employee.id}
-                                  onClick={() => {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      creditAccountManager: {
-                                        id: employee._id || employee.id,
-                                        name: employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
-                                        phone: employee.phone || employee.phoneNumber,
-                                        email: employee.email || employee.emailAddress,
-                                        designation: employee.designation || employee.position
-                                      }
-                                    }));
-                                    setAccountManagerSearchTerm('');
-                                  }}
-                                  className={`w-full p-3 rounded-lg border-2 transition-all duration-200 hover:scale-[1.01] ${
-                                    formData.creditAccountManager?.id === employee._id
-                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                      : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                                  }`}
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      formData.creditAccountManager?.id === employee._id
-                                        ? 'bg-blue-100 dark:bg-blue-800'
-                                        : 'bg-gray-100 dark:bg-gray-700'
-                                    }`}>
-                                      <User className={`w-5 h-5 ${
-                                        formData.creditAccountManager?.id === employee._id
-                                          ? 'text-blue-600 dark:text-blue-400'
-                                          : 'text-gray-600 dark:text-gray-400'
-                                      }`} />
-                                    </div>
-                                    <div className="flex-1 text-left">
-                                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                        {employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'নাম নেই'}
-                                      </h4>
-                                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                                        {employee.designation || employee.position || 'পদবী নেই'}
-                                      </p>
-                                      <div className="flex flex-wrap gap-2 mt-1">
-                                        {(employee.phone || employee.phoneNumber) && (
-                                          <span className="text-xs text-blue-600 dark:text-blue-400">
-                                            📞 {employee.phone || employee.phoneNumber}
-                                          </span>
-                                        )}
-                                        {(employee.email || employee.emailAddress) && (
-                                          <span className="text-xs text-green-600 dark:text-green-400">
-                                            ✉️ {employee.email || employee.emailAddress}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {formData.creditAccountManager?.id === employee._id && (
-                                      <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                    )}
-                                  </div>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
-
-                        {/* Selected Account Manager Display */}
-                        {formData.creditAccountManager?.name && !accountManagerSearchTerm && (
-                          <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                                  <User className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                    {formData.creditAccountManager.name}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                                    {formData.creditAccountManager.designation}
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setFormData(prev => ({ ...prev, creditAccountManager: { id: '', name: '', phone: '', email: '', designation: '' } }))}
-                                className="text-red-500 hover:text-red-700 text-sm"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -7979,15 +7354,15 @@ const NewTransaction = () => {
                   <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 sm:p-6 mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                       <User className="w-5 h-5 text-green-600" />
-                      নির্বাচিত একাউন্ট ম্যানেজার
+                      একাউন্ট ম্যানেজার
                     </h3>
                     
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900 dark:text-white">{formData.accountManager?.name}</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{formData.accountManager?.designation}</p>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">{user?.name || 'Unknown User'}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{user?.role || 'User'}</p>
                       <div className="flex flex-col sm:flex-row gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <span>📞 {formData.accountManager?.phone}</span>
-                        <span>✉️ {formData.accountManager?.email}</span>
+                        {user?.phone && <span>📞 {user.phone}</span>}
+                        {user?.email && <span>✉️ {user.email}</span>}
                       </div>
                     </div>
                   </div>
@@ -8091,197 +7466,6 @@ const NewTransaction = () => {
                     </div>
                   </div>
 
-                  {/* Account Manager Selection */}
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 sm:p-6 mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                      <User className="w-5 h-5 text-green-600" />
-                      একাউন্ট ম্যানেজার নির্বাচন
-                    </h3>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        একাউন্ট ম্যানেজার নির্বাচন
-                      </label>
-                      
-                      {/* Account Manager Search Bar */}
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="একাউন্ট ম্যানেজার খুঁজুন... (কমপক্ষে ২টি অক্ষর টাইপ করুন)"
-                          value={accountManagerSearchTerm}
-                          onChange={(e) => setAccountManagerSearchTerm(e.target.value)}
-                          className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
-                            isDark 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                              : 'border-gray-300'
-                          }`}
-                        />
-                        {accountManagerSearchTerm && accountManagerSearchTerm.trim().length < 2 && (
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            কমপক্ষে ২টি অক্ষর টাইপ করুন
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Account Manager List */}
-                      {shouldSearch && (
-                        <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                          {employeeLoading ? (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                              <span className="ml-2 text-gray-600 dark:text-gray-400">খুঁজছি...</span>
-                            </div>
-                          ) : employeeSearchError ? (
-                            <div className="text-center py-4 text-red-500 dark:text-red-400 text-sm">
-                              <div className="flex flex-col items-center justify-center gap-2">
-                                <AlertCircle className="w-5 h-5" />
-                                <span>খোঁজার সময় সমস্যা হয়েছে</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-500">
-                                  {employeeSearchError?.message || 'Backend endpoint error. Please try again.'}
-                                </span>
-                              </div>
-                            </div>
-                          ) : employeeSearchResults.length === 0 ? (
-                            <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                              কোনো একাউন্ট ম্যানেজার পাওয়া যায়নি
-                            </div>
-                          ) : (
-                            employeeSearchResults.map((employee) => {
-                              const employeeId = employee._id || employee.id || employee.employeeId;
-                              const employeeName = employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'নাম নেই';
-                              const employeePosition = employee.designation || employee.position || employee.position || 'পদবী নেই';
-                              const employeePhone = employee.phone || employee.phoneNumber || '';
-                              const employeeEmail = employee.email || employee.emailAddress || '';
-                              const employeeDepartment = employee.department || '';
-                              
-                              return (
-                                <button
-                                  key={employeeId}
-                                  onClick={() => {
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      accountManager: {
-                                        id: employeeId,
-                                        name: employeeName,
-                                        phone: employeePhone,
-                                        email: employeeEmail,
-                                        designation: employeePosition,
-                                        department: employeeDepartment
-                                      }
-                                    }));
-                                    setAccountManagerSearchTerm('');
-                                  }}
-                                  className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 hover:scale-[1.01] ${
-                                    formData.accountManager?.id === employeeId
-                                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                      : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                                  }`}
-                                >
-                                  <div className="flex items-center space-x-3 sm:space-x-4">
-                                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      formData.accountManager?.id === employeeId
-                                        ? 'bg-blue-100 dark:bg-blue-800'
-                                        : 'bg-gray-100 dark:bg-gray-700'
-                                    }`}>
-                                      <User className={`w-5 h-5 sm:w-6 sm:h-6 ${
-                                        formData.accountManager?.id === employeeId
-                                          ? 'text-blue-600 dark:text-blue-400'
-                                          : 'text-gray-600 dark:text-gray-400'
-                                      }`} />
-                                    </div>
-                                    <div className="flex-1 text-left min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                          {employeeName}
-                                        </h4>
-                                        {employee.employeeId && (
-                                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                                            ({employee.employeeId})
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                                        {employeePosition}
-                                      </p>
-                                      {employeeDepartment && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
-                                          {employeeDepartment}
-                                        </p>
-                                      )}
-                                      <div className="flex flex-wrap gap-2 mt-1">
-                                        {employeePhone && (
-                                          <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                            <Phone className="w-3 h-3" />
-                                            {employeePhone}
-                                          </span>
-                                        )}
-                                        {employeeEmail && (
-                                          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                                            <Mail className="w-3 h-3" />
-                                            {employeeEmail}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    {formData.accountManager?.id === employeeId && (
-                                      <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      )}
-
-                      {/* Selected Account Manager Display */}
-                      {formData.accountManager?.name && !accountManagerSearchTerm && (
-                        <div className="mt-2 p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center flex-shrink-0">
-                                <User className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                                  {formData.accountManager.name}
-                                </h4>
-                                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                                  {formData.accountManager.designation || formData.accountManager.position || 'পদবী নেই'}
-                                </p>
-                                {formData.accountManager.department && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-500 truncate">
-                                    {formData.accountManager.department}
-                                  </p>
-                                )}
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {formData.accountManager.phone && (
-                                    <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                      <Phone className="w-3 h-3" />
-                                      {formData.accountManager.phone}
-                                    </span>
-                                  )}
-                                  {formData.accountManager.email && (
-                                    <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                                      <Mail className="w-3 h-3" />
-                                      {formData.accountManager.email}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setFormData(prev => ({ ...prev, accountManager: { id: '', name: '', phone: '', email: '', designation: '', department: '' } }))}
-                              className="text-red-500 hover:text-red-700 text-sm flex-shrink-0 ml-2"
-                            >
-                              সরান
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
                   {/* Additional Notes */}
                   <div className="mb-4">
@@ -8704,146 +7888,6 @@ const NewTransaction = () => {
                   </div>
                 </div>
 
-                {/* Account Manager Selection */}
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 sm:p-6 mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <User className="w-5 h-5 text-green-600" />
-                    একাউন্ট ম্যানেজার নির্বাচন
-                  </h3>
-                  
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      একাউন্ট ম্যানেজার নির্বাচন
-                    </label>
-                    
-                    {/* Account Manager Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="একাউন্ট ম্যানেজার খুঁজুন... (নাম, পদবী, ফোন, ইমেইল)"
-                        value={accountManagerSearchTerm}
-                        onChange={(e) => setAccountManagerSearchTerm(e.target.value)}
-                        className={`w-full pl-10 pr-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base ${
-                          isDark 
-                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                            : 'border-gray-300'
-                        }`}
-                      />
-                    </div>
-
-                    {/* Account Manager List */}
-                    {accountManagerSearchTerm && (
-                      <div className="mt-2 space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
-                        {employeeLoading ? (
-                          <div className="flex items-center justify-center py-4">
-                            <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                            <span className="ml-2 text-gray-600 dark:text-gray-400">খুঁজছি...</span>
-                          </div>
-                        ) : employeeSearchError ? (
-                          <div className="text-center py-4 text-red-500 dark:text-red-400 text-sm">
-                            <div className="flex items-center justify-center gap-2">
-                              <AlertCircle className="w-4 h-4" />
-                              <span>খোঁজার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।</span>
-                            </div>
-                          </div>
-                        ) : employeeSearchResults.length === 0 ? (
-                          <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
-                            {accountManagerSearchTerm ? 'কোনো একাউন্ট ম্যানেজার পাওয়া যায়নি' : 'একাউন্ট ম্যানেজার খুঁজতে টাইপ করুন'}
-                          </div>
-                        ) : (
-                          employeeSearchResults.map((employee) => (
-                            <button
-                              key={employee._id || employee.id}
-                              onClick={() => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  employeeReference: {
-                                    id: employee._id || employee.id,
-                                    name: employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
-                                    employeeId: employee.employeeId || employee.id,
-                                    position: employee.designation || employee.position || '',
-                                    department: employee.department || ''
-                                  }
-                                }));
-                                setAccountManagerSearchTerm('');
-                              }}
-                              className={`w-full p-3 rounded-lg border-2 transition-all duration-200 hover:scale-[1.01] ${
-                                formData.employeeReference?.id === employee._id
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                  : 'border-gray-200 dark:border-gray-600 hover:border-blue-300'
-                              }`}
-                            >
-                              <div className="flex items-center space-x-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                  formData.employeeReference?.id === employee._id
-                                    ? 'bg-blue-100 dark:bg-blue-800'
-                                    : 'bg-gray-100 dark:bg-gray-700'
-                                }`}>
-                                  <User className={`w-5 h-5 ${
-                                    formData.employeeReference?.id === employee._id
-                                      ? 'text-blue-600 dark:text-blue-400'
-                                      : 'text-gray-600 dark:text-gray-400'
-                                  }`} />
-                                </div>
-                                <div className="flex-1 text-left">
-                                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                    {employee.name || `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'নাম নেই'}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                                    {employee.designation || employee.position || 'পদবী নেই'}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {(employee.phone || employee.phoneNumber) && (
-                                      <span className="text-xs text-blue-600 dark:text-blue-400">
-                                        📞 {employee.phone || employee.phoneNumber}
-                                      </span>
-                                    )}
-                                    {(employee.email || employee.emailAddress) && (
-                                      <span className="text-xs text-green-600 dark:text-green-400">
-                                        ✉️ {employee.email || employee.emailAddress}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {formData.employeeReference?.id === employee._id && (
-                                  <CheckCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                )}
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-
-                    {/* Selected Account Manager Display */}
-                    {formData.employeeReference?.name && !accountManagerSearchTerm && (
-                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                              <User className="w-5 h-5 text-green-600 dark:text-green-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-white text-sm">
-                                {formData.employeeReference.name}
-                              </h4>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                {formData.employeeReference.position}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setFormData(prev => ({ ...prev, employeeReference: { id: '', name: '', employeeId: '', position: '', department: '' } }))}
-                            className="text-red-500 hover:text-red-700 text-sm"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
                 {/* Additional Notes */}
                 <div className="mb-4">

@@ -103,7 +103,11 @@ export async function GET(request, { params }) {
             { employer_id: employeeId },
             { employer_id: employeeIdString },
             { employerId: employeeId },
-            { employerId: employeeIdString }
+            { employerId: employeeIdString },
+            { employee_id: employeeId },
+            { employee_id: employeeIdString },
+            { employeeId: employeeId },
+            { employeeId: employeeIdString }
           ]
         });
 
@@ -112,7 +116,11 @@ export async function GET(request, { params }) {
             { employer_id: employeeId },
             { employer_id: employeeIdString },
             { employerId: employeeId },
-            { employerId: employeeIdString }
+            { employerId: employeeIdString },
+            { employee_id: employeeId },
+            { employee_id: employeeIdString },
+            { employeeId: employeeId },
+            { employeeId: employeeIdString }
           ]
         }).toArray();
 

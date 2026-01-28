@@ -28,6 +28,7 @@ const roles = [
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -42,6 +43,8 @@ export default function UserManagement() {
     phone: '',
     role: 'reservation',
     branchId: '',
+    isEmployee: false,
+    employeeId: '',
     password: '',
     confirmPassword: '',
   });
@@ -56,6 +59,23 @@ export default function UserManagement() {
       }
     } catch (error) {
       console.error('Error fetching branches:', error);
+    }
+  }, []);
+
+  const fetchEmployees = useCallback(async (branchId) => {
+    try {
+      let url = '/api/employees?status=active';
+      if (branchId) {
+        url += `&branch=${branchId}`;
+      }
+      const response = await fetch(url);
+      const responseData = await response.json();
+
+      if (response.ok) {
+        setEmployees(responseData.employees || []);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
     }
   }, []);
 
@@ -111,8 +131,18 @@ export default function UserManagement() {
   useEffect(() => {
     fetchUsers();
     fetchBranches();
+    fetchEmployees();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch employees when branch changes
+  useEffect(() => {
+    if (formData.branchId) {
+      fetchEmployees(formData.branchId);
+    } else {
+      setEmployees([]);
+    }
+  }, [formData.branchId, fetchEmployees]);
 
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -129,9 +159,15 @@ export default function UserManagement() {
         phone: user.phone,
         role: user.role,
         branchId: user.branchId || '',
+        isEmployee: false, // Can't determine from existing data easily without backend support
+        employeeId: '',
         password: '',
         confirmPassword: '',
       });
+      // Fetch employees for the user's branch
+      if (user.branchId) {
+        fetchEmployees(user.branchId);
+      }
     } else {
       setEditingUser(null);
       setFormData({
@@ -140,9 +176,12 @@ export default function UserManagement() {
         phone: '',
         role: 'reservation',
         branchId: '',
+        isEmployee: false,
+        employeeId: '',
         password: '',
         confirmPassword: '',
       });
+      setEmployees([]);
     }
     setShowModal(true);
   };
@@ -158,6 +197,8 @@ export default function UserManagement() {
       phone: '',
       role: 'reservation',
       branchId: '',
+      isEmployee: false,
+      employeeId: '',
       password: '',
       confirmPassword: '',
     });
@@ -366,13 +407,13 @@ export default function UserManagement() {
               Manage system users and their roles
             </p>
           </div>
-          <button
-            onClick={() => handleOpenModal()}
+          <Link
+            href="/settings/users/add"
             className="mt-4 sm:mt-0 flex items-center space-x-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors duration-200"
           >
             <Plus className="h-5 w-5" />
             <span>Add New User</span>
-          </button>
+          </Link>
         </div>
 
         {/* Search Bar */}
@@ -563,6 +604,81 @@ export default function UserManagement() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Branch
+                  </label>
+                  <select
+                    required
+                    value={formData.branchId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, branchId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                  >
+                    <option value="">Select Branch</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name || branch.branchName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isEmployee"
+                    checked={formData.isEmployee}
+                    onChange={(e) => setFormData({ ...formData, isEmployee: e.target.checked })}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="isEmployee" className="text-sm font-medium text-gray-700 dark:text-gray-300 select-none">
+                    Is this user an Employee?
+                  </label>
+                </div>
+
+                {formData.isEmployee && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Select Employee
+                    </label>
+                    <select
+                      value={formData.employeeId}
+                      onChange={(e) => {
+                        const empId = e.target.value;
+                        const selectedEmp = employees.find(emp => emp._id === empId || emp.id === empId);
+                        
+                        if (selectedEmp) {
+                          setFormData({
+                            ...formData,
+                            employeeId: empId,
+                            name: selectedEmp.name || selectedEmp.fullName || '',
+                            email: selectedEmp.email || '',
+                            phone: selectedEmp.phone || selectedEmp.mobile || '',
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            employeeId: '',
+                            name: '',
+                            email: '',
+                            phone: '',
+                          });
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                    >
+                      <option value="">Select Employee</option>
+                      {employees.map((emp) => (
+                        <option key={emp._id || emp.id} value={emp._id || emp.id}>
+                          {emp.name || emp.fullName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Full Name
                   </label>
                   <input
@@ -624,27 +740,6 @@ export default function UserManagement() {
                     {roles.map((role) => (
                       <option key={role.value} value={role.value}>
                         {role.label} ({role.bn})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Branch
-                  </label>
-                  <select
-                    required
-                    value={formData.branchId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, branchId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                  >
-                    <option value="">Select Branch</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name || branch.branchName}
                       </option>
                     ))}
                   </select>

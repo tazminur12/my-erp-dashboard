@@ -298,6 +298,7 @@ const TodayTransactions = () => {
     
     return {
       transactionId: transaction.transactionId || transaction._id,
+      verificationId: transaction._id || transaction.id,
       customerName: name,
       customerPhone: phone,
       customerEmail: email,
@@ -311,7 +312,7 @@ const TodayTransactions = () => {
       date: transaction.date,
       notes: transaction.notes || '',
       paymentDetails: transaction.paymentDetails || {},
-      accountManagerName: transaction.accountManager?.name || transaction.accountManager?.fullName || 'N/A',
+      accountManagerName: transaction.accountManagerName || transaction.accountManager?.name || transaction.accountManager?.fullName || '',
     };
   };
 

@@ -513,6 +513,7 @@ const TransactionsList = () => {
     
     return {
       transactionId: uniqueTransactionId,
+      verificationId: transaction._id || transaction.id,
       transactionType: transaction.transactionType,
       status: transaction.status,
       customerId: transaction.customerId || transaction.customer?._id || transaction.customer?.id,

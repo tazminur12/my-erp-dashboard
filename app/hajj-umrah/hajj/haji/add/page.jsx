@@ -773,6 +773,9 @@ const AddHaji = () => {
         agentId: formData.agentId,
         licenseId: formData.licenseId,
         employerId: formData.employerId,
+        createdBy: user?.id || user?._id || user?.email || 'unknown_user',
+        employeeId: user?.employeeId || null,
+        branchId: formData.branchId || user?.branchId || null,
         photo: formData.photo,
         passportCopy: formData.passportCopy,
         nidCopy: formData.nidCopy

@@ -261,6 +261,9 @@ export async function POST(request) {
       profit: parseFloat(body.profit) || 0,
       segmentCount: parseInt(body.segmentCount) || 1,
       flownSegment: Boolean(body.flownSegment),
+      createdBy: body.createdBy || session?.user?.id || session?.user?._id || session?.user?.email,
+      employeeId: body.employeeId || session?.user?.employeeId,
+      branchId: body.branchId || session?.user?.branchId,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

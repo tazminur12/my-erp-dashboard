@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from '../../../hooks/useSession';
 import DashboardLayout from '../../../component/DashboardLayout';
 import { 
   Save, 
@@ -71,6 +72,7 @@ const ModalFooter = ({ children }) => {
 
 const NewTicket = () => {
   const router = useRouter();
+  const { user } = useSession();
   
   // Get today's date in YYYY-MM-DD format for default value
   const getTodayDate = () => {
@@ -1013,6 +1015,9 @@ const NewTicket = () => {
         profit: toNumber(formData.profit),
         segmentCount: toNumber(formData.segmentCount) || 1,
         flownSegment: Boolean(formData.flownSegment),
+        createdBy: user?.id || user?._id || user?.email || 'unknown_user',
+        employeeId: user?.employeeId || null,
+        branchId: user?.branchId || null,
       };
 
       // Create ticket
@@ -1791,27 +1796,6 @@ const NewTicket = () => {
                       </button>
                     </div>
                   </div>
-                  {/* <div>
-                    <label htmlFor="segmentCount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Segment Count *</label>
-                    <input
-                      type="number"
-                      name="segmentCount"
-                      id="segmentCount"
-                      value={formData.segmentCount}
-                      onChange={(e) => { 
-                        const value = parseInt(e.target.value) || 1;
-                        handleChange({ target: { name: 'segmentCount', value } }); 
-                        if (touched.segmentCount) setValidationErrors(validate({ ...formData, segmentCount: value })); 
-                      }}
-                      onBlur={() => { markTouched('segmentCount'); setValidationErrors(validate(formData)); }}
-                      min="1"
-                      required
-                      className="block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                    {touched.segmentCount && validationErrors.segmentCount && (
-                      <p className="mt-1 text-xs text-red-600">{validationErrors.segmentCount}</p>
-                    )}
-                  </div> */}
                 </div>
 
                 {/* Route and Dates */}

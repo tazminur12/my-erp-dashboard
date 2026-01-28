@@ -63,7 +63,7 @@ export async function PUT(request, { params }) {
     const resolvedParams = params instanceof Promise ? await params : params;
     const { id } = resolvedParams;
     const body = await request.json();
-    const { name, email, phone, role, branchId, branchName } = body;
+    const { name, email, phone, role, branchId, branchName, employeeId } = body;
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -106,6 +106,7 @@ export async function PUT(request, { params }) {
     if (role !== undefined) updateData.role = role;
     if (branchId !== undefined) updateData.branchId = branchId;
     if (branchName !== undefined) updateData.branchName = branchName;
+    if (employeeId !== undefined) updateData.employeeId = employeeId;
 
     await usersCollection.updateOne(
       { _id: new ObjectId(id) },
@@ -126,6 +127,7 @@ export async function PUT(request, { params }) {
       role: updatedUser.role || 'user',
       branchId: updatedUser.branchId || '',
       branchName: updatedUser.branchName || '',
+      employeeId: updatedUser.employeeId || null,
       status: updatedUser.status || 'active',
       created_at: updatedUser.created_at || updatedUser._id.getTimestamp().toISOString(),
     };

@@ -242,8 +242,11 @@ export async function POST(request) {
       passport_copy_url: body.passport_copy || '',
       nid_copy: body.nid_copy || '',
       nid_copy_url: body.nid_copy || '',
-      branchId: branchInfo.branchId,
+      branchId: body.branchId || branchInfo.branchId,
       branchName: branchInfo.branchName,
+      created_by: body.createdBy || userSession?.user?.id || 'SYSTEM',
+      employee_id: body.employeeId || userSession?.user?.employeeId || null,
+      branch_id: body.branchId || branchInfo.branchId || null,
       created_at: new Date(),
       updated_at: new Date(),
     };
