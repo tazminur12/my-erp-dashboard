@@ -281,7 +281,12 @@ export const navigation = [
     children: [
       { name: 'User Management', href: '/settings/users', icon: Users },
       { name: 'Branch Management', href: '/settings/branch', icon: Building2 },
-      { name: 'Permission Management', href: '/settings/permissions', icon: Shield },
+      { 
+        name: 'Permission Management', 
+        href: '/settings/permissions', 
+        icon: Shield,
+        roles: ['super_admin'] 
+      },
       { name: 'Module Access', href: '/settings/module-access', icon: Eye },
       { name: 'System Settings', href: '/settings/system', icon: Settings },
     ]

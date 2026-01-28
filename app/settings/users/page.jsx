@@ -22,6 +22,7 @@ import {
 const roles = [
   { value: 'super_admin', label: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
   { value: 'admin', label: 'Admin', bn: 'অ্যাডমিন' },
+  { value: 'manager', label: 'Manager', bn: 'ম্যানেজার' },
   { value: 'accountant', label: 'Accountant', bn: 'হিসাবরক্ষক' },
   { value: 'reservation', label: 'Reservation', bn: 'রিজার্ভেশন' },
 ];
@@ -387,6 +388,8 @@ export default function UserManagement() {
         return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400';
       case 'admin':
         return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
+      case 'manager':
+        return 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400';
       case 'accountant':
         return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
       case 'reservation':

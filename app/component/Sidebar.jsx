@@ -12,16 +12,46 @@ import { useRoleAccess } from '../hooks/useRoleAccess';
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState({});
-  const { moduleAccess, loading: accessLoading, hasModuleAccess } = useRoleAccess();
+  const { role, moduleAccess, loading: accessLoading, hasModuleAccess } = useRoleAccess();
 
   /** Filter nav by role's moduleAccess. Items without `module` (Profile, Logout) always show. */
   const filteredNavigation = useMemo(() => {
     if (accessLoading) return navigation;
-    return navigation.filter((item) => {
-      if (!item.module) return true;
-      return hasModuleAccess(item.module);
-    });
-  }, [accessLoading, moduleAccess, hasModuleAccess]);
+    
+    // Recursive function to filter items
+    const filterItems = (items) => {
+      return items.filter((item) => {
+        // 1. Check direct role restriction
+        if (item.roles && (!role || !item.roles.includes(role.slug || role))) {
+          return false;
+        }
+
+        // 2. Check module access
+        if (item.module && !hasModuleAccess(item.module)) {
+          return false;
+        }
+
+        // 3. Filter children recursively if they exist
+        if (item.children) {
+          const filteredChildren = filterItems(item.children);
+          // Return a new item with filtered children
+          return {
+            ...item,
+            children: filteredChildren
+          };
+          
+          // Optional: Hide parent if no children visible (uncomment if desired)
+          // if (filteredChildren.length === 0) return false;
+        }
+
+        return true;
+      });
+    };
+
+    // Use original navigation, filtering returns new array of objects
+    return filterItems(navigation);
+
+  }, [accessLoading, moduleAccess, hasModuleAccess, role]);
 
   // Check if a navigation item or any of its children matches the current path
   const isActive = (item) => {
@@ -40,33 +70,48 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
   // Auto-expand parent items if current path matches a child
   useEffect(() => {
-    const newExpandedItems = {};
-    filteredNavigation.forEach((item, index) => {
-      if (item.children) {
-        const hasActiveChild = item.children.some((child) => {
-          if (child.href === pathname) return true;
-          if (child.children) {
-            return child.children.some((grandchild) => grandchild.href === pathname);
-          }
-          return false;
-        });
-        if (hasActiveChild) {
-          newExpandedItems[index] = true;
-          // Also expand nested children if they have active grandchildren
-          item.children.forEach((child, childIndex) => {
+    // Only run this logic if we have filtered items
+    if (!filteredNavigation || filteredNavigation.length === 0) return;
+
+    // Use a timeout to avoid synchronous state updates during render
+    const timer = setTimeout(() => {
+      const newExpandedItems = {};
+      let hasChanges = false;
+
+      filteredNavigation.forEach((item, index) => {
+        if (item.children) {
+          const hasActiveChild = item.children.some((child) => {
+            if (child.href === pathname) return true;
             if (child.children) {
-              const hasActiveGrandchild = child.children.some(
-                (grandchild) => grandchild.href === pathname
-              );
-              if (hasActiveGrandchild) {
-                newExpandedItems[`${index}-${childIndex}`] = true;
-              }
+              return child.children.some((grandchild) => grandchild.href === pathname);
             }
+            return false;
           });
+          if (hasActiveChild) {
+            newExpandedItems[index] = true;
+            hasChanges = true;
+            // Also expand nested children if they have active grandchildren
+            item.children.forEach((child, childIndex) => {
+              if (child.children) {
+                const hasActiveGrandchild = child.children.some(
+                  (grandchild) => grandchild.href === pathname
+                );
+                if (hasActiveGrandchild) {
+                  newExpandedItems[`${index}-${childIndex}`] = true;
+                }
+              }
+            });
+          }
         }
+      });
+      
+      // Only update state if there are actual items to expand
+      if (hasChanges) {
+        setExpandedItems(prev => ({...prev, ...newExpandedItems}));
       }
-    });
-    setExpandedItems(newExpandedItems);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [pathname, filteredNavigation]);
 
   const toggleExpand = (key) => {

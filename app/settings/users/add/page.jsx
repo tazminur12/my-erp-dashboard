@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import DashboardLayout from '../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 import {
@@ -16,11 +17,13 @@ import {
 const roles = [
   { value: 'super_admin', label: 'Super Admin', bn: 'সুপার অ্যাডমিন' },
   { value: 'admin', label: 'Admin', bn: 'অ্যাডমিন' },
+  { value: 'manager', label: 'Manager', bn: 'ম্যানেজার' },
   { value: 'accountant', label: 'Accountant', bn: 'হিসাবরক্ষক' },
   { value: 'reservation', label: 'Reservation', bn: 'রিজার্ভেশন' },
 ];
 
 export default function AddUserPage() {
+  const { data: session } = useSession();
   const router = useRouter();
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -342,7 +345,9 @@ export default function AddUserPage() {
                 }
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
               >
-                {roles.map((role) => (
+                {roles
+                  .filter(role => session?.user?.role === 'super_admin' || role.value !== 'super_admin')
+                  .map((role) => (
                   <option key={role.value} value={role.value}>
                     {role.label} ({role.bn})
                   </option>
