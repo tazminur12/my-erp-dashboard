@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import DashboardLayout from '../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 import {
@@ -26,6 +27,7 @@ const roles = [
 ];
 
 export default function UserManagement() {
+  const { data: session } = useSession();
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -737,7 +739,9 @@ export default function UserManagement() {
                     }
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                   >
-                    {roles.map((role) => (
+                    {roles
+                      .filter(role => session?.user?.role === 'super_admin' || role.value !== 'super_admin')
+                      .map((role) => (
                       <option key={role.value} value={role.value}>
                         {role.label} ({role.bn})
                       </option>

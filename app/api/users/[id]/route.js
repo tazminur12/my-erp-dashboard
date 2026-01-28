@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth';
 import { getDb } from '../../../../lib/mongodb';
 
 // GET user details
@@ -27,6 +29,18 @@ export async function GET(request, { params }) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+
+    // Check permissions
+    const session = await getServerSession(authOptions);
+    const currentUserRole = session?.user?.role;
+
+    // If user is not super_admin and tries to view a super_admin
+    if (currentUserRole !== 'super_admin' && user.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
       );
     }
 
@@ -81,6 +95,18 @@ export async function PUT(request, { params }) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+
+    // Check permissions
+    const session = await getServerSession(authOptions);
+    const currentUserRole = session?.user?.role;
+
+    // If user is not super_admin and tries to update a super_admin
+    if (currentUserRole !== 'super_admin' && existingUser.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Access denied. You cannot modify a Super Admin.' },
+        { status: 403 }
       );
     }
 
@@ -167,6 +193,18 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+
+    // Check permissions
+    const session = await getServerSession(authOptions);
+    const currentUserRole = session?.user?.role;
+
+    // If user is not super_admin and tries to delete a super_admin
+    if (currentUserRole !== 'super_admin' && existingUser.role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Access denied. You cannot delete a Super Admin.' },
+        { status: 403 }
       );
     }
 

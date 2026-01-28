@@ -1,15 +1,28 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth';
 import { getDb } from '../../../lib/mongodb';
 import bcrypt from 'bcryptjs';
 
 // GET all users
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    const currentUserRole = session?.user?.role;
+
     const db = await getDb();
     const usersCollection = db.collection('users');
 
+    // Create query object
+    let query = {};
+
+    // If user is not super_admin, they cannot see super_admin users
+    if (currentUserRole !== 'super_admin') {
+      query.role = { $ne: 'super_admin' };
+    }
+
     const users = await usersCollection
-      .find({})
+      .find(query)
       .project({ password: 0 }) // Exclude password from results
       .sort({ created_at: -1 })
       .toArray();
@@ -63,6 +76,18 @@ export async function POST(request) {
       return NextResponse.json(
         { error: 'Branch is required' },
         { status: 400 }
+      );
+    }
+
+    // Check permissions
+    const session = await getServerSession(authOptions);
+    const currentUserRole = session?.user?.role;
+
+    // If user is not super_admin and tries to create a super_admin
+    if (currentUserRole !== 'super_admin' && role === 'super_admin') {
+      return NextResponse.json(
+        { error: 'Access denied. You cannot create a Super Admin.' },
+        { status: 403 }
       );
     }
 
