@@ -34,7 +34,8 @@ import {
   ArrowUp,
   ArrowDown,
   Loader2,
-  Building
+  Building,
+  RotateCcw
 } from 'lucide-react';
 import { generateHajiCardPDF } from '../../../../utils/hajiCardPdf';
 import { generateHajiContractPDF } from '../../../../utils/hajiContractPdf';
@@ -73,6 +74,7 @@ const HajiDetails = () => {
   const [transactions, setTransactions] = useState([]);
   const [transactionSummary, setTransactionSummary] = useState({});
   const [transactionPagination, setTransactionPagination] = useState({});
+  const [refunds, setRefunds] = useState([]);
 
   // Fetch haji data
   useEffect(() => {
@@ -240,6 +242,25 @@ const HajiDetails = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isUmrah, id, transactionPage, transactionFilters]);
+
+  // Fetch refunds
+  useEffect(() => {
+    if (haji?.customerId) {
+      fetchRefunds();
+    }
+  }, [haji?.customerId]);
+
+  const fetchRefunds = async () => {
+    try {
+      const response = await fetch(`/api/hajj-umrah/refunds?search=${haji.customerId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRefunds(data.refunds || []);
+      }
+    } catch (error) {
+      console.error('Error fetching refunds:', error);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -587,6 +608,7 @@ const HajiDetails = () => {
     { id: 'documents', label: 'ডকুমেন্ট', icon: ImageIcon },
     { id: 'relations', label: 'সম্পর্ক', icon: Users },
     { id: 'transactions', label: 'লেনদেনের ইতিহাস', icon: Receipt },
+    { id: 'refund', label: 'রিফান্ড', icon: RotateCcw },
     { id: 'reference', label: 'রেফারেন্স তথ্য', icon: FileText }
   ];
 
@@ -1402,6 +1424,69 @@ const HajiDetails = () => {
     );
   };
 
+  const renderRefunds = () => (
+    <div className="space-y-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">রিফান্ড ইতিহাস</h3>
+          <Link
+            href="/hajj-umrah/refund-management/add"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            নতুন রিফান্ড তৈরি করুন
+          </Link>
+        </div>
+        
+        {refunds.length === 0 ? (
+          <div className="text-center py-8">
+            <RotateCcw className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-600 dark:text-gray-400">কোন রিফান্ড রেকর্ড পাওয়া যায়নি</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">আইডি</th>
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">তারিখ</th>
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">পরিমাণ</th>
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">কারণ</th>
+                  <th className="text-left py-3 px-2 text-sm font-semibold text-gray-700 dark:text-gray-300">স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((refund) => (
+                  <tr key={refund.id || refund._id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="py-3 px-2 text-sm text-gray-900 dark:text-white font-medium">
+                      {refund.refundId || 'N/A'}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400">
+                      {formatDate(refund.refundDate)}
+                    </td>
+                    <td className="py-3 px-2 text-sm font-bold text-red-600 dark:text-red-400">
+                      ৳{Number(refund.amount || 0).toLocaleString('bn-BD')}
+                    </td>
+                    <td className="py-3 px-2 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                      {refund.reason || 'N/A'}
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize
+                        ${refund.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                          refund.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                          'bg-yellow-100 text-yellow-800'}`}>
+                        {refund.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderReferenceInfo = () => (
     <div className="space-y-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -1469,6 +1554,8 @@ const HajiDetails = () => {
         return renderRelations();
       case 'transactions':
         return renderTransactionHistory();
+      case 'refund':
+        return renderRefunds();
       case 'reference':
         return renderReferenceInfo();
       default:
