@@ -1,26 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../component/DashboardLayout';
-import { ArrowLeft, Save, RotateCcw, Loader2 } from 'lucide-react';
-import Swal from 'sweetalert2';
+import { ArrowLeft, Save, RotateCcw, Loader2, Search } from 'lucide-react';
 
 const AddRefund = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [formData, setFormData] = useState({
     ticketNumber: '',
     pnr: '',
     passengerName: '',
     customerName: '',
-    refundAmount: '',
-    serviceCharge: '',
-    refundMethod: 'cash',
+    actualFare: 0,
+    usedAmount: 0,
+    serviceCharge: 0,
+    airlinesPenalty: 0,
+    refundAmount: 0,
     reason: '',
     status: 'Pending'
   });
+
+  // Calculate total refund whenever fields change
+  useEffect(() => {
+    const total = 
+      (parseFloat(formData.actualFare) || 0) - 
+      (parseFloat(formData.usedAmount) || 0) - 
+      (parseFloat(formData.serviceCharge) || 0) - 
+      (parseFloat(formData.airlinesPenalty) || 0);
+    
+    setFormData(prev => ({
+      ...prev,
+      refundAmount: total > 0 ? total : 0
+    }));
+  }, [formData.actualFare, formData.usedAmount, formData.serviceCharge, formData.airlinesPenalty]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,6 +44,61 @@ const AddRefund = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleSearchTicket = async () => {
+    if (!formData.ticketNumber) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'টিকেট নম্বর প্রয়োজন',
+        text: 'অনুগ্রহ করে টিকেট নম্বর লিখুন',
+      });
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetch(`/api/air-tickets?search=${formData.ticketNumber}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const ticket = data.tickets && data.tickets.length > 0 ? data.tickets[0] : null;
+
+        if (ticket) {
+          setFormData(prev => ({
+            ...prev,
+            ticketNumber: ticket.ticketId || ticket.ticketNumber,
+            pnr: ticket.airlinePnr || ticket.gdsPnr || prev.pnr,
+            passengerName: ticket.passengerName || ticket.customerName || prev.passengerName,
+            customerName: ticket.customerName || prev.customerName,
+            actualFare: ticket.customerPaid || ticket.totalPrice || 0
+          }));
+          
+          Swal.fire({
+            icon: 'success',
+            title: 'পাওয়া গেছে',
+            text: `টিকেট: ${ticket.ticketId}`,
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'পাওয়া যায়নি',
+            text: 'এই নম্বরে কোনো টিকেট পাওয়া যায়নি',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি',
+        text: 'অনুসন্ধান করতে সমস্যা হয়েছে',
+      });
+    } finally {
+      setSearching(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -101,19 +172,31 @@ const AddRefund = () => {
               <div className="md:col-span-2 border-b border-gray-200 dark:border-gray-700 pb-4 mb-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">টিকেট তথ্য</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       টিকেট নম্বর <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="ticketNumber"
-                      required
-                      value={formData.ticketNumber}
-                      onChange={handleInputChange}
-                      placeholder="টিকেট নম্বর লিখুন"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="ticketNumber"
+                        required
+                        value={formData.ticketNumber}
+                        onChange={handleInputChange}
+                        placeholder="টিকেট নম্বর লিখুন"
+                        className="w-full pl-4 pr-12 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSearchTicket}
+                        disabled={searching}
+                        className="absolute right-1 top-1 p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                        title="অনুসন্ধান করুন"
+                      >
+                        {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">টিকেট নম্বর লিখে সার্চ বাটনে ক্লিক করুন</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -164,57 +247,95 @@ const AddRefund = () => {
                 </div>
               </div>
 
+              {/* Refund Calculation Section (Table Layout) */}
+              <div className="md:col-span-2 border-b border-gray-200 dark:border-gray-700 pb-4 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রিফান্ড ক্যালকুলেশন</h3>
+                
+                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                  <table className="w-full text-center">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Actual Fare</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Used Amount</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Service Fees</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Airlines Penalty</th>
+                        <th className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/20">Total Refundable Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      <tr>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="actualFare"
+                              min="0"
+                              step="0.01"
+                              value={formData.actualFare}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="usedAmount"
+                              min="0"
+                              step="0.01"
+                              value={formData.usedAmount}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="serviceCharge"
+                              min="0"
+                              step="0.01"
+                              value={formData.serviceCharge}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="airlinesPenalty"
+                              min="0"
+                              step="0.01"
+                              value={formData.airlinesPenalty}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2 bg-indigo-50 dark:bg-indigo-900/20">
+                          <div className="font-bold text-lg text-indigo-700 dark:text-indigo-300 text-center">
+                            {formData.refundAmount.toFixed(2)} BDT
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {/* Refund Info Section */}
               <div className="md:col-span-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রিফান্ড বিস্তারিত</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      রিফান্ড পরিমাণ <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="refundAmount"
-                      required
-                      min="0"
-                      step="0.01"
-                      value={formData.refundAmount}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      সার্ভিস চার্জ (যদি থাকে)
-                    </label>
-                    <input
-                      type="number"
-                      name="serviceCharge"
-                      min="0"
-                      step="0.01"
-                      value={formData.serviceCharge}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      রিফান্ড মেথড
-                    </label>
-                    <select
-                      name="refundMethod"
-                      value={formData.refundMethod}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="cash">নগদ (Cash)</option>
-                      <option value="bank">ব্যাংক (Bank)</option>
-                      <option value="adjustment">সমন্বয় (Adjustment)</option>
-                      <option value="cheque">চেক (Cheque)</option>
-                    </select>
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       স্ট্যাটাস

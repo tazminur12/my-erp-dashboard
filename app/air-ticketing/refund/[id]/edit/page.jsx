@@ -19,12 +19,28 @@ const EditRefund = () => {
     pnr: '',
     passengerName: '',
     customerName: '',
-    refundAmount: '',
-    serviceCharge: '',
-    refundMethod: 'cash',
+    actualFare: 0,
+    usedAmount: 0,
+    serviceCharge: 0,
+    airlinesPenalty: 0,
+    refundAmount: 0,
     reason: '',
     status: 'Pending'
   });
+
+  // Calculate total refund whenever fields change
+  useEffect(() => {
+    const total = 
+      (parseFloat(formData.actualFare) || 0) - 
+      (parseFloat(formData.usedAmount) || 0) - 
+      (parseFloat(formData.serviceCharge) || 0) - 
+      (parseFloat(formData.airlinesPenalty) || 0);
+    
+    setFormData(prev => ({
+      ...prev,
+      refundAmount: total > 0 ? total : 0
+    }));
+  }, [formData.actualFare, formData.usedAmount, formData.serviceCharge, formData.airlinesPenalty]);
 
   useEffect(() => {
     const fetchRefund = async () => {
@@ -38,9 +54,11 @@ const EditRefund = () => {
             pnr: result.data.pnr || '',
             passengerName: result.data.passengerName || '',
             customerName: result.data.customerName || '',
-            refundAmount: result.data.refundAmount || '',
-            serviceCharge: result.data.serviceCharge || '',
-            refundMethod: result.data.refundMethod || 'cash',
+            actualFare: result.data.actualFare || 0,
+            usedAmount: result.data.usedAmount || 0,
+            serviceCharge: result.data.serviceCharge || 0,
+            airlinesPenalty: result.data.airlinesPenalty || 0,
+            refundAmount: result.data.refundAmount || 0,
             reason: result.data.reason || '',
             status: result.data.status || 'Pending'
           });
@@ -217,57 +235,95 @@ const EditRefund = () => {
                 </div>
               </div>
 
+              {/* Refund Calculation Section (Table Layout) */}
+              <div className="md:col-span-2 border-b border-gray-200 dark:border-gray-700 pb-4 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রিফান্ড ক্যালকুলেশন</h3>
+                
+                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                  <table className="w-full text-center">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Actual Fare</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Used Amount</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Service Fees</th>
+                        <th className="px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Airlines Penalty</th>
+                        <th className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/20">Total Refundable Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      <tr>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="actualFare"
+                              min="0"
+                              step="0.01"
+                              value={formData.actualFare}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="usedAmount"
+                              min="0"
+                              step="0.01"
+                              value={formData.usedAmount}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="serviceCharge"
+                              min="0"
+                              step="0.01"
+                              value={formData.serviceCharge}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              name="airlinesPenalty"
+                              min="0"
+                              step="0.01"
+                              value={formData.airlinesPenalty}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 text-center border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                            <span className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">BDT</span>
+                          </div>
+                        </td>
+                        <td className="p-2 bg-indigo-50 dark:bg-indigo-900/20">
+                          <div className="font-bold text-lg text-indigo-700 dark:text-indigo-300 text-center">
+                            {formData.refundAmount.toFixed(2)} BDT
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               {/* Refund Info Section */}
               <div className="md:col-span-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">রিফান্ড বিস্তারিত</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      রিফান্ড পরিমাণ <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="refundAmount"
-                      required
-                      min="0"
-                      step="0.01"
-                      value={formData.refundAmount}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      সার্ভিস চার্জ (যদি থাকে)
-                    </label>
-                    <input
-                      type="number"
-                      name="serviceCharge"
-                      min="0"
-                      step="0.01"
-                      value={formData.serviceCharge}
-                      onChange={handleInputChange}
-                      placeholder="0.00"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      রিফান্ড মেথড
-                    </label>
-                    <select
-                      name="refundMethod"
-                      value={formData.refundMethod}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="cash">নগদ (Cash)</option>
-                      <option value="bank">ব্যাংক (Bank)</option>
-                      <option value="adjustment">সমন্বয় (Adjustment)</option>
-                      <option value="cheque">চেক (Cheque)</option>
-                    </select>
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       স্ট্যাটাস

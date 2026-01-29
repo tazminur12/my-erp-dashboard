@@ -54,7 +54,10 @@ export async function PUT(request, { params }) {
       customerName,
       refundMethod,
       reason,
-      status 
+      status,
+      actualFare,
+      usedAmount,
+      airlinesPenalty
     } = body;
 
     const db = await getDb();
@@ -75,6 +78,9 @@ export async function PUT(request, { params }) {
     if (customerName) updateData.customerName = customerName;
     if (refundAmount) updateData.refundAmount = parseFloat(refundAmount);
     if (serviceCharge !== undefined) updateData.serviceCharge = parseFloat(serviceCharge);
+    if (actualFare !== undefined) updateData.actualFare = parseFloat(actualFare);
+    if (usedAmount !== undefined) updateData.usedAmount = parseFloat(usedAmount);
+    if (airlinesPenalty !== undefined) updateData.airlinesPenalty = parseFloat(airlinesPenalty);
     if (refundMethod) updateData.refundMethod = refundMethod;
     if (reason) updateData.reason = reason;
     if (status) updateData.status = status;

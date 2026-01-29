@@ -85,13 +85,16 @@ export async function POST(request) {
       customerName,
       refundMethod,
       reason,
-      status 
+      status,
+      actualFare,
+      usedAmount,
+      airlinesPenalty
     } = body;
 
     // Validation
-    if (!ticketNumber || !refundAmount) {
+    if (!ticketNumber) {
       return NextResponse.json(
-        { error: 'টিকেট নম্বর এবং রিফান্ড পরিমাণ আবশ্যক' },
+        { error: 'টিকেট নম্বর আবশ্যক' },
         { status: 400 }
       );
     }
@@ -107,8 +110,11 @@ export async function POST(request) {
       pnr: pnr || '',
       passengerName: passengerName || '',
       customerName: customerName || '',
-      refundAmount: parseFloat(refundAmount),
+      refundAmount: parseFloat(refundAmount) || 0,
       serviceCharge: serviceCharge ? parseFloat(serviceCharge) : 0,
+      actualFare: parseFloat(actualFare) || 0,
+      usedAmount: parseFloat(usedAmount) || 0,
+      airlinesPenalty: parseFloat(airlinesPenalty) || 0,
       refundMethod: refundMethod || 'cash',
       reason: reason || '',
       status: status || 'Pending',
