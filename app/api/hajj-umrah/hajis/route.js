@@ -22,7 +22,29 @@ export async function GET(request) {
 
     // Build query with branch filter
     const query = { ...branchFilter };
+    const search = searchParams.get('search');
     
+    if (search) {
+      const searchQuery = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { first_name: { $regex: search, $options: 'i' } },
+          { last_name: { $regex: search, $options: 'i' } },
+          { customer_id: { $regex: search, $options: 'i' } },
+          { mobile: { $regex: search, $options: 'i' } },
+          { passport_number: { $regex: search, $options: 'i' } },
+          { nid_number: { $regex: search, $options: 'i' } },
+        ]
+      };
+      
+      if (packageId) {
+        if (!query.$and) query.$and = [];
+        query.$and.push(searchQuery);
+      } else {
+        Object.assign(query, searchQuery);
+      }
+    }
+
     if (packageId) {
       query.$or = [
         { packageId: packageId },

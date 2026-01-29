@@ -13,12 +13,23 @@ export async function GET(request) {
     
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // Optional filter by status
+    const search = searchParams.get('search'); // Optional search
 
     const db = await getDb();
     const agentsCollection = db.collection('agents');
 
     // Build query with branch filter
     const query = { ...branchFilter };
+
+    if (search) {
+      query.$or = [
+        { tradeName: { $regex: search, $options: 'i' } },
+        { ownerName: { $regex: search, $options: 'i' } },
+        { contactNo: { $regex: search, $options: 'i' } },
+        { agentId: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
     
     // Filter by status - default to active only (exclude deleted/inactive agents)
     if (status === 'all') {

@@ -97,6 +97,7 @@ export const navigation = [
     children: [
       { name: 'Dashboard', href: '/hajj-umrah/dashboard', icon: LayoutDashboard },
       { name : 'Reference List', href: '/hajj-umrah/refer-list', icon: Users },
+      { name: 'Refund Management', href: '/hajj-umrah/refund-management', icon: FileText },
       {
         name: 'Hajj',
         icon: Users,
@@ -123,7 +124,8 @@ export const navigation = [
         children: [
           { name: 'Hajj & Umrah Agent List', href: '/hajj-umrah/b2b-agent', icon: Users },
           { name: 'Create New Agent', href: '/hajj-umrah/b2b-agent/agent/add', icon: Plus },
-          { name: 'Agent Package', href: '/hajj-umrah/b2b-agent/agent-packages', icon: List }
+          { name: 'Agent Package', href: '/hajj-umrah/b2b-agent/agent-packages', icon: List },
+          { name: 'Refund Agent', href: '/hajj-umrah/b2b-agent/refund-agent', icon: FileText }
         ]
       }
     ]
