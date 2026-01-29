@@ -141,12 +141,12 @@ export const navigation = [
     children: [
       { name: 'Dashboard', href: '/air-ticketing/dashboard', icon: LayoutDashboard },
       { name: 'Passenger List', href: '/air-ticketing/passengers', icon: Users },
-      { name: 'Ticket List', href: '/air-ticketing/tickets', icon: List },
+      { name: 'Ticket Booked', href: '/air-ticketing/tickets', icon: List },
       { name: 'B2B Agent', href: '/air-ticketing/agents', icon: Users },
       {
         name: 'Manage Booking', href: '/air-ticketing/booking', icon: List,
         children: [
-          { name: 'Booked', href: '/air-ticketing/booked', icon: Ticket },
+          { name: 'Booked', href: '/air-ticketing/booked', icon: FileCheck },
           { name: 'Issued', href: '/air-ticketing/issued', icon: FileCheck },
           { name: 'Void', href: '/air-ticketing/void', icon: Ban },
           { name: 'Reissue', href: '/air-ticketing/reissue', icon: RefreshCw },
