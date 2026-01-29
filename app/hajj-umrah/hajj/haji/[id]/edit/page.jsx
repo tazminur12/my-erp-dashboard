@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
-import { useSession } from '../../../../hooks/useSession';
+import { useSession } from '../../../../../hooks/useSession';
 import {
   ArrowLeft,
   Save,
