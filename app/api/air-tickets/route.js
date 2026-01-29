@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getDb } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
 // GET all air tickets
 export async function GET(request) {
   try {
@@ -153,6 +156,7 @@ export async function GET(request) {
 // POST create new air ticket
 export async function POST(request) {
   try {
+    const session = await getServerSession(authOptions);
     const body = await request.json();
 
     // Validation
