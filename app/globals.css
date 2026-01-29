@@ -24,8 +24,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Force light mode variables even in dark mode preference */
+    --background: #ffffff;
+    --foreground: #171717;
   }
 }
 

@@ -66,7 +66,12 @@ export async function GET(request) {
     const hajiTotalAmount = hajis.reduce((sum, haji) => sum + (Number(haji.total_amount) || Number(haji.totalAmount) || 0), 0);
     const hajiTotalPaid = hajis.reduce((sum, haji) => sum + (Number(haji.paid_amount) || Number(haji.paidAmount) || 0), 0);
 
-    const hajjTotalRevenue = hajiTotalAmount;
+    // Use Paid Amount for Revenue (Realized Income) instead of Total Contract Amount
+    const hajjTotalRevenue = hajiTotalPaid;
+    
+    // Calculate Agent Revenue (Total Paid by Agents)
+    // We should include agent payments as they often pay on behalf of groups
+    const agentTotalPaid = agents.reduce((sum, agent) => sum + (Number(agent.totalPaid) || Number(agent.total_paid) || 0), 0);
     
     const hajjTotalCost = hajjPackages.reduce((sum, pkg) => {
       const packageCost = Number(pkg.costingPrice) || Number(pkg.totals?.costingPrice) || 0;
@@ -82,7 +87,8 @@ export async function GET(request) {
     const umrahTotalAmount = umrahs.reduce((sum, umrah) => sum + (Number(umrah.total_amount) || Number(umrah.totalAmount) || 0), 0);
     const umrahTotalPaid = umrahs.reduce((sum, umrah) => sum + (Number(umrah.paid_amount) || Number(umrah.paidAmount) || 0), 0);
 
-    const umrahTotalRevenue = umrahTotalAmount;
+    // Use Paid Amount for Revenue (Realized Income) instead of Total Contract Amount
+    const umrahTotalRevenue = umrahTotalPaid;
 
     const umrahTotalCost = umrahPackages.reduce((sum, pkg) => {
       const packageCost = Number(pkg.costingPrice) || Number(pkg.totals?.costingPrice) || 0;
@@ -214,6 +220,7 @@ export async function GET(request) {
 
     const totalRevenue =
       huProfitLoss.combined.totalRevenue +
+      agentTotalPaid + // Add Agent Payments to Revenue
       totalSaleRevenue +
       receivingFinancial.taken +
       givingFinancial.repaid;
