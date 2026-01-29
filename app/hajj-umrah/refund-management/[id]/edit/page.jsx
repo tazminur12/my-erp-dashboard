@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import DashboardLayout from '../../../component/DashboardLayout';
+import DashboardLayout from '../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 
