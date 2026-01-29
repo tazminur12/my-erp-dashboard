@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
+import { useSession } from '../../../../hooks/useSession';
 import {
   ArrowLeft,
   Save,
@@ -165,6 +166,7 @@ const AddHaji = () => {
   const searchParams = useSearchParams();
   const hajiIdParam = searchParams.get('id');
   const editMode = !!hajiIdParam;
+  const { user } = useSession();
 
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState([]);

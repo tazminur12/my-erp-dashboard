@@ -11,12 +11,22 @@ export async function GET(request) {
     const page = parseInt(searchParams.get('page')) || 1;
     const isActiveParam = searchParams.get('isActive');
     const period = searchParams.get('period');
+    const createdBy = searchParams.get('createdBy');
 
     const db = await getDb();
     const airCustomersCollection = db.collection('air_customers');
 
     // Build query for search
     const query = {};
+    
+    // Filter by createdBy if provided
+    if (createdBy) {
+      query.$or = [
+        { createdBy: createdBy },
+        { employer_id: createdBy },
+        { employerId: createdBy }
+      ];
+    }
     
     // Date filtering based on period
     if (period) {
@@ -42,7 +52,7 @@ export async function GET(request) {
 
     if (searchTerm && searchTerm.trim()) {
       const searchRegex = { $regex: searchTerm.trim(), $options: 'i' };
-      query.$or = [
+      const searchConditions = [
         { name: searchRegex },
         { firstName: searchRegex },
         { lastName: searchRegex },
@@ -51,6 +61,19 @@ export async function GET(request) {
         { email: searchRegex },
         { passportNumber: searchRegex }
       ];
+
+      if (query.$or) {
+        // If createdBy filter exists (which uses $or), we need to combine them with $and
+        const createdByConditions = query.$or;
+        delete query.$or;
+        
+        query.$and = [
+          { $or: createdByConditions },
+          { $or: searchConditions }
+        ];
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     // Filter by isActive if provided
@@ -183,16 +206,16 @@ export async function POST(request) {
     const airCustomersCollection = db.collection('air_customers');
 
     // Check if customer with same mobile already exists
-    const existingCustomer = await airCustomersCollection.findOne({
-      mobile: body.mobile.trim()
-    });
+    // const existingCustomer = await airCustomersCollection.findOne({
+    //   mobile: body.mobile.trim()
+    // });
     
-    if (existingCustomer) {
-      return NextResponse.json(
-        { error: 'Customer with this mobile number already exists' },
-        { status: 400 }
-      );
-    }
+    // if (existingCustomer) {
+    //   return NextResponse.json(
+    //     { error: 'Customer with this mobile number already exists' },
+    //     { status: 400 }
+    //   );
+    // }
 
     // Generate unique customer ID if not provided
     let customerId = body.customerId;

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
+import { useSession } from '../../../../hooks/useSession';
 import {
   ArrowLeft,
   Save,
@@ -166,6 +167,7 @@ const EditUmrahHaji = () => {
   const params = useParams();
   const umrahIdParam = params?.id;
   const editMode = true; // Always true for edit page
+  const { user } = useSession();
 
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState([]);
@@ -743,6 +745,9 @@ const EditUmrahHaji = () => {
         package_id: formData.packageId,
         agent_id: formData.agentId,
         employer_id: formData.employerId,
+        source_type: formData.sourceType,
+        branch_id: formData.branchId || user?.branchId || null,
+        reference_haji: formData.referenceHaji,
         photo: formData.photo,
         passport_copy: formData.passportCopy,
         nid_copy: formData.nidCopy

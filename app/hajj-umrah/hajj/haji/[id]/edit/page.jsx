@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
+import { useSession } from '../../../../hooks/useSession';
 import {
   ArrowLeft,
   Save,
@@ -164,6 +165,7 @@ FileUploadGroup.displayName = 'FileUploadGroup';
 const EditHaji = () => {
   const router = useRouter();
   const params = useParams();
+  const { user } = useSession();
   const hajiIdParam = params?.id;
   const editMode = true; // Always true for edit page
 
@@ -774,6 +776,7 @@ const EditHaji = () => {
         agentId: formData.agentId,
         licenseId: formData.licenseId,
         employerId: formData.employerId,
+        branchId: formData.branchId || user?.branchId || null,
         photo: formData.photo,
         passportCopy: formData.passportCopy,
         nidCopy: formData.nidCopy

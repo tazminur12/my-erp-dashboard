@@ -21,7 +21,8 @@ import {
   BarChart3,
   Plane,
   Package,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
 
 const EmployeeProfile = () => {
@@ -37,6 +38,7 @@ const EmployeeProfile = () => {
   const [ticketSellTotal, setTicketSellTotal] = useState(0);
   const [hajiCount, setHajiCount] = useState(0);
   const [umrahCount, setUmrahCount] = useState(0);
+  const [airPassengerCount, setAirPassengerCount] = useState(0);
 
   useEffect(() => {
     const fetchEmployee = async () => {
@@ -81,6 +83,7 @@ const EmployeeProfile = () => {
       setTicketSellTotal(employee.statistics.ticketSellTotal || 0);
       setHajiCount(employee.statistics.hajiCount || 0);
       setUmrahCount(employee.statistics.umrahCount || 0);
+      setAirPassengerCount(employee.statistics.airPassengerCount || 0);
     }
   }, [employee]);
 
@@ -316,14 +319,17 @@ const EmployeeProfile = () => {
           এই কর্মচারীর টিকেট বিক্রয়, হজ্ব, উমরাহ ও অতিরিক্ত সেবার সংক্ষিপ্ত তথ্য
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          <div className="text-center p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
-            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Plane className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          <Link href={`/office-management/hr/employee/${id}/activities?type=tickets`}>
+            <div className="text-center p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md transition-all">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Plane className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">টিকেট সংখ্যা</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{ticketCount}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">মোট টিকেট বিক্রয়</p>
             </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">টিকেট সংখ্যা</p>
-            <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{ticketCount}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">মোট টিকেট বিক্রয়</p>
-          </div>
+          </Link>
+          
           <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800">
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
               <DollarSign className="w-6 h-6 text-green-600 dark:text-green-400" />
@@ -332,30 +338,50 @@ const EmployeeProfile = () => {
             <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(ticketSellTotal)}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">মোট বিক্রয়</p>
           </div>
-          <div className="text-center p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-xl">🕋</span>
+          
+          <Link href={`/office-management/hr/employee/${id}/activities?type=hajj`}>
+            <div className="text-center p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800 cursor-pointer hover:shadow-md transition-all">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-xl">🕋</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">হজ্ব</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{hajiCount}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">হজ্ব যাত্রী সংখ্যা</p>
             </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">হজ্ব</p>
-            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{hajiCount}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">হজ্ব যাত্রী সংখ্যা</p>
-          </div>
-          <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-xl">🕋</span>
+          </Link>
+          
+          <Link href={`/office-management/hr/employee/${id}/activities?type=umrah`}>
+            <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 cursor-pointer hover:shadow-md transition-all">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-xl">🕋</span>
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">উমরাহ</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{umrahCount}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">উমরাহ যাত্রী সংখ্যা</p>
             </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">উমরাহ</p>
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{umrahCount}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">উমরাহ যাত্রী সংখ্যা</p>
-          </div>
-          <div className="text-center p-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800">
-            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          </Link>
+          
+          <Link href={`/office-management/hr/employee/${id}/activities?type=services`}>
+            <div className="text-center p-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800 cursor-pointer hover:shadow-md transition-all">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Package className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">অতিরিক্ত সেবা</p>
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{employee?.statistics?.additionalServicesCount || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">পাসপোর্ট, ভিসা, ম্যানপাওয়ার ইত্যাদি</p>
             </div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">অতিরিক্ত সেবা</p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">{employee?.statistics?.additionalServicesCount || 0}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">পাসপোর্ট, ভিসা, ম্যানপাওয়ার ইত্যাদি</p>
-          </div>
+          </Link>
+          
+          <Link href={`/office-management/hr/employee/${id}/activities?type=air-passengers`}>
+            <div className="text-center p-6 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl border border-cyan-100 dark:border-cyan-800 cursor-pointer hover:shadow-md transition-all">
+              <div className="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Users className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">এয়ার প্যাসেঞ্জার</p>
+              <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">{airPassengerCount}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">মোট এয়ার প্যাসেঞ্জার</p>
+            </div>
+          </Link>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import DashboardLayout from '../../../../component/DashboardLayout';
 import Swal from 'sweetalert2';
+import { useSession } from '../../../../hooks/useSession';
 import {
   ArrowLeft,
   Save,
@@ -166,6 +167,7 @@ const AddUmrahHaji = () => {
   const searchParams = useSearchParams();
   const umrahIdParam = searchParams.get('id');
   const editMode = !!umrahIdParam;
+  const { user } = useSession();
 
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState([]);

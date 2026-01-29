@@ -148,6 +148,24 @@ export async function GET(request, { params }) {
       console.error('Error fetching additional services:', error);
     }
 
+    // Count air passengers (air_customers)
+    let airPassengerCount = 0;
+    try {
+      const airCustomersCollection = db.collection('air_customers');
+      airPassengerCount = await airCustomersCollection.countDocuments({
+        $or: [
+          { createdBy: employeeId },
+          { createdBy: employeeIdString },
+          { employer_id: employeeId },
+          { employer_id: employeeIdString },
+          { employerId: employeeId },
+          { employerId: employeeIdString }
+        ]
+      });
+    } catch (error) {
+      console.error('Error fetching air customers:', error);
+    }
+
     const formattedEmployee = {
       id: employee._id.toString(),
       ...employee,
@@ -156,7 +174,8 @@ export async function GET(request, { params }) {
         ticketSellTotal,
         hajiCount,
         umrahCount,
-        additionalServicesCount
+        additionalServicesCount,
+        airPassengerCount
       }
     };
 
