@@ -47,7 +47,11 @@ import {
   Calendar,
   Mail,
   MessageSquare,
-  FolderOpen
+  FolderOpen,
+  Ticket,
+  Ban,
+  RefreshCw,
+  PlaneTakeoff
 } from 'lucide-react';
 
 /** Module IDs for access control. Sidebar filters by role's moduleAccess. */
@@ -137,9 +141,19 @@ export const navigation = [
     children: [
       { name: 'Dashboard', href: '/air-ticketing/dashboard', icon: LayoutDashboard },
       { name: 'Passenger List', href: '/air-ticketing/passengers', icon: Users },
-      { name: 'New Ticket Sale', href: '/air-ticketing/tickets/add', icon: Plus },
-      { name: 'Manage Booking', href: '/air-ticketing/tickets', icon: List },
+      { name: 'Ticket List', href: '/air-ticketing/tickets', icon: List },
       { name: 'B2B Agent', href: '/air-ticketing/agents', icon: Users },
+      {
+        name: 'Manage Booking', href: '/air-ticketing/booking', icon: List,
+        children: [
+          { name: 'Booked', href: '/air-ticketing/booked', icon: Ticket },
+          { name: 'Issued', href: '/air-ticketing/issued', icon: FileCheck },
+          { name: 'Void', href: '/air-ticketing/void', icon: Ban },
+          { name: 'Reissue', href: '/air-ticketing/reissue', icon: RefreshCw },
+          { name: 'Refund', href: '/air-ticketing/refund', icon: RotateCcw },
+          { name: 'Flown', href: '/air-ticketing/flown', icon: PlaneTakeoff }
+        ]
+      },
       {
         name: 'Old Ticketing Service',
         href: '/air-ticketing/old/dashboard',
