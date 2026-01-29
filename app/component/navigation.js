@@ -141,7 +141,7 @@ export const navigation = [
     children: [
       { name: 'Dashboard', href: '/air-ticketing/dashboard', icon: LayoutDashboard },
       { name: 'Passenger List', href: '/air-ticketing/passengers', icon: Users },
-      { name: 'Ticket Booked', href: '/air-ticketing/tickets', icon: List },
+      { name: 'New Booking', href: '/air-ticketing/tickets', icon: List },
       { name: 'B2B Agent', href: '/air-ticketing/agents', icon: Users },
       {
         name: 'Manage Booking', href: '/air-ticketing/booking', icon: List,
