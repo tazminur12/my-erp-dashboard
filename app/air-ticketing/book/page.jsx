@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import DashboardLayout from '../../component/DashboardLayout';
 import PassengerForm from '../../component/PassengerForm';
 import { Plane, AlertCircle, CheckCircle, Clock, ArrowLeft, ChevronDown, User } from 'lucide-react';
@@ -57,21 +57,14 @@ const BookingStepper = () => {
 
 const BookingPage = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [flight, setFlight] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pnr, setPnr] = useState(null);
   
   // Passenger Data State
-  const [passengerData, setPassengerData] = useState({
-    title: 'MR',
-    firstName: '',
-    lastName: '',
-    dob: '',
-    passportNumber: '',
-    nationality: 'BD',
-    gender: 'M'
-  });
+  const [passengersData, setPassengersData] = useState([]);
 
   // Contact Data State
   const [contactData, setContactData] = useState({
@@ -90,8 +83,19 @@ const BookingPage = () => {
     setFlight(JSON.parse(storedFlight));
   }, [router]);
 
-  const handlePassengerChange = (newData) => {
-    setPassengerData(newData);
+  const handlePassengerChange = (index, newData) => {
+    setPassengersData(prev => prev.map((p, i) => (i === index ? newData : p)));
+    if (index === 0) {
+      const updatedEmail = newData.email || '';
+      const updatedPhone = newData.phone || '';
+      if (updatedEmail || updatedPhone) {
+        setContactData(prev => ({
+          ...prev,
+          email: updatedEmail || prev.email,
+          phone: updatedPhone || prev.phone
+        }));
+      }
+    }
   };
 
   const handleContactChange = (e) => {
@@ -102,11 +106,12 @@ const BookingPage = () => {
     setLoading(true);
     setError(null);
 
-    // Merge data
-    const finalData = {
-        ...passengerData,
-        email: contactData.email,
-        phone: contactData.phone // Handle country code if needed
+    const passengersPayload = passengersData.map(p => ({
+      ...p
+    }));
+    const contact = {
+      email: contactData.email,
+      phone: contactData.phone
     };
 
     try {
@@ -115,7 +120,8 @@ const BookingPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           flight,
-          passenger: finalData
+          passengers: passengersPayload,
+          contact
         })
       });
 
@@ -148,6 +154,31 @@ const BookingPage = () => {
      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
      return `${hours}h ${minutes}m`;
   };
+
+  const adults = parseInt(searchParams.get('adults') || '1', 10);
+  const children = parseInt(searchParams.get('children') || '0', 10);
+  const kids = parseInt(searchParams.get('kids') || '0', 10);
+  const infants = parseInt(searchParams.get('infants') || '0', 10);
+  const totalPassengers = adults + children + kids + infants;
+  const primaryPassengerType = adults > 0 ? 'ADT' : (children + kids > 0 ? 'CHD' : 'INF');
+  const types = [
+    ...Array(adults).fill('ADT'),
+    ...Array(children + kids).fill('CHD'),
+    ...Array(infants).fill('INF')
+  ];
+  
+  useEffect(() => {
+    const defaults = () => ({
+      title: 'MR',
+      firstName: '',
+      lastName: '',
+      dob: '',
+      passportNumber: '',
+      nationality: 'BD',
+      gender: 'M'
+    });
+    setPassengersData(types.map(() => defaults()));
+  }, [adults, children, kids, infants]);
 
   if (!flight) return null; // Or loading spinner
 
@@ -185,6 +216,12 @@ const BookingPage = () => {
   }
 
   const legs = flight.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
+  const firstLeg = legs[0].FlightSegment[0];
+  const flightDate = firstLeg.DepartureDateTime;
+  
+  
+
+  // Handle pricing safely
   const pricingInfo = Array.isArray(flight.AirItineraryPricingInfo) ? flight.AirItineraryPricingInfo[0] : flight.AirItineraryPricingInfo;
   const price = pricingInfo?.ItinTotalFare;
   const baseFare = parseFloat(price?.BaseFare?.Amount || 0);
@@ -215,7 +252,16 @@ const BookingPage = () => {
                 </div>
               )}
               
-              <PassengerForm data={passengerData} onChange={handlePassengerChange} />
+              {passengersData.map((p, idx) => (
+                <PassengerForm 
+                  key={idx}
+                  data={p}
+                  onChange={(d) => handlePassengerChange(idx, d)}
+                  passengerType={types[idx] || primaryPassengerType}
+                  flightDate={flightDate}
+                  travelerIndex={idx + 1}
+                />
+              ))}
               
               {/* Contact Details Card */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
@@ -339,9 +385,9 @@ const BookingPage = () => {
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800 dark:text-white">Customer Price Summary</h3>
                     <div className="flex gap-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> 1</span>
-                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> 0</span>
-                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> 0</span>
+                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> {adults}</span>
+                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> {children + kids}</span>
+                        <span className="flex items-center gap-1"><User className="w-3 h-3"/> {infants}</span>
                     </div>
                 </div>
                 

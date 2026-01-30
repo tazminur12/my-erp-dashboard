@@ -38,8 +38,9 @@ const FlightResultsPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [sortOption, setSortOption] = useState('cheapest');
   const [activeTab, setActiveTab] = useState('itinerary'); // itinerary, baggage, rules
-  const [priceModalData, setPriceModalData] = useState(null); // stores pricing info for modal
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes session
+  const [filterStops, setFilterStops] = useState('all'); // all | direct | one | multi
+  const [filterAirlines, setFilterAirlines] = useState({ BS: false, BG: false, '2A': false });
 
   // Timer Effect
   useEffect(() => {
@@ -57,7 +58,11 @@ const FlightResultsPage = () => {
   const destination = searchParams.get('destination');
   const departureDate = searchParams.get('departureDate');
   const returnDate = searchParams.get('returnDate');
-  const passengers = searchParams.get('passengers') || 1;
+  const adults = parseInt(searchParams.get('adults') || '1', 10);
+  const children = parseInt(searchParams.get('children') || '0', 10);
+  const kids = parseInt(searchParams.get('kids') || '0', 10);
+  const infants = parseInt(searchParams.get('infants') || '0', 10);
+  const passengers = adults + children + kids + infants;
   const tripType = searchParams.get('tripType');
   const cabinClass = searchParams.get('class') || 'Economy';
   
@@ -93,7 +98,14 @@ const FlightResultsPage = () => {
           returnDate,
           passengers,
           tripType,
-          segments
+          segments,
+          travellers: {
+            adults,
+            children,
+            kids,
+            infants,
+            class: cabinClass
+          }
         })
       });
       
@@ -118,9 +130,53 @@ const FlightResultsPage = () => {
     }
   };
 
+  const getStopsCount = (itinerary) => {
+    try {
+      const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
+      return legs.reduce((acc, leg) => acc + Math.max(0, (leg.FlightSegment?.length || 1) - 1), 0);
+    } catch {
+      return 0;
+    }
+  };
+
+  const getAirlineCode = (itinerary) => {
+    try {
+      const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
+      const firstSeg = legs[0].FlightSegment[0];
+      return firstSeg.MarketingAirline.Code;
+    } catch {
+      return null;
+    }
+  };
+
+  const applyFilters = (list) => {
+    if (!list) return [];
+    return list.filter((itinerary) => {
+      const stops = getStopsCount(itinerary);
+      const code = getAirlineCode(itinerary);
+      const airlineSelected = Object.values(filterAirlines).some(Boolean)
+        ? !!code && filterAirlines[code]
+        : true;
+
+      let stopsOk = true;
+      if (filterStops === 'direct') stopsOk = stops === 0;
+      else if (filterStops === 'one') stopsOk = stops === 1;
+      else if (filterStops === 'multi') stopsOk = stops >= 2;
+
+      return airlineSelected && stopsOk;
+    });
+  };
+
   const handleSelectFlight = (itinerary) => {
     sessionStorage.setItem('selectedFlight', JSON.stringify(itinerary));
-    router.push('/air-ticketing/book');
+    const query = new URLSearchParams({
+      adults: String(adults),
+      children: String(children),
+      kids: String(kids),
+      infants: String(infants),
+      class: cabinClass
+    });
+    router.push(`/air-ticketing/book?${query.toString()}`);
   };
 
   const formatTime = (dateString) => {
@@ -159,85 +215,11 @@ const FlightResultsPage = () => {
 
   // --- Components ---
 
-  const PriceBreakdownModal = ({ pricing, onClose }) => {
-    if (!pricing) return null;
-    
-    // Handle structure variation (pricingInfo vs ItinTotalFare)
-    const fare = pricing.ItinTotalFare || pricing;
-    
-    const base = parseFloat(fare.BaseFare?.Amount || 0);
-    const total = parseFloat(fare.TotalFare?.Amount || 0);
-    const tax = total - base;
-    const currency = fare.TotalFare?.CurrencyCode || 'BDT';
-    
-    // Mock Discount for professional look (Real logic would come from API/Promo)
-    const discount = Math.round(base * 0.10); // 10% discount
-    const aitVat = 15.00; // Mock AIT & VAT
-    const finalTotal = total - discount + aitVat;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
-          <div className="bg-white dark:bg-gray-900 px-6 py-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-700">
-            <h3 className="font-bold text-lg text-[#2e2b5f] dark:text-white">Price Breakdown</h3>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <div className="p-6">
-             <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-xl mb-6">
-               <table className="w-full text-sm">
-                 <thead>
-                   <tr className="bg-gray-50 dark:bg-gray-700/50 text-gray-500">
-                     <th className="py-3 px-4 text-center font-medium border-r border-gray-100 dark:border-gray-700">Type</th>
-                     <th className="py-3 px-4 text-center font-medium border-r border-gray-100 dark:border-gray-700">Base</th>
-                     <th className="py-3 px-4 text-center font-medium border-r border-gray-100 dark:border-gray-700">Taxes</th>
-                     <th className="py-3 px-4 text-center font-medium">Total Fare</th>
-                   </tr>
-                 </thead>
-                 <tbody className="text-gray-700 dark:text-gray-300">
-                   <tr>
-                     <td className="py-4 px-4 text-center border-r border-gray-100 dark:border-gray-700">Adult ({passengers})</td>
-                     <td className="py-4 px-4 text-center border-r border-gray-100 dark:border-gray-700">{base.toLocaleString()} ৳</td>
-                     <td className="py-4 px-4 text-center border-r border-gray-100 dark:border-gray-700">{tax.toLocaleString()} ৳</td>
-                     <td className="py-4 px-4 text-center font-medium">{total.toLocaleString()} ৳</td>
-                   </tr>
-                 </tbody>
-               </table>
-             </div>
-             
-             <div className="space-y-3">
-               <div className="flex justify-between text-sm font-medium text-gray-600 dark:text-gray-400">
-                 <span>Discount</span>
-                 <span className="text-[#2e2b5f] dark:text-blue-400 font-bold">- BDT {discount.toLocaleString()}.00</span>
-               </div>
-               <div className="flex justify-between text-sm font-medium text-gray-600 dark:text-gray-400">
-                 <span>Total AIT & VAT</span>
-                 <span className="font-bold text-[#2e2b5f] dark:text-blue-400">BDT {aitVat.toFixed(2)}</span>
-               </div>
-               <div className="flex justify-between items-center pt-3 mt-2">
-                 <span className="font-bold text-base text-[#2e2b5f] dark:text-white">Total Customer payable</span>
-                 <span className="text-xl font-bold text-[#2e2b5f] dark:text-blue-400">BDT {finalTotal.toLocaleString()}.00</span>
-               </div>
-             </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-12 font-sans">
         
-        {/* Modal Overlay */}
-        {priceModalData && (
-          <PriceBreakdownModal 
-            pricing={priceModalData} 
-            onClose={() => setPriceModalData(null)} 
-          />
-        )}
 
         {/* Header Section */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30 shadow-sm">
@@ -247,7 +229,7 @@ const FlightResultsPage = () => {
                 {/* Mobile Filter Toggle */}
                 <button 
                   onClick={() => setShowFilters(!showFilters)}
-                  className="lg:hidden p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200"
+                  className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200"
                 >
                   <Filter className="w-5 h-5" />
                 </button>
@@ -301,10 +283,7 @@ const FlightResultsPage = () => {
           <div className="flex flex-col lg:flex-row gap-6">
             
             {/* Sidebar Filters - Responsive */}
-            <div className={`
-              lg:block w-full lg:w-[280px] flex-shrink-0 space-y-4 
-              ${showFilters ? 'block' : 'hidden'}
-            `}>
+            <div className={`${showFilters ? 'block' : 'hidden'} w-full lg:w-[280px] flex-shrink-0 space-y-4`}>
               {/* ... (existing filter content same as before) ... */}
               <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
                 <div className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
@@ -316,17 +295,39 @@ const FlightResultsPage = () => {
               <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-gray-900 dark:text-white text-lg">Sort & Filter</h3>
-                  <button className="text-xs text-blue-600 font-medium hover:underline">Reset</button>
+                  <button
+                    className="text-xs text-blue-600 font-medium hover:underline"
+                    onClick={() => {
+                      setSortOption('cheapest');
+                      setFilterStops('all');
+                      setFilterAirlines({ BS: false, BG: false, '2A': false });
+                    }}
+                  >
+                    Reset
+                  </button>
                 </div>
                 {/* Stops */}
                 <div className="mb-6">
                   <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">Stops</h4>
                   <div className="flex gap-2">
-                    {['Direct', '1 Stop', '1+ Stop'].map((stop, i) => (
-                      <button key={stop} className={`flex-1 py-2 text-xs font-medium rounded-lg border ${i === 0 ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'} transition-colors`}>
-                        {stop}
-                      </button>
-                    ))}
+                    <button
+                      onClick={() => setFilterStops('direct')}
+                      className={`flex-1 py-2 text-xs font-medium rounded-lg border ${filterStops === 'direct' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'} transition-colors`}
+                    >
+                      Direct
+                    </button>
+                    <button
+                      onClick={() => setFilterStops('one')}
+                      className={`flex-1 py-2 text-xs font-medium rounded-lg border ${filterStops === 'one' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'} transition-colors`}
+                    >
+                      1 Stop
+                    </button>
+                    <button
+                      onClick={() => setFilterStops('multi')}
+                      className={`flex-1 py-2 text-xs font-medium rounded-lg border ${filterStops === 'multi' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'} transition-colors`}
+                    >
+                      1+ Stop
+                    </button>
                   </div>
                 </div>
                 {/* Baggage */}
@@ -340,12 +341,33 @@ const FlightResultsPage = () => {
                 <div className="mb-6">
                   <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">Preferred Airlines</h4>
                   <div className="space-y-3">
-                    {['US-Bangla Airlines', 'Biman Bangladesh Airlines', 'Air Astra'].map((airline) => (
-                      <label key={airline} className="flex items-center cursor-pointer group">
-                        <input type="checkbox" className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">{airline}</span>
-                      </label>
-                    ))}
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterAirlines.BS}
+                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, BS: e.target.checked }))}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">US-Bangla Airlines</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterAirlines.BG}
+                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, BG: e.target.checked }))}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">Biman Bangladesh Airlines</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filterAirlines['2A']}
+                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, '2A': e.target.checked }))}
+                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">Air Astra</span>
+                    </label>
                   </div>
                 </div>
                 {/* Refundable */}
@@ -447,7 +469,7 @@ const FlightResultsPage = () => {
               {/* Flight Cards */}
               {!loading && results && (
                 <div className="space-y-4">
-                  {results.map((itinerary, index) => {
+                  {applyFilters(results).map((itinerary, index) => {
                     const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
                     const leg = legs[0];
                     const segments = leg.FlightSegment;
@@ -538,12 +560,7 @@ const FlightResultsPage = () => {
                               </div>
 
                               <div className="w-full flex flex-col gap-2 mt-2">
-                                <button 
-                                  onClick={() => setPriceModalData(pricingInfo)}
-                                  className="text-xs text-gray-500 hover:text-blue-600 flex items-center justify-end gap-1 font-medium transition-colors"
-                                >
-                                  Price Breakdown <ChevronDown className="w-3 h-3" />
-                                </button>
+                                
                                 <button 
                                   onClick={() => handleSelectFlight(itinerary)}
                                   className="w-full bg-[#2e2b5f] hover:bg-[#3d3983] text-white py-2.5 rounded-lg font-bold text-sm shadow-md transform transition active:scale-95"

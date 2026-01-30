@@ -6,7 +6,7 @@ import { getDb } from '@/lib/mongodb';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { origin, destination, departureDate, returnDate, passengers, tripType, segments } = body;
+    const { origin, destination, departureDate, returnDate, passengers, tripType, segments, travellers } = body;
 
     // Validation
     if (tripType === 'multiway') {
@@ -48,7 +48,8 @@ export async function POST(request) {
         departureDate,
         returnDate,
         passengers: passengers || 1,
-        segments // Pass segments for multi-city
+        segments, // Pass segments for multi-city
+        travellers
       })
     ]);
 

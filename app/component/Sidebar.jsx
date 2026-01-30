@@ -302,7 +302,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
       <aside
         className={`fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 flex flex-col shadow-lg`}
+        } flex flex-col shadow-lg`}
         style={{ fontFamily: "'Google Sans', sans-serif" }}
       >
         {/* Sidebar Header */}

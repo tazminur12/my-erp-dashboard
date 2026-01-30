@@ -37,8 +37,18 @@ const FlightSearch = ({ compact = false }) => {
   const [departureDate, setDepartureDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
   
-  const [travellers, setTravellers] = useState({ count: 1, class: 'Economy' });
+  const [travellers, setTravellers] = useState({ 
+    adults: 1, 
+    children: 0, 
+    kids: 0, 
+    infants: 0, 
+    class: 'Economy' 
+  });
   const [fareType, setFareType] = useState('regular');
+  
+  const getTotalPassengers = () => {
+    return travellers.adults + travellers.children + travellers.kids + travellers.infants;
+  };
 
   const fromRef = useRef(null);
   const toRef = useRef(null);
@@ -232,9 +242,13 @@ const FlightSearch = ({ compact = false }) => {
 
       const query = new URLSearchParams({
         tripType,
-        passengers: travellers.count,
+        adults: travellers.adults,
+        children: travellers.children,
+        kids: travellers.kids,
+        infants: travellers.infants,
         class: travellers.class,
-        segments: JSON.stringify(segmentsData)
+        segments: JSON.stringify(segmentsData),
+        fareType
       });
 
       router.push(`/air-ticketing/flight-results?${query.toString()}`);
@@ -250,9 +264,13 @@ const FlightSearch = ({ compact = false }) => {
       origin: selectedFrom.iata,
       destination: selectedTo.iata,
       departureDate,
-      passengers: travellers.count,
+      adults: travellers.adults,
+      children: travellers.children,
+      kids: travellers.kids,
+      infants: travellers.infants,
       class: travellers.class,
-      tripType
+      tripType,
+      fareType
     });
 
     if (tripType === 'roundtrip' && returnDate) {
@@ -436,19 +454,65 @@ const FlightSearch = ({ compact = false }) => {
                           <User className="w-3 h-3" /> {travellers.class}
                         </label>
                         <div className="font-bold text-gray-900 dark:text-white text-sm">
-                          {travellers.count} Traveler
+                          {getTotalPassengers()} Traveler
                         </div>
                         {/* Dropdown */}
-                        <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 p-4 mt-2 hidden group-hover:block z-20 min-w-[200px]">
-                          <div className="flex justify-between items-center mb-4">
-                            <span className="font-medium text-sm">Travelers</span>
-                            <div className="flex items-center gap-3">
-                              <button onClick={() => setTravellers({...travellers, count: Math.max(1, travellers.count - 1)})} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-sm">-</button>
-                              <span className="font-bold text-sm">{travellers.count}</span>
-                              <button onClick={() => setTravellers({...travellers, count: travellers.count + 1})} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-sm">+</button>
+                        <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 p-4 mt-2 hidden group-hover:block z-20 min-w-[280px]">
+                          <div className="space-y-4 mb-4">
+                            {/* Adults */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Adults</div>
+                                    <div className="text-xs text-gray-500">12 years & above</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, adults: Math.max(1, prev.adults - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.adults}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, adults: prev.adults + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Children */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Children</div>
+                                    <div className="text-xs text-gray-500">From 5 to under 12</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, children: Math.max(0, prev.children - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.children}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, children: prev.children + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Kids */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Kids</div>
+                                    <div className="text-xs text-gray-500">From 2 to under 5</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, kids: Math.max(0, prev.kids - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.kids}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, kids: prev.kids + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Infants */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Infants</div>
+                                    <div className="text-xs text-gray-500">Under 2 years</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, infants: Math.max(0, prev.infants - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.infants}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, infants: prev.infants + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
                             </div>
                           </div>
-                          <div>
+                          
+                          <div className="pt-4 border-t border-gray-100">
                             <span className="font-medium text-sm mb-2 block">Class</span>
                             <div className="flex flex-wrap gap-2">
                               {['Economy', 'Business', 'First'].map(c => (
@@ -462,6 +526,8 @@ const FlightSearch = ({ compact = false }) => {
                               ))}
                             </div>
                           </div>
+                          
+                          <button className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Done</button>
                         </div>
                       </div>
                     ) : (
@@ -682,35 +748,83 @@ const FlightSearch = ({ compact = false }) => {
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Travellers & Class</label>
               <div className="font-bold text-gray-900 dark:text-white text-lg">
-                {travellers.count} Traveler, {travellers.class}
+                {getTotalPassengers()} Traveler, {travellers.class}
               </div>
             </div>
             <User className="w-5 h-5 text-gray-400" />
             
             {/* Simple Popover for editing (hidden by default, shown on hover/focus could be better but simplified here) */}
-            <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 p-4 mt-2 hidden group-hover:block z-20">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-medium text-sm">Travelers</span>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setTravellers({...travellers, count: Math.max(1, travellers.count - 1)})} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">-</button>
-                  <span className="font-bold">{travellers.count}</span>
-                  <button onClick={() => setTravellers({...travellers, count: travellers.count + 1})} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">+</button>
-                </div>
-              </div>
-              <div>
-                <span className="font-medium text-sm mb-2 block">Class</span>
-                <div className="flex gap-2">
-                  {['Economy', 'Business', 'First'].map(c => (
-                    <button 
-                      key={c}
-                      onClick={() => setTravellers({...travellers, class: c})}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border ${travellers.class === c ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200'}`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 p-4 mt-2 hidden group-hover:block z-20 min-w-[280px]">
+                          <div className="space-y-4 mb-4">
+                            {/* Adults */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Adults</div>
+                                    <div className="text-xs text-gray-500">12 years & above</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, adults: Math.max(1, prev.adults - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.adults}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, adults: prev.adults + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Children */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Children</div>
+                                    <div className="text-xs text-gray-500">From 5 to under 12</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, children: Math.max(0, prev.children - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.children}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, children: prev.children + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Kids */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Kids</div>
+                                    <div className="text-xs text-gray-500">From 2 to under 5</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, kids: Math.max(0, prev.kids - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.kids}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, kids: prev.kids + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+
+                            {/* Infants */}
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <div className="font-medium text-sm text-gray-900 dark:text-white">Infants</div>
+                                    <div className="text-xs text-gray-500">Under 2 years</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button onClick={() => setTravellers(prev => ({...prev, infants: Math.max(0, prev.infants - 1)}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">-</button>
+                                  <span className="font-bold text-sm w-4 text-center">{travellers.infants}</span>
+                                  <button onClick={() => setTravellers(prev => ({...prev, infants: prev.infants + 1}))} className="w-8 h-8 rounded-full border border-blue-500 text-blue-500 flex items-center justify-center hover:bg-blue-50">+</button>
+                                </div>
+                            </div>
+                          </div>
+                          
+                          <div className="pt-4 border-t border-gray-100">
+                            <span className="font-medium text-sm mb-2 block">Class</span>
+                            <div className="flex flex-wrap gap-2">
+                              {['Economy', 'Business', 'First'].map(c => (
+                                <button 
+                                  key={c}
+                                  onClick={() => setTravellers({...travellers, class: c})}
+                                  className={`px-2 py-1 rounded-md text-xs font-medium border ${travellers.class === c ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200'}`}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <button className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Done</button>
             </div>
           </div>
 

@@ -5,18 +5,18 @@ import { createPNR } from '@/lib/sabre';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { flight, passenger } = body;
+    const { flight, passengers, contact } = body;
 
     // Validation
-    if (!flight || !passenger) {
+    if (!flight || !passengers || !Array.isArray(passengers) || passengers.length === 0) {
       return NextResponse.json(
-        { error: 'Missing flight or passenger data' },
+        { error: 'Missing flight or passengers data' },
         { status: 400 }
       );
     }
 
     // Call Sabre to create PNR
-    const pnrResponse = await createPNR({ flight, passenger });
+    const pnrResponse = await createPNR({ flight, passengers, contact });
 
     // Extract PNR Locator
     const pnr = pnrResponse.CreatePassengerNameRecordRS?.ItineraryRef?.ID;

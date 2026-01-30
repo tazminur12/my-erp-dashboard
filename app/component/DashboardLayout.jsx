@@ -10,7 +10,7 @@ import Sidebar from './Sidebar';
 import { Loader2, LogIn } from 'lucide-react';
 
 const DashboardLayout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { loading, authenticated } = useSession();
   const [sessionReady, setSessionReady] = useState(false);
   const router = useRouter();
@@ -31,6 +31,8 @@ const DashboardLayout = ({ children }) => {
       router.replace(`/login?callbackUrl=${callbackUrl}`);
     }
   }, [loading, sessionReady, authenticated, pathname, router]);
+
+  // Sidebar toggle only controls visibility; no route-based override
 
   // Show loading state while session is loading
   if (loading || !sessionReady) {
@@ -69,9 +71,9 @@ const DashboardLayout = ({ children }) => {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main Content */}
-      <div className="lg:pl-72">
+      <div className={sidebarOpen ? "lg:pl-72" : "lg:pl-0"}>
         {/* Topbar */}
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar onMenuClick={() => setSidebarOpen(prev => !prev)} />
 
         {/* Page Content */}
         <main className="p-4 md:p-6 lg:p-8">
