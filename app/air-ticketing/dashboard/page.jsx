@@ -24,7 +24,7 @@ const quickActions = [
   { label: 'টিকিট তালিকা', href: '/air-ticketing/tickets', icon: BadgeCheck },
   { label: 'প্যাসেঞ্জার', href: '/air-ticketing/passengers', icon: Users },
   { label: 'এজেন্ট', href: '/air-ticketing/agents', icon: UserCheck },
-  { label: 'এয়ারলাইন', href: '/air-ticketing/airlines', icon: Building2 },
+  { label: 'এয়ারলাইন', href: '/settings/inventory/airline', icon: Building2 },
   { label: 'টিকিট চেক', href: '/air-ticketing/ticket-check', icon: Plane },
 ];
 

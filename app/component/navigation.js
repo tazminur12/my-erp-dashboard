@@ -164,7 +164,6 @@ export const navigation = [
           { name: 'Old Ticket Reissue', href: '/air-ticketing/old/ticket-reissue/list', icon: List }
         ]
       },
-      { name: 'Airline List', href: '/air-ticketing/airlines', icon: List },
       { name: 'GDS', href: '/air-ticketing/gds', icon: List },
       { name: 'IATA Monitor', href: '/air-ticketing/iata-monitor', icon: Monitor }
     ]
@@ -304,6 +303,14 @@ export const navigation = [
         roles: ['super_admin'] 
       },
       { name: 'Module Access', href: '/settings/module-access', icon: Eye },
+      {
+        name: 'Inventory',
+        icon: Package,
+        children: [
+          { name: 'Airline', href: '/settings/inventory/airline', icon: Plane },
+          { name: 'Airport', href: '/settings/inventory/airport', icon: PlaneTakeoff }
+        ]
+      },
       { name: 'System Settings', href: '/settings/system', icon: Settings },
     ]
   },

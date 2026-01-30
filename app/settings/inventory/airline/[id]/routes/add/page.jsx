@@ -173,7 +173,7 @@ const AddRoute = () => {
           confirmButtonText: 'ঠিক আছে',
           confirmButtonColor: '#10B981',
         }).then(() => {
-          router.push(`/air-ticketing/airlines/${id}`);
+          router.push(`/settings/inventory/airline/${id}`);
         });
       } else {
         throw new Error(result.error || 'Failed to create route');
@@ -212,7 +212,7 @@ const AddRoute = () => {
           {/* Header */}
           <div className="mb-6">
             <button
-              onClick={() => router.push(`/air-ticketing/airlines/${id}`)}
+              onClick={() => router.push(`/settings/inventory/airline/${id}`)}
               className="flex items-center mb-4 transition-colors duration-200 font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />

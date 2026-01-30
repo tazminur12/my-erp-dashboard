@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Edit, Trash2, Search, Filter, Eye, Plane, Building, Phone, Mail, Globe, MapPin, Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { CLOUDINARY_CONFIG, validateCloudinaryConfig } from '../../../config/cloudinary';
+import { CLOUDINARY_CONFIG, validateCloudinaryConfig } from '../../../../config/cloudinary';
 import Swal from 'sweetalert2';
-import DashboardLayout from '../../component/DashboardLayout';
-import Modal from '../../component/Modal';
+import DashboardLayout from '../../../component/DashboardLayout';
+import Modal from '../../../component/Modal';
 
 const AirlineList = () => {
   const router = useRouter();
@@ -80,6 +80,9 @@ const AirlineList = () => {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    icao: '',
+    fs: '',
+    isDomestic: false,
     country: '',
     headquarters: '',
     phone: '',
@@ -611,7 +614,7 @@ const AirlineList = () => {
                             <button
                               onClick={() => {
                                 const airlineId = airline._id || airline.airlineId || airline.id;
-                                router.push(`/air-ticketing/airlines/${airlineId}`);
+                                router.push(`/settings/inventory/airline/${airlineId}`);
                               }}
                               className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 p-2 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                               title="View Details"
@@ -748,7 +751,7 @@ const AirlineList = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Airline Code <span className="text-red-500">*</span>
+                      IATA <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -759,6 +762,47 @@ const AirlineList = () => {
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder="e.g., BG, EK"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      ICAO
+                    </label>
+                    <input
+                      type="text"
+                      maxLength="4"
+                      value={formData.icao}
+                      onChange={(e) => setFormData({...formData, icao: e.target.value.toUpperCase()})}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="e.g., BBC"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      FS
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.fs}
+                      onChange={(e) => setFormData({...formData, fs: e.target.value.toUpperCase()})}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder="e.g., 2A"
+                    />
+                  </div>
+
+                  <div className="flex items-center pt-8">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.isDomestic}
+                        onChange={(e) => setFormData({...formData, isDomestic: e.target.checked})}
+                        className="form-checkbox h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Is Domestic
+                      </span>
+                    </label>
                   </div>
                   
                   <div>

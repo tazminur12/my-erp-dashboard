@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import DashboardLayout from '../../../component/DashboardLayout';
+import DashboardLayout from '../../../../component/DashboardLayout';
 import { 
   ArrowLeft, 
   Edit, 
@@ -627,7 +627,7 @@ const AirlineDetails = () => {
             <XCircle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400 mb-4">Airline not found</p>
             <button
-              onClick={() => router.push('/air-ticketing/airlines')}
+              onClick={() => router.push('/settings/inventory/airline')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               Back to Airlines
@@ -646,7 +646,7 @@ const AirlineDetails = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.push('/air-ticketing/airlines')}
+                onClick={() => router.push('/settings/inventory/airline')}
                 className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
               >
                 <ArrowLeft className="w-5 h-5 mr-2" />
