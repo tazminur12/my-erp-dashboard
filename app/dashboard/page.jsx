@@ -219,7 +219,7 @@ export default function ProfessionalDashboard() {
         overview: data.overview || {},
         grandTotals: {
           totalRevenue: data.grandTotals?.totalRevenue || 0,
-          totalDue: data.grandTotals?.totalDue || 0,
+          totalDue: Math.max(0, data.grandTotals?.totalDue || 0),
           totalAssets: data.grandTotals?.totalAssets || 0,
           totalAdvanceAmni: 0,
         },

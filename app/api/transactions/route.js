@@ -367,24 +367,10 @@ export async function POST(request) {
     }
 
     if (!branch) {
-      const defaultBranchId = 'main';
-      const defaultDoc = {
-        branchId: defaultBranchId,
-        branchName: 'Main Branch',
-        branchCode: 'MN',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      await branches.updateOne(
-        { branchId: defaultBranchId },
-        { $setOnInsert: defaultDoc },
-        { upsert: true }
-      );
-      await branches.updateOne(
-        { branchId: defaultBranchId },
-        { $set: { isActive: true, updatedAt: new Date() } }
-      );
-      branch = await branches.findOne({ branchId: defaultBranchId, isActive: true });
+      return NextResponse.json({
+        success: false,
+        message: "No active branch found. Please create a branch in Settings > Branch Management."
+      }, { status: 400 });
     }
 
     // 4. Validate accounts

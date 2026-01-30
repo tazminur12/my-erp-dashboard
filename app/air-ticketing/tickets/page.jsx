@@ -824,13 +824,22 @@ const TicketList = () => {
                 সমস্ত ইস্যুকৃত টিকিটের তালিকা ও ব্যবস্থাপনা
               </p>
             </div>
-            <button
-              onClick={() => router.push('/air-ticketing/tickets/add')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex items-center"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              নতুন টিকিট
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => router.push('/air-ticketing/search')}
+                className="bg-white text-gray-700 border border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200 flex items-center shadow-sm"
+              >
+                <Search className="w-5 h-5 mr-2" />
+                Flight Search
+              </button>
+              <button
+                onClick={() => router.push('/air-ticketing/tickets/add')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex items-center"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                নতুন টিকিট
+              </button>
+            </div>
           </div>
 
           {/* Search and Filters */}
