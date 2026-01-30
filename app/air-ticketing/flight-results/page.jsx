@@ -60,9 +60,19 @@ const FlightResultsPage = () => {
   const passengers = searchParams.get('passengers') || 1;
   const tripType = searchParams.get('tripType');
   const cabinClass = searchParams.get('class') || 'Economy';
+  
+  let segments = [];
+  try {
+    const segmentsStr = searchParams.get('segments');
+    if (segmentsStr) {
+      segments = JSON.parse(segmentsStr);
+    }
+  } catch (e) {
+    console.error('Failed to parse segments', e);
+  }
 
   useEffect(() => {
-    if (origin && destination && departureDate) {
+    if ((origin && destination && departureDate) || (tripType === 'multiway' && segments.length > 0)) {
       performSearch();
     } else {
       setLoading(false);
@@ -82,7 +92,8 @@ const FlightResultsPage = () => {
           departureDate,
           returnDate,
           passengers,
-          tripType
+          tripType,
+          segments
         })
       });
       
@@ -247,17 +258,32 @@ const FlightResultsPage = () => {
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 md:gap-4 text-gray-900 dark:text-white">
                     <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
-                      {origin} <span className="text-gray-400">→</span> {destination}
+                      {tripType === 'multiway' ? (
+                        <span>Multi-City Trip</span>
+                      ) : (
+                        <>
+                          {origin} <span className="text-gray-400">→</span> {destination}
+                        </>
+                      )}
                     </h1>
                     <div className="h-4 w-[1px] bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
                     <div className="hidden sm:block font-medium text-sm md:text-base">
-                      {new Date(departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {tripType === 'multiway' && segments.length > 0 
+                        ? `${new Date(segments[0].departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${new Date(segments[segments.length - 1].departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                        : departureDate ? new Date(departureDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+                      }
                     </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 md:gap-4">
                     <span>{results ? `${results.length} Flights` : 'Searching...'}</span>
                     <span className="hidden sm:inline">•</span>
                     <span className="hidden sm:inline">{passengers} Traveler(s)</span>
+                    {tripType === 'multiway' && (
+                       <>
+                         <span className="hidden sm:inline">•</span>
+                         <span className="hidden sm:inline">{segments.length} Segments</span>
+                       </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -568,7 +594,7 @@ const FlightResultsPage = () => {
                              {activeTab === 'itinerary' && (
                                <div className="space-y-6 px-4">
                                  <div className="text-lg font-bold text-[#2e2b5f] dark:text-white mb-8">
-                                   {origin}- {destination}
+                                   {tripType === 'multiway' ? 'Flight Itinerary' : `${origin} - ${destination}`}
                                  </div>
                                  {legs.map((leg, legIndex) => (
                                    <div key={legIndex} className="relative space-y-0">

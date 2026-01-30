@@ -12,7 +12,11 @@ import {
   Calendar,
   User,
   MapPin,
-  Check
+  Check,
+  Plus,
+  Trash2,
+  PlaneTakeoff,
+  PlaneLanding
 } from 'lucide-react';
 import airportsData from '../jsondata/airports.json';
 
@@ -38,6 +42,7 @@ const FlightSearch = ({ compact = false }) => {
 
   const fromRef = useRef(null);
   const toRef = useRef(null);
+  const multiCityRef = useRef(null);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -47,6 +52,9 @@ const FlightSearch = ({ compact = false }) => {
       }
       if (toRef.current && !toRef.current.contains(event.target)) {
         setShowToSuggestions(false);
+      }
+      if (multiCityRef.current && !multiCityRef.current.contains(event.target)) {
+        setActiveSegmentField(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -99,6 +107,102 @@ const FlightSearch = ({ compact = false }) => {
     return () => clearTimeout(timer);
   }, [toSearch, selectedTo]);
 
+  const [multiCitySegments, setMultiCitySegments] = useState([
+    { id: 1, from: null, to: null, date: '', fromSearch: '', toSearch: '' },
+    { id: 2, from: null, to: null, date: '', fromSearch: '', toSearch: '' },
+  ]);
+  const [activeSegmentField, setActiveSegmentField] = useState(null); // { id, field }
+
+  const handleMultiCitySelect = (id, field, airport) => {
+    setMultiCitySegments(prev => prev.map(seg => {
+      if (seg.id === id) {
+        return {
+          ...seg,
+          [field]: airport,
+          [`${field}Search`]: `${airport.name} (${airport.iata})`
+        };
+      }
+      return seg;
+    }));
+    setActiveSegmentField(null);
+  };
+
+  const handleMultiCitySearchChange = (id, field, value) => {
+    setMultiCitySegments(prev => prev.map(seg => {
+      if (seg.id === id) {
+        const updatedSeg = { ...seg, [`${field}Search`]: value };
+        if (updatedSeg[field]) updatedSeg[field] = null; // Clear selected airport if typing
+        return updatedSeg;
+      }
+      return seg;
+    }));
+    setActiveSegmentField({ id, field });
+  };
+
+  const [rotatingId, setRotatingId] = useState(null);
+  const [isMainRotating, setIsMainRotating] = useState(false);
+
+  const handleMainSwap = () => {
+    setIsMainRotating(true);
+    setTimeout(() => setIsMainRotating(false), 500);
+
+    const tempS = selectedFrom; setSelectedFrom(selectedTo); setSelectedTo(tempS);
+    const tempT = fromSearch; setFromSearch(toSearch); setToSearch(tempT);
+  };
+
+  const handleSegmentSwap = (id) => {
+    setRotatingId(id);
+    setTimeout(() => setRotatingId(null), 500); // Animation duration
+
+    setMultiCitySegments(prev => prev.map(seg => {
+      if (seg.id === id) {
+        return {
+          ...seg,
+          from: seg.to,
+          to: seg.from,
+          fromSearch: seg.toSearch,
+          toSearch: seg.fromSearch
+        };
+      }
+      return seg;
+    }));
+  };
+
+  // Debounce search for Multi City inputs
+  useEffect(() => {
+    if (activeSegmentField) {
+      const { id, field } = activeSegmentField;
+      const segment = multiCitySegments.find(s => s.id === id);
+      const searchValue = segment[`${field}Search`];
+      
+      const timer = setTimeout(() => {
+        if (searchValue && (!segment[field] || searchValue !== `${segment[field].name} (${segment[field].iata})`)) {
+          if (field === 'from') {
+            fetchAirports(searchValue, setFromAirports, setIsSearchingFrom);
+          } else {
+            fetchAirports(searchValue, setToAirports, setIsSearchingTo);
+          }
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [multiCitySegments, activeSegmentField]);
+
+  const addSegment = () => {
+    if (multiCitySegments.length < 5) {
+      setMultiCitySegments([
+        ...multiCitySegments,
+        { id: Date.now(), from: null, to: null, date: '', fromSearch: '', toSearch: '' }
+      ]);
+    }
+  };
+
+  const removeSegment = (id) => {
+    if (multiCitySegments.length > 2) {
+      setMultiCitySegments(multiCitySegments.filter(s => s.id !== id));
+    }
+  };
+
   const handleSelectFrom = (airport) => {
     setSelectedFrom(airport);
     setFromSearch(`${airport.name} (${airport.iata})`);
@@ -112,6 +216,31 @@ const FlightSearch = ({ compact = false }) => {
   };
 
   const handleSearchClick = () => {
+    if (tripType === 'multiway') {
+      // Validate all segments
+      const isValid = multiCitySegments.every(seg => seg.from && seg.to && seg.date);
+      if (!isValid) {
+        alert('Please fill in From, To, and Journey Date for all segments');
+        return;
+      }
+
+      const segmentsData = multiCitySegments.map(seg => ({
+        origin: seg.from.iata,
+        destination: seg.to.iata,
+        departureDate: seg.date
+      }));
+
+      const query = new URLSearchParams({
+        tripType,
+        passengers: travellers.count,
+        class: travellers.class,
+        segments: JSON.stringify(segmentsData)
+      });
+
+      router.push(`/air-ticketing/flight-results?${query.toString()}`);
+      return;
+    }
+
     if (!selectedFrom || !selectedTo || !departureDate) {
       alert('Please fill in From, To, and Journey Date');
       return;
@@ -135,36 +264,8 @@ const FlightSearch = ({ compact = false }) => {
 
   return (
     <div className="w-full max-w-6xl mx-auto font-sans">
-      {/* Top Tabs */}
-      <div className="flex justify-center mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-full shadow-md p-1.5 flex space-x-2">
-          {[
-            { id: 'flight', label: 'Flights', icon: Plane },
-            { id: 'hotel', label: 'Hotel', icon: Hotel },
-            { id: 'esim', label: 'E-Sim', icon: Wifi },
-            { id: 'insurance', label: 'Insurance', icon: ShieldCheck },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
-                  isActive 
-                    ? 'bg-white text-blue-900 shadow-sm ring-1 ring-gray-200' 
-                    : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : ''}`} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Search Box */}
+      
+    {/* Main Search Box */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
         
         {/* Trip Type & Tags */}
@@ -195,26 +296,237 @@ const FlightSearch = ({ compact = false }) => {
         </div>
 
         {/* Inputs Grid */}
+        {tripType === 'multiway' ? (
+          <div className="space-y-4" ref={multiCityRef}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {multiCitySegments.map((segment, index) => (
+                <React.Fragment key={segment.id}>
+                  {/* FROM & TO */}
+                  <div className={`md:col-span-6 relative ${activeSegmentField?.id === segment.id ? 'z-20' : 'z-0'}`}>
+                    <div className="flex items-center gap-1">
+                      {/* From Input */}
+                      <div className="relative flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-3 hover:border-blue-400 transition-colors group">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">
+                          From
+                        </label>
+                        <div className="flex items-center gap-2">
+                           {segment.from && <span className="text-lg font-bold text-gray-900 dark:text-white">{segment.from.iata}</span>}
+                           <div className="flex-1 min-w-0">
+                             <input
+                              type="text"
+                              value={segment.fromSearch}
+                              onChange={(e) => handleMultiCitySearchChange(segment.id, 'from', e.target.value)}
+                              onFocus={() => setActiveSegmentField({ id: segment.id, field: 'from' })}
+                              className={`w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300 truncate ${segment.from ? 'text-sm' : ''}`}
+                              placeholder="City or Airport"
+                            />
+                            <div className="text-xs text-gray-500 truncate">
+                              {segment.from ? segment.from.name : 'Select Departure City'}
+                            </div>
+                           </div>
+                        </div>
+                        
+                        {/* Suggestions */}
+                        {activeSegmentField?.id === segment.id && activeSegmentField?.field === 'from' && segment.fromSearch && (
+                          <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 max-h-60 overflow-y-auto mt-2">
+                            {isSearchingFrom ? (
+                              <div className="p-3 text-center text-xs text-gray-500">Searching...</div>
+                            ) : fromAirports.length > 0 ? (
+                              fromAirports.map((airport) => (
+                                <button
+                                  key={airport._id || airport.id}
+                                  onClick={() => handleMultiCitySelect(segment.id, 'from', airport)}
+                                  className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-50 dark:border-gray-700 last:border-0 flex items-center justify-between group"
+                                >
+                                  <div className="truncate">
+                                    <div className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                                      {airport.iata} <span className="font-normal text-xs text-gray-500 truncate">{airport.name}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-gray-500 text-center text-xs">No airports found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Swap Button */}
+                      <button 
+                        onClick={() => handleSegmentSwap(segment.id)}
+                        className={`p-3 rounded-full bg-white dark:bg-gray-700 shadow-lg text-blue-600 dark:text-blue-400 transition-transform duration-500 z-10 -ml-5 -mr-5 relative ${rotatingId === segment.id ? 'rotate-180' : ''}`}
+                      >
+                        <ArrowRightLeft className="w-5 h-5" />
+                      </button>
+
+                      {/* To Input */}
+                      <div className="relative flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-3 hover:border-blue-400 transition-colors group">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">
+                          To
+                        </label>
+                         <div className="flex items-center gap-2">
+                           {segment.to && <span className="text-lg font-bold text-gray-900 dark:text-white">{segment.to.iata}</span>}
+                           <div className="flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={segment.toSearch}
+                              onChange={(e) => handleMultiCitySearchChange(segment.id, 'to', e.target.value)}
+                              onFocus={() => setActiveSegmentField({ id: segment.id, field: 'to' })}
+                              className={`w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300 truncate ${segment.to ? 'text-sm' : ''}`}
+                              placeholder="City or Airport"
+                            />
+                            <div className="text-xs text-gray-500 truncate">
+                              {segment.to ? segment.to.name : 'Select Destination'}
+                            </div>
+                           </div>
+                         </div>
+
+                        {/* Suggestions */}
+                        {activeSegmentField?.id === segment.id && activeSegmentField?.field === 'to' && segment.toSearch && (
+                          <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-50 max-h-60 overflow-y-auto mt-2">
+                            {isSearchingTo ? (
+                              <div className="p-3 text-center text-xs text-gray-500">Searching...</div>
+                            ) : toAirports.length > 0 ? (
+                              toAirports.map((airport) => (
+                                <button
+                                  key={airport._id || airport.id}
+                                  onClick={() => handleMultiCitySelect(segment.id, 'to', airport)}
+                                  className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-50 dark:border-gray-700 last:border-0 flex items-center justify-between group"
+                                >
+                                  <div className="truncate">
+                                    <div className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                                      {airport.iata} <span className="font-normal text-xs text-gray-500 truncate">{airport.name}</span>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-gray-500 text-center text-xs">No airports found</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DATE */}
+                  <div className="md:col-span-3">
+                    <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-3 h-full flex flex-col justify-center hover:border-gray-300 transition-colors">
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> Journey Date
+                      </label>
+                      <input 
+                        type="date"
+                        value={segment.date}
+                        onChange={(e) => setMultiCitySegments(prev => prev.map(s => s.id === segment.id ? { ...s, date: e.target.value } : s))}
+                        className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
+                      />
+                      <div className="text-xs text-gray-400 mt-1">
+                        {segment.date ? new Date(segment.date).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }) : 'Select Date'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Travellers/Class (Only for first row) or Spacer/Remove */}
+                  <div className="md:col-span-3 flex items-center gap-2">
+                    {index === 0 ? (
+                      <div className="w-full border border-gray-200 dark:border-gray-600 rounded-xl p-3 h-full flex flex-col justify-center relative group hover:border-gray-300 transition-colors">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <User className="w-3 h-3" /> {travellers.class}
+                        </label>
+                        <div className="font-bold text-gray-900 dark:text-white text-sm">
+                          {travellers.count} Traveler
+                        </div>
+                        {/* Dropdown */}
+                        <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 shadow-xl rounded-xl border border-gray-100 p-4 mt-2 hidden group-hover:block z-20 min-w-[200px]">
+                          <div className="flex justify-between items-center mb-4">
+                            <span className="font-medium text-sm">Travelers</span>
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => setTravellers({...travellers, count: Math.max(1, travellers.count - 1)})} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-sm">-</button>
+                              <span className="font-bold text-sm">{travellers.count}</span>
+                              <button onClick={() => setTravellers({...travellers, count: travellers.count + 1})} className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-sm">+</button>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-sm mb-2 block">Class</span>
+                            <div className="flex flex-wrap gap-2">
+                              {['Economy', 'Business', 'First'].map(c => (
+                                <button 
+                                  key={c}
+                                  onClick={() => setTravellers({...travellers, class: c})}
+                                  className={`px-2 py-1 rounded-md text-xs font-medium border ${travellers.class === c ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200'}`}
+                                >
+                                  {c}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 h-full w-full">
+                        {multiCitySegments.length > 2 && (
+                          <button 
+                            onClick={() => removeSegment(segment.id)}
+                            className="p-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors h-full flex items-center justify-center"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Actions Row */}
+            <div className="flex justify-between items-center pt-2">
+              <button 
+                onClick={addSegment}
+                disabled={multiCitySegments.length >= 5}
+                className="flex items-center gap-2 text-blue-600 font-bold hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-5 h-5" />
+                Add City
+              </button>
+
+              <button 
+                onClick={handleSearchClick}
+                className="bg-[#2e2b5f] hover:bg-[#3d3983] text-white rounded-xl px-8 py-3 font-bold text-sm shadow-lg shadow-blue-900/20 transition-all transform active:scale-95 flex items-center justify-center gap-2"
+              >
+                SEARCH
+                <Plane className="w-4 h-4 transform -rotate-45" />
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 relative">
           
           {/* FROM */}
           <div className="lg:col-span-4 relative" ref={fromRef}>
-            <div className={`border rounded-xl p-4 cursor-text transition-all ${showFromSuggestions ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'}`}>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">From</label>
-              <input
-                type="text"
-                value={fromSearch}
-                onChange={(e) => {
-                  setFromSearch(e.target.value);
-                  setShowFromSuggestions(true);
-                  if(selectedFrom) setSelectedFrom(null);
-                }}
-                onFocus={() => setShowFromSuggestions(true)}
-                className="w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300"
-                placeholder="City or Airport"
-              />
-              <div className="text-sm text-gray-500 truncate">
-                {selectedFrom ? selectedFrom.name : 'Select Departure City'}
+            <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-3 hover:border-blue-400 transition-colors group ${showFromSuggestions ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">From</label>
+              <div className="flex items-center gap-2">
+                 {selectedFrom && <span className="text-lg font-bold text-gray-900 dark:text-white">{selectedFrom.iata}</span>}
+                 <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={fromSearch}
+                    onChange={(e) => {
+                      setFromSearch(e.target.value);
+                      setShowFromSuggestions(true);
+                      if(selectedFrom) setSelectedFrom(null);
+                    }}
+                    onFocus={() => setShowFromSuggestions(true)}
+                    className={`w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300 truncate ${selectedFrom ? 'text-sm' : ''}`}
+                    placeholder="City or Airport"
+                  />
+                  <div className="text-xs text-gray-500 truncate">
+                    {selectedFrom ? selectedFrom.name : 'Select Departure City'}
+                  </div>
+                 </div>
               </div>
             </div>
 
@@ -251,34 +563,36 @@ const FlightSearch = ({ compact = false }) => {
           {/* Swap Button (Absolute Centered) */}
           <div className="absolute left-[33%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 hidden lg:block">
             <button 
-              onClick={() => {
-                const tempS = selectedFrom; setSelectedFrom(selectedTo); setSelectedTo(tempS);
-                const tempT = fromSearch; setFromSearch(toSearch); setToSearch(tempT);
-              }}
-              className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full p-2 shadow-lg hover:rotate-180 transition-all duration-300"
+              onClick={handleMainSwap}
+              className={`bg-white dark:bg-gray-700 p-3 rounded-full shadow-lg text-blue-600 dark:text-blue-400 transition-transform duration-500 ${isMainRotating ? 'rotate-180' : ''}`}
             >
-              <ArrowRightLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <ArrowRightLeft className="w-5 h-5" />
             </button>
           </div>
 
           {/* TO */}
           <div className="lg:col-span-4 relative" ref={toRef}>
-            <div className={`border rounded-xl p-4 cursor-text transition-all ${showToSuggestions ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'}`}>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">To</label>
-              <input
-                type="text"
-                value={toSearch}
-                onChange={(e) => {
-                  setToSearch(e.target.value);
-                  setShowToSuggestions(true);
-                  if(selectedTo) setSelectedTo(null);
-                }}
-                onFocus={() => setShowToSuggestions(true)}
-                className="w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300"
-                placeholder="City or Airport"
-              />
-              <div className="text-sm text-gray-500 truncate">
-                {selectedTo ? selectedTo.name : 'Select Destination City'}
+            <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl p-3 hover:border-blue-400 transition-colors group ${showToSuggestions ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">To</label>
+              <div className="flex items-center gap-2">
+                 {selectedTo && <span className="text-lg font-bold text-gray-900 dark:text-white">{selectedTo.iata}</span>}
+                 <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={toSearch}
+                    onChange={(e) => {
+                      setToSearch(e.target.value);
+                      setShowToSuggestions(true);
+                      if(selectedTo) setSelectedTo(null);
+                    }}
+                    onFocus={() => setShowToSuggestions(true)}
+                    className={`w-full font-bold text-gray-900 dark:text-white text-lg bg-transparent border-none p-0 focus:ring-0 placeholder-gray-300 truncate ${selectedTo ? 'text-sm' : ''}`}
+                    placeholder="City or Airport"
+                  />
+                  <div className="text-xs text-gray-500 truncate">
+                    {selectedTo ? selectedTo.name : 'Select Destination City'}
+                  </div>
+                 </div>
               </div>
             </div>
 
@@ -357,8 +671,10 @@ const FlightSearch = ({ compact = false }) => {
             )}
           </div>
         </div>
+        )}
 
-        {/* Bottom Row: Travellers & Search Button */}
+        {/* Bottom Row: Travellers & Search Button (Only show if NOT multiway, as multiway has its own button) */}
+        {tripType !== 'multiway' && (
         <div className="flex flex-col lg:flex-row gap-4 mt-4">
           
           {/* Travellers & Class Selector */}
@@ -407,6 +723,7 @@ const FlightSearch = ({ compact = false }) => {
             <Plane className="w-5 h-5 transform -rotate-45" />
           </button>
         </div>
+        )}
 
         {/* Fare Type Checkbox */}
         <div className="mt-6 flex items-center gap-6">

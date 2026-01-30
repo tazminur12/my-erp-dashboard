@@ -6,10 +6,17 @@ import { getDb } from '@/lib/mongodb';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { origin, destination, departureDate, returnDate, passengers } = body;
+    const { origin, destination, departureDate, returnDate, passengers, tripType, segments } = body;
 
     // Validation
-    if (!origin || !destination || !departureDate) {
+    if (tripType === 'multiway') {
+      if (!segments || !Array.isArray(segments) || segments.length === 0) {
+        return NextResponse.json(
+          { error: 'Missing segments for multi-city search' },
+          { status: 400 }
+        );
+      }
+    } else if (!origin || !destination || !departureDate) {
       return NextResponse.json(
         { error: 'Missing required fields: origin, destination, departureDate' },
         { status: 400 }
@@ -18,7 +25,7 @@ export async function POST(request) {
 
     // Strict Date Validation (YYYY-MM-DD)
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(departureDate)) {
+    if (departureDate && !dateRegex.test(departureDate)) {
       return NextResponse.json(
         { error: 'Invalid departureDate format. Must be YYYY-MM-DD' },
         { status: 400 }
@@ -40,7 +47,8 @@ export async function POST(request) {
         destination,
         departureDate,
         returnDate,
-        passengers: passengers || 1
+        passengers: passengers || 1,
+        segments // Pass segments for multi-city
       })
     ]);
 

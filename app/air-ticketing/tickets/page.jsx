@@ -827,10 +827,33 @@ const TicketList = () => {
             <div className="flex space-x-3">
               <button
                 onClick={() => router.push('/air-ticketing/search')}
-                className="bg-white text-gray-700 border border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 px-6 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors duration-200 flex items-center shadow-sm"
+                className="group relative overflow-hidden bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2"
               >
-                <Search className="w-5 h-5 mr-2" />
-                Flight Search
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                
+                {/* Flying Plane Animation */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-1/2 left-[-20%] w-6 h-6 text-white/40 transform -translate-y-1/2 rotate-45 animate-fly-across">
+                    <Plane className="w-full h-full" />
+                  </div>
+                </div>
+
+                <div className="relative flex items-center font-semibold tracking-wide">
+                  <Search className="w-5 h-5 mr-2" />
+                  Ticketing Server
+                </div>
+                
+                <style jsx>{`
+                  @keyframes flyAcross {
+                    0% { left: -20%; opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { left: 120%; opacity: 0; }
+                  }
+                  .animate-fly-across {
+                    animation: flyAcross 3s linear infinite;
+                  }
+                `}</style>
               </button>
               <button
                 onClick={() => router.push('/air-ticketing/tickets/add')}
