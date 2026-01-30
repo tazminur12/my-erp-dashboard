@@ -19,9 +19,10 @@ export async function GET(request) {
       const searchRegex = { $regex: searchTerm.trim(), $options: 'i' };
       query.$or = [
         { name: searchRegex },
-        { code: searchRegex },
-        { city: searchRegex },
-        { country: searchRegex }
+        { iata: searchRegex },
+        { iso: searchRegex },
+        { continent: searchRegex },
+        { type: searchRegex }
       ];
     }
 
@@ -43,10 +44,14 @@ export async function GET(request) {
       id: airport._id.toString(),
       _id: airport._id.toString(),
       name: airport.name || '',
-      code: airport.code || '',
-      city: airport.city || '',
-      country: airport.country || '',
-      timezone: airport.timezone || '',
+      iata: airport.iata || airport.code || '',
+      iso: airport.iso || '',
+      status: airport.status !== undefined ? airport.status : 1,
+      continent: airport.continent || '',
+      type: airport.type || '',
+      lat: airport.lat || '',
+      lon: airport.lon || '',
+      size: airport.size || '',
       createdAt: airport.createdAt ? airport.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: airport.updatedAt ? airport.updatedAt.toISOString() : new Date().toISOString(),
     }));
@@ -86,9 +91,9 @@ export async function POST(request) {
       );
     }
 
-    if (!body.code || !body.code.trim()) {
+    if (!body.iata || !body.iata.trim()) {
       return NextResponse.json(
-        { error: 'Airport code is required' },
+        { error: 'Airport IATA code is required' },
         { status: 400 }
       );
     }
@@ -96,14 +101,14 @@ export async function POST(request) {
     const db = await getDb();
     const airportsCollection = db.collection('airports');
 
-    // Check if airport with same code already exists
+    // Check if airport with same iata already exists
     const existingAirport = await airportsCollection.findOne({
-      code: body.code.trim().toUpperCase()
+      iata: body.iata.trim().toUpperCase()
     });
     
     if (existingAirport) {
       return NextResponse.json(
-        { error: 'Airport with this code already exists' },
+        { error: 'Airport with this IATA code already exists' },
         { status: 400 }
       );
     }
@@ -111,10 +116,15 @@ export async function POST(request) {
     // Create airport
     const airportData = {
       name: body.name.trim(),
-      code: body.code.trim().toUpperCase(),
-      city: body.city ? body.city.trim() : null,
-      country: body.country ? body.country.trim() : null,
-      timezone: body.timezone ? body.timezone.trim() : null,
+      iata: body.iata.trim().toUpperCase(),
+      code: body.iata.trim().toUpperCase(), // Keep code for backward compatibility
+      iso: body.iso ? body.iso.trim().toUpperCase() : null,
+      status: body.status !== undefined ? parseInt(body.status) : 1,
+      continent: body.continent ? body.continent.trim().toUpperCase() : null,
+      type: body.type ? body.type.trim().toLowerCase() : 'airport',
+      lat: body.lat ? String(body.lat) : null,
+      lon: body.lon ? String(body.lon) : null,
+      size: body.size ? body.size.trim().toLowerCase() : null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -131,10 +141,14 @@ export async function POST(request) {
       id: createdAirport._id.toString(),
       _id: createdAirport._id.toString(),
       name: createdAirport.name || '',
-      code: createdAirport.code || '',
-      city: createdAirport.city || '',
-      country: createdAirport.country || '',
-      timezone: createdAirport.timezone || '',
+      iata: createdAirport.iata || '',
+      iso: createdAirport.iso || '',
+      status: createdAirport.status !== undefined ? createdAirport.status : 1,
+      continent: createdAirport.continent || '',
+      type: createdAirport.type || '',
+      lat: createdAirport.lat || '',
+      lon: createdAirport.lon || '',
+      size: createdAirport.size || '',
       createdAt: createdAirport.createdAt ? createdAirport.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: createdAirport.updatedAt ? createdAirport.updatedAt.toISOString() : new Date().toISOString(),
     };

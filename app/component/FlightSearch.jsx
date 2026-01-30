@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -15,7 +14,7 @@ import {
   MapPin,
   Check
 } from 'lucide-react';
-import { airports } from '@/lib/airports';
+import airportsData from '../jsondata/airports.json';
 
 const FlightSearch = ({ compact = false }) => {
   const router = useRouter();
@@ -54,27 +53,61 @@ const FlightSearch = ({ compact = false }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredFromAirports = airports.filter(a => 
-    a.city.toLowerCase().includes(fromSearch.toLowerCase()) || 
-    a.code.toLowerCase().includes(fromSearch.toLowerCase()) ||
-    a.name.toLowerCase().includes(fromSearch.toLowerCase())
-  );
+  const [fromAirports, setFromAirports] = useState([]);
+  const [toAirports, setToAirports] = useState([]);
+  const [isSearchingFrom, setIsSearchingFrom] = useState(false);
+  const [isSearchingTo, setIsSearchingTo] = useState(false);
 
-  const filteredToAirports = airports.filter(a => 
-    a.city.toLowerCase().includes(toSearch.toLowerCase()) || 
-    a.code.toLowerCase().includes(toSearch.toLowerCase()) ||
-    a.name.toLowerCase().includes(toSearch.toLowerCase())
-  );
+  // Fetch airports from API
+  const fetchAirports = async (query, setAirports, setIsSearching) => {
+    if (!query) {
+      setAirports([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/airports?q=${encodeURIComponent(query)}&limit=20`);
+      const data = await response.json();
+      if (response.ok) {
+        setAirports(data.airports || data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching airports:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounce search for From input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (fromSearch && (!selectedFrom || fromSearch !== `${selectedFrom.name} (${selectedFrom.iata})`)) {
+        fetchAirports(fromSearch, setFromAirports, setIsSearchingFrom);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fromSearch, selectedFrom]);
+
+  // Debounce search for To input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (toSearch && (!selectedTo || toSearch !== `${selectedTo.name} (${selectedTo.iata})`)) {
+        fetchAirports(toSearch, setToAirports, setIsSearchingTo);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [toSearch, selectedTo]);
 
   const handleSelectFrom = (airport) => {
     setSelectedFrom(airport);
-    setFromSearch(`${airport.city} (${airport.code})`);
+    setFromSearch(`${airport.name} (${airport.iata})`);
     setShowFromSuggestions(false);
   };
 
   const handleSelectTo = (airport) => {
     setSelectedTo(airport);
-    setToSearch(`${airport.city} (${airport.code})`);
+    setToSearch(`${airport.name} (${airport.iata})`);
     setShowToSuggestions(false);
   };
 
@@ -85,8 +118,8 @@ const FlightSearch = ({ compact = false }) => {
     }
 
     const query = new URLSearchParams({
-      origin: selectedFrom.code,
-      destination: selectedTo.code,
+      origin: selectedFrom.iata,
+      destination: selectedTo.iata,
       departureDate,
       passengers: travellers.count,
       class: travellers.class,
@@ -188,19 +221,21 @@ const FlightSearch = ({ compact = false }) => {
             {/* From Suggestions Dropdown */}
             {showFromSuggestions && fromSearch && (
               <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 mt-2 z-50 max-h-80 overflow-y-auto">
-                {filteredFromAirports.length > 0 ? (
-                  filteredFromAirports.map((airport) => (
+                {isSearchingFrom ? (
+                  <div className="p-4 text-center text-sm text-gray-500">Searching...</div>
+                ) : fromAirports.length > 0 ? (
+                  fromAirports.map((airport) => (
                     <button
-                      key={airport.code}
+                      key={airport._id || airport.id}
                       onClick={() => handleSelectFrom(airport)}
                       className="w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors flex items-center justify-between group"
                     >
                       <div>
                         <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          {airport.city} ({airport.code})
+                          {airport.name} ({airport.iata})
                         </div>
                         <div className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors">
-                          {airport.name}, {airport.country}
+                          {airport.iso}
                         </div>
                       </div>
                       <Plane className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transform -rotate-45" />
@@ -250,19 +285,21 @@ const FlightSearch = ({ compact = false }) => {
              {/* To Suggestions Dropdown */}
              {showToSuggestions && toSearch && (
               <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 mt-2 z-50 max-h-80 overflow-y-auto">
-                {filteredToAirports.length > 0 ? (
-                  filteredToAirports.map((airport) => (
+                {isSearchingTo ? (
+                  <div className="p-4 text-center text-sm text-gray-500">Searching...</div>
+                ) : toAirports.length > 0 ? (
+                  toAirports.map((airport) => (
                     <button
-                      key={airport.code}
+                      key={airport._id || airport.id}
                       onClick={() => handleSelectTo(airport)}
                       className="w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors flex items-center justify-between group"
                     >
                       <div>
                         <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          {airport.city} ({airport.code})
+                          {airport.name} ({airport.iata})
                         </div>
                         <div className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors">
-                          {airport.name}, {airport.country}
+                          {airport.iso}
                         </div>
                       </div>
                       <Plane className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transform rotate-45" />

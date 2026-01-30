@@ -41,10 +41,14 @@ export async function GET(request, { params }) {
       id: airport._id.toString(),
       _id: airport._id.toString(),
       name: airport.name || '',
-      code: airport.code || '',
-      city: airport.city || '',
-      country: airport.country || '',
-      timezone: airport.timezone || '',
+      iata: airport.iata || airport.code || '',
+      iso: airport.iso || '',
+      status: airport.status !== undefined ? airport.status : 1,
+      continent: airport.continent || '',
+      type: airport.type || '',
+      lat: airport.lat || '',
+      lon: airport.lon || '',
+      size: airport.size || '',
       createdAt: airport.createdAt ? airport.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: airport.updatedAt ? airport.updatedAt.toISOString() : new Date().toISOString(),
     };
@@ -91,9 +95,9 @@ export async function PUT(request, { params }) {
       );
     }
 
-    if (!body.code || !body.code.trim()) {
+    if (!body.iata || !body.iata.trim()) {
       return NextResponse.json(
-        { error: 'Airport code is required' },
+        { error: 'Airport IATA code is required' },
         { status: 400 }
       );
     }
@@ -113,15 +117,15 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Check if another airport with same code exists (excluding current)
+    // Check if another airport with same iata exists (excluding current)
     const duplicateAirport = await airportsCollection.findOne({
-      code: body.code.trim().toUpperCase(),
+      iata: body.iata.trim().toUpperCase(),
       _id: { $ne: new ObjectId(id) }
     });
     
     if (duplicateAirport) {
       return NextResponse.json(
-        { error: 'Airport with this code already exists' },
+        { error: 'Airport with this IATA code already exists' },
         { status: 400 }
       );
     }
@@ -129,10 +133,15 @@ export async function PUT(request, { params }) {
     // Update airport
     const updateData = {
       name: body.name.trim(),
-      code: body.code.trim().toUpperCase(),
-      city: body.city ? body.city.trim() : null,
-      country: body.country ? body.country.trim() : null,
-      timezone: body.timezone ? body.timezone.trim() : null,
+      iata: body.iata.trim().toUpperCase(),
+      code: body.iata.trim().toUpperCase(), // Keep code synced
+      iso: body.iso ? body.iso.trim().toUpperCase() : null,
+      status: body.status !== undefined ? parseInt(body.status) : 1,
+      continent: body.continent ? body.continent.trim().toUpperCase() : null,
+      type: body.type ? body.type.trim().toLowerCase() : 'airport',
+      lat: body.lat ? String(body.lat) : null,
+      lon: body.lon ? String(body.lon) : null,
+      size: body.size ? body.size.trim().toLowerCase() : null,
       updatedAt: new Date(),
     };
 
@@ -151,10 +160,14 @@ export async function PUT(request, { params }) {
       id: updatedAirport._id.toString(),
       _id: updatedAirport._id.toString(),
       name: updatedAirport.name || '',
-      code: updatedAirport.code || '',
-      city: updatedAirport.city || '',
-      country: updatedAirport.country || '',
-      timezone: updatedAirport.timezone || '',
+      iata: updatedAirport.iata || '',
+      iso: updatedAirport.iso || '',
+      status: updatedAirport.status !== undefined ? updatedAirport.status : 1,
+      continent: updatedAirport.continent || '',
+      type: updatedAirport.type || '',
+      lat: updatedAirport.lat || '',
+      lon: updatedAirport.lon || '',
+      size: updatedAirport.size || '',
       createdAt: updatedAirport.createdAt ? updatedAirport.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: updatedAirport.updatedAt ? updatedAirport.updatedAt.toISOString() : new Date().toISOString(),
     };

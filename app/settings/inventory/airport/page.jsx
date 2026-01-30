@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Edit, Trash2, Search, PlaneTakeoff, MapPin, Globe, Clock, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, PlaneTakeoff, MapPin, Globe, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import Swal from 'sweetalert2';
 import DashboardLayout from '../../../component/DashboardLayout';
 import Modal from '../../../component/Modal';
@@ -22,6 +22,7 @@ const AirportList = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
+      setPage(1); // Reset to first page on search
     }, 500);
     
     return () => clearTimeout(timer);
@@ -71,20 +72,28 @@ const AirportList = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
+    iata: '',
+    lon: '',
+    iso: '',
+    status: 1,
     name: '',
-    code: '',
-    city: '',
-    country: '',
-    timezone: ''
+    continent: '',
+    type: '',
+    lat: '',
+    size: ''
   });
 
   const resetForm = () => {
     setFormData({
+      iata: '',
+      lon: '',
+      iso: '',
+      status: 1,
       name: '',
-      code: '',
-      city: '',
-      country: '',
-      timezone: ''
+      continent: '',
+      type: '',
+      lat: '',
+      size: ''
     });
   };
 
@@ -94,11 +103,15 @@ const AirportList = () => {
     
     try {
       const payload = {
+        iata: formData.iata,
+        lon: formData.lon,
+        iso: formData.iso,
+        status: parseInt(formData.status),
         name: formData.name,
-        code: formData.code,
-        city: formData.city || null,
-        country: formData.country || null,
-        timezone: formData.timezone || null
+        continent: formData.continent,
+        type: formData.type,
+        lat: formData.lat,
+        size: formData.size
       };
       
       const url = editingAirport 
@@ -163,11 +176,15 @@ const AirportList = () => {
   const handleEdit = (airport) => {
     setEditingAirport(airport);
     setFormData({
+      iata: airport.iata || airport.code || '',
+      lon: airport.lon || '',
+      iso: airport.iso || airport.country || '',
+      status: airport.status || 1,
       name: airport.name || '',
-      code: airport.code || '',
-      city: airport.city || '',
-      country: airport.country || '',
-      timezone: airport.timezone || ''
+      continent: airport.continent || '',
+      type: airport.type || 'airport',
+      lat: airport.lat || '',
+      size: airport.size || 'medium'
     });
     setIsModalOpen(true);
   };
@@ -277,7 +294,7 @@ const AirportList = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Search airports by name, code, city, or country..."
+                  placeholder="Search airports by name, IATA, or ISO..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400"
@@ -312,85 +329,119 @@ const AirportList = () => {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Airport
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Code
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Location
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Time Zone
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {airports.map((airport) => (
-                    <tr key={airport._id || airport.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
-                            <PlaneTakeoff className="w-5 h-5" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{airport.name}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                          {airport.code}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900 dark:text-white">
-                          <MapPin className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
-                          <div>
-                            <div className="font-medium">{airport.city || 'N/A'}</div>
-                            <div className="text-gray-500 dark:text-gray-400 text-xs">{airport.country}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900 dark:text-white">
-                          <Clock className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
-                          {airport.timezone || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleEdit(airport)}
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Edit Airport"
-                            disabled={isSubmitting}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(airport)}
-                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            title="Delete Airport"
-                            disabled={isDeleting}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        IATA
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        ISO
+                      </th>
+                       <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {airports.map((airport) => (
+                      <tr key={airport._id || airport.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
+                              <PlaneTakeoff className="w-5 h-5" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{airport.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                            {airport.iata || airport.code}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900 dark:text-white">
+                            <Globe className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2" />
+                            {airport.iso || airport.country || 'N/A'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            (airport.status === 1 || airport.status === '1') 
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                              : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                          }`}>
+                            {(airport.status === 1 || airport.status === '1') ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleEdit(airport)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="Edit Airport"
+                              disabled={isSubmitting}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(airport)}
+                              className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Delete Airport"
+                              disabled={isDeleting}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.page * pagination.limit, pagination.total)}
+                    </span>{' '}
+                    of <span className="font-medium">{pagination.total}</span> results
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={page === 1}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      Page {page} of {pagination.totalPages}
+                    </div>
+                    <button
+                      onClick={() => setPage((prev) => Math.min(prev + 1, pagination.totalPages))}
+                      disabled={page === pagination.totalPages}
+                      className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
           
           {!isLoading && !error && airports.length === 0 && (
@@ -426,8 +477,8 @@ const AirportList = () => {
           title={editingAirport ? 'Edit Airport' : 'Add New Airport'}
         >
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Airport Name <span className="text-red-500">*</span>
                 </label>
@@ -440,7 +491,7 @@ const AirportList = () => {
                   placeholder="e.g., Hazrat Shahjalal International Airport"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   IATA Code <span className="text-red-500">*</span>
@@ -449,52 +500,107 @@ const AirportList = () => {
                   type="text"
                   required
                   maxLength="3"
-                  value={formData.code}
-                  onChange={(e) => setFormData({...formData, code: e.target.value.toUpperCase()})}
+                  value={formData.iata}
+                  onChange={(e) => setFormData({...formData, iata: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="e.g., DAC"
                 />
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="e.g., Dhaka"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Country
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.country}
-                    onChange={(e) => setFormData({...formData, country: e.target.value})}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder="e.g., Bangladesh"
-                  />
-                </div>
-              </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Time Zone
+                  ISO Code
                 </label>
                 <input
                   type="text"
-                  value={formData.timezone}
-                  onChange={(e) => setFormData({...formData, timezone: e.target.value})}
+                  maxLength="2"
+                  value={formData.iso}
+                  onChange={(e) => setFormData({...formData, iso: e.target.value.toUpperCase()})}
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="e.g., UTC+06:00"
+                  placeholder="e.g., BD"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Latitude
+                </label>
+                <input
+                  type="text"
+                  value={formData.lat}
+                  onChange={(e) => setFormData({...formData, lat: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="e.g., 23.848648"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Longitude
+                </label>
+                <input
+                  type="text"
+                  value={formData.lon}
+                  onChange={(e) => setFormData({...formData, lon: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="e.g., 90.405876"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Continent
+                </label>
+                <input
+                  type="text"
+                  value={formData.continent}
+                  onChange={(e) => setFormData({...formData, continent: e.target.value.toUpperCase()})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="e.g., AS"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Type
+                </label>
+                <input
+                  type="text"
+                  value={formData.type}
+                  onChange={(e) => setFormData({...formData, type: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="e.g., airport"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Size
+                </label>
+                <select
+                  value={formData.size}
+                  onChange={(e) => setFormData({...formData, size: e.target.value})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">Select Size</option>
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: parseInt(e.target.value)})}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value={1}>Active</option>
+                  <option value={0}>Inactive</option>
+                </select>
               </div>
             </div>
             

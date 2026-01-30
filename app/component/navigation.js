@@ -311,6 +311,13 @@ export const navigation = [
           { name: 'Airport', href: '/settings/inventory/airport', icon: PlaneTakeoff }
         ]
       },
+      {
+        name: 'General Setting',
+        icon: Settings,
+        children: [
+          { name: 'Banks', href: '/settings/general/banks', icon: Building2 }
+        ]
+      },
       { name: 'System Settings', href: '/settings/system', icon: Settings },
     ]
   },
