@@ -50,6 +50,7 @@ import {
   FolderOpen,
   Ticket,
   Ban,
+  Code,
   RefreshCw,
   PlaneTakeoff
 } from 'lucide-react';
@@ -297,29 +298,26 @@ export const navigation = [
       { name: 'User Management', href: '/settings/users', icon: Users },
       { name: 'Branch Management', href: '/settings/branch', icon: Building2 },
       { name: 'Markup Management', href: '/settings/markup', icon: DollarSign },
-      { 
-        name: 'Permission Management', 
-        href: '/settings/permissions', 
-        icon: Shield,
-        roles: ['super_admin'] 
-      },
-      { name: 'Module Access', href: '/settings/module-access', icon: Eye },
-      {
-        name: 'Inventory',
-        icon: Package,
-        children: [
-          { name: 'Airline', href: '/settings/inventory/airline', icon: Plane },
-          { name: 'Airport', href: '/settings/inventory/airport', icon: PlaneTakeoff }
-        ]
-      },
+      { name: 'API Management', href: '/settings/api', icon: Code },
       {
         name: 'General Setting',
         icon: Settings,
         children: [
-          { name: 'Banks', href: '/settings/general/banks', icon: Building2 }
+          { name: 'Banks', href: '/settings/general/banks', icon: Building2 },
+          { name: 'Airline', href: '/settings/inventory/airline', icon: Plane },
+          { name: 'Airport', href: '/settings/inventory/airport', icon: PlaneTakeoff }
         ]
       },
-      { name: 'System Settings', href: '/settings/system', icon: Settings },
+      { 
+        name: 'System Settings', 
+        href: '/settings/system', 
+        icon: Settings,
+        children: [
+          { name: 'OTP Settings', href: '/settings/system', icon: Settings },
+          { name: 'Module Access', href: '/settings/module-access', icon: Eye },
+          { name: 'Permission Management' , href: '/settings/permissions', icon: Shield, roles: ['super_admin'] }
+        ]
+      },
     ]
   },
   {
