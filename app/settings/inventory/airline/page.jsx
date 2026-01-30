@@ -111,7 +111,8 @@ const AirlineList = () => {
       status: 'Active',
       routes: '',
       fleet: '',
-      logo: ''
+      logo: '',
+      isDomestic: false
     });
     setLogoPreview(null);
   };
@@ -216,6 +217,7 @@ const AirlineList = () => {
         routes: formData.routes ? parseInt(formData.routes) : 0,
         fleet: formData.fleet ? parseInt(formData.fleet) : 0,
         logo: formData.logo || null,
+        isDomestic: formData.isDomestic,
       };
       
       const url = editingAirline 
@@ -292,7 +294,8 @@ const AirlineList = () => {
       status: airline.status || 'Active',
       routes: airline.routes ? airline.routes.toString() : '',
       fleet: airline.fleet ? airline.fleet.toString() : '',
-      logo: airline.logo || ''
+      logo: airline.logo || '',
+      isDomestic: airline.isDomestic || false
     });
     setLogoPreview(airline.logo || null);
     setIsModalOpen(true);
@@ -791,18 +794,18 @@ const AirlineList = () => {
                     />
                   </div>
 
-                  <div className="flex items-center pt-8">
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.isDomestic}
-                        onChange={(e) => setFormData({...formData, isDomestic: e.target.checked})}
-                        className="form-checkbox h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Is Domestic
-                      </span>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Airline Type
                     </label>
+                    <select
+                      value={formData.isDomestic ? 'Domestic' : 'International'}
+                      onChange={(e) => setFormData({...formData, isDomestic: e.target.value === 'Domestic'})}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="International">International</option>
+                      <option value="Domestic">Domestic</option>
+                    </select>
                   </div>
                   
                   <div>
