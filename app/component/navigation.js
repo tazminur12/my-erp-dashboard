@@ -296,6 +296,7 @@ export const navigation = [
     children: [
       { name: 'User Management', href: '/settings/users', icon: Users },
       { name: 'Branch Management', href: '/settings/branch', icon: Building2 },
+      { name: 'Markup Management', href: '/settings/markup', icon: DollarSign },
       { 
         name: 'Permission Management', 
         href: '/settings/permissions', 
