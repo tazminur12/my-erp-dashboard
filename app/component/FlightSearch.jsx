@@ -8,16 +8,37 @@ import {
   Search
 } from 'lucide-react';
 
-const FlightSearch = () => {
+const FlightSearch = ({ onSearch }) => {
   const [tripType, setTripType] = useState('roundtrip');
   const [fareType, setFareType] = useState('regular');
   const [activeTab, setActiveTab] = useState('flight');
   
   // State for inputs
-  const [fromLocation, setFromLocation] = useState({ code: 'DAC', city: 'Dhaka, Bangladesh' });
-  const [toLocation, setToLocation] = useState({ code: 'CXB', city: "Cox's Bazar, Bangladesh" });
-  const [dates, setDates] = useState({ departure: '2026-01-30', return: '2026-02-01' });
+  const [fromLocation, setFromLocation] = useState({ code: '', city: '' });
+  const [toLocation, setToLocation] = useState({ code: '', city: '' });
+  const [dates, setDates] = useState({ departure: '', return: '' });
   const [travellers, setTravellers] = useState({ count: 1, type: 'Traveller', class: 'Economy' });
+
+  const handleSearchClick = () => {
+    // Validate inputs
+    if (!fromLocation.code || !toLocation.code || !dates.departure) {
+      alert('Please fill in all required fields (From, To, Departure Date)');
+      return;
+    }
+
+    if (onSearch) {
+      onSearch({
+        origin: fromLocation.code,
+        destination: toLocation.code,
+        departureDate: dates.departure,
+        returnDate: tripType === 'roundtrip' ? dates.return : undefined,
+        passengers: travellers.count,
+        tripType,
+        fareType,
+        class: travellers.class
+      });
+    }
+  };
 
   const tabs = [
     { id: 'flight', label: 'Flight', icon: Plane },
@@ -101,7 +122,8 @@ const FlightSearch = () => {
                     value={fromLocation.code}
                     onChange={(e) => setFromLocation({...fromLocation, code: e.target.value.toUpperCase()})}
                     className="w-full text-xl font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 placeholder-gray-400"
-                    placeholder="CODE"
+                    placeholder="e.g. DAC"
+                    maxLength={3}
                   />
                   <input 
                     type="text"
@@ -134,7 +156,8 @@ const FlightSearch = () => {
                     value={toLocation.code}
                     onChange={(e) => setToLocation({...toLocation, code: e.target.value.toUpperCase()})}
                     className="w-full text-xl font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 placeholder-gray-400"
-                    placeholder="CODE"
+                    placeholder="e.g. CXB"
+                    maxLength={3}
                   />
                   <input 
                     type="text"
@@ -215,7 +238,10 @@ const FlightSearch = () => {
 
             {/* Search Button */}
             <div className="lg:col-span-1 flex items-center justify-center">
-              <button className="w-full h-full min-h-[60px] bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md transition-all duration-200 flex items-center justify-center transform active:scale-95">
+              <button 
+                onClick={handleSearchClick}
+                className="w-full h-full min-h-[60px] bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md transition-all duration-200 flex items-center justify-center transform active:scale-95"
+              >
                 <Search className="w-8 h-8" />
               </button>
             </div>
