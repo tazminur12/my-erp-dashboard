@@ -62,6 +62,43 @@ export async function POST(request) {
 
     // Apply Markups to Search Results
     if (searchResults?.OTA_AirLowFareSearchRS?.PricedItineraries?.PricedItinerary) {
+      const normalizeSeats = (itinerary) => {
+        try {
+          const legs = itinerary.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || [];
+          for (const leg of legs) {
+            for (const seg of leg.FlightSegment || []) {
+              const n = seg?.TPA_Extensions?.SeatsRemaining?.Number;
+              if (n) return n;
+            }
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      };
+      const normalizeBaggage = (pricingInfo) => {
+        const cands = [
+          pricingInfo?.TPA_Extensions?.Baggage?.Checkin,
+          pricingInfo?.TPA_Extensions?.Baggage?.Cabin,
+          pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+          pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Cabin,
+          pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+          pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Cabin
+        ];
+        const direct = cands.find(Boolean);
+        if (direct) return { text: direct };
+        const info = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.BaggageInformation || pricingInfo?.TPA_Extensions?.BaggageInformation;
+        if (info) {
+          const first = Array.isArray(info) ? info[0] : info;
+          const desc = first?.Description || first?.Provision || (first?.BaggageDetails && first.BaggageDetails[0]?.Description);
+          if (desc) return { text: desc };
+          const pieces = first?.Pieces;
+          const weight = first?.Weight;
+          if (pieces) return { text: `${pieces}PC` };
+          if (weight) return { text: `${weight}KG` };
+        }
+        return null;
+      };
       searchResults.OTA_AirLowFareSearchRS.PricedItineraries.PricedItinerary.forEach(itinerary => {
         // Find Validating Carrier
         let carrier = null;
@@ -118,6 +155,24 @@ export async function POST(request) {
                type: matchedMarkup.markup_type,
                ruleId: matchedMarkup._id
             };
+          }
+        }
+        
+        const pricingInfo = itinerary.AirItineraryPricingInfo?.[0];
+        if (pricingInfo) {
+          const seats = normalizeSeats(itinerary);
+          if (seats) {
+            pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
+            pricingInfo.TPA_Extensions.SeatsRemaining = { Number: seats };
+            if (Array.isArray(pricingInfo.PTC_FareBreakdowns) && pricingInfo.PTC_FareBreakdowns.length > 0) {
+              pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions = pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions || {};
+              pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions.SeatsRemaining = { Number: seats };
+            }
+          }
+          const bag = normalizeBaggage(pricingInfo);
+          if (bag) {
+            pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
+            pricingInfo.TPA_Extensions.Baggage = { Checkin: bag.text };
           }
         }
       });

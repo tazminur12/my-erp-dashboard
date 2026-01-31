@@ -41,6 +41,7 @@ const FlightResultsPage = () => {
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes session
   const [filterStops, setFilterStops] = useState('all'); // all | direct | one | multi
   const [filterAirlines, setFilterAirlines] = useState({ BS: false, BG: false, '2A': false });
+  const [altPrices, setAltPrices] = useState({ prev: null, next: null });
 
   // Timer Effect
   useEffect(() => {
@@ -139,6 +140,29 @@ const FlightResultsPage = () => {
     }
   };
 
+  const getTotalElapsedMinutes = (itinerary) => {
+    try {
+      const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
+      return legs.reduce((acc, leg) => acc + (leg.ElapsedTime || 0), 0);
+    } catch {
+      return 0;
+    }
+  };
+
+  const getLayoverLabel = (segments) => {
+    if (!segments || segments.length < 2) return 'Direct';
+    const parts = [];
+    for (let i = 0; i < segments.length - 1; i++) {
+      const arr = new Date(segments[i].ArrivalDateTime);
+      const dep = new Date(segments[i + 1].DepartureDateTime);
+      const diffMin = Math.max(0, Math.round((dep - arr) / 60000));
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      parts.push(`${h}h ${m}m at ${segments[i].ArrivalAirport.LocationCode}`);
+    }
+    return parts.join(' • ');
+  };
+
   const getAirlineCode = (itinerary) => {
     try {
       const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption;
@@ -149,6 +173,48 @@ const FlightResultsPage = () => {
     }
   };
 
+  const getSeatsLeft = (itinerary, pricingInfo) => {
+    try {
+      const legs = itinerary.AirItinerary.OriginDestinationOptions.OriginDestinationOption || [];
+      for (const leg of legs) {
+        for (const seg of leg.FlightSegment || []) {
+          const n = seg?.TPA_Extensions?.SeatsRemaining?.Number;
+          if (n) return n;
+        }
+      }
+      const n2 = pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.SeatsRemaining?.Number;
+      if (n2) return n2;
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const getBaggageText = (pricingInfo) => {
+    const cands = [
+      pricingInfo?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.TPA_Extensions?.Baggage?.Cabin,
+      pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Cabin,
+      pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Cabin
+    ];
+    const direct = cands.find(Boolean);
+    if (direct) return direct;
+    const info = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.BaggageInformation || pricingInfo?.TPA_Extensions?.BaggageInformation;
+    if (info) {
+      try {
+        const first = Array.isArray(info) ? info[0] : info;
+        const desc = first?.Description || first?.Provision || first?.BaggageDetails?.[0]?.Description;
+        if (desc) return desc;
+        const pieces = first?.Pieces;
+        const weight = first?.Weight;
+        if (pieces) return `${pieces}PC`;
+        if (weight) return `${weight}KG`;
+      } catch {}
+    }
+    return null;
+  };
   const applyFilters = (list) => {
     if (!list) return [];
     return list.filter((itinerary) => {
@@ -186,7 +252,123 @@ const FlightResultsPage = () => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
+  
+  useEffect(() => {
+    const fetchAlt = async (days) => {
+      try {
+        const body = {
+          origin,
+          destination,
+          departureDate,
+          returnDate,
+          passengers,
+          tripType,
+          segments,
+          travellers: { adults, children, kids, infants, class: cabinClass }
+        };
+        if (tripType === 'multiway' && segments.length > 0) {
+          body.segments = segments.map(s => ({ ...s, departureDate: shiftIsoDate(s.departureDate, days) }));
+        } else {
+          body.departureDate = shiftIsoDate(departureDate, days);
+          body.returnDate = returnDate ? shiftIsoDate(returnDate, days) : '';
+        }
+        const res = await fetch('/api/air-ticketing/flight-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        const priced = data?.data?.OTA_AirLowFareSearchRS?.PricedItineraries?.PricedItinerary || [];
+        const min = priced.length
+          ? Math.min(
+              ...priced.map(pi =>
+                parseFloat(
+                  (Array.isArray(pi.AirItineraryPricingInfo) ? pi.AirItineraryPricingInfo[0] : pi.AirItineraryPricingInfo)
+                    ?.ItinTotalFare?.Amount || 0
+                )
+              )
+            )
+          : null;
+        return min;
+      } catch {
+        return null;
+      }
+    };
+    const run = async () => {
+      if (!origin && tripType !== 'multiway') return;
+      const [prevMin, nextMin] = await Promise.all([fetchAlt(-1), fetchAlt(1)]);
+      setAltPrices({ prev: prevMin, next: nextMin });
+    };
+    run();
+  }, [origin, destination, departureDate, returnDate, cabinClass, adults, children, kids, infants, tripType, segments]);
 
+  const shiftIsoDate = (isoDate, days) => {
+    if (!isoDate) return isoDate;
+    const d = new Date(isoDate);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+
+  const navigateWithParams = (paramsObj) => {
+    const q = new URLSearchParams(paramsObj);
+    if (tripType === 'multiway' && segments.length > 0) {
+      q.set('segments', JSON.stringify(paramsObj.segments || segments));
+    }
+    router.replace(`/air-ticketing/flight-results?${q.toString()}`);
+  };
+
+  const handlePrevNextDay = (days) => {
+    if (tripType === 'multiway' && segments.length > 0) {
+      const shifted = segments.map(s => ({ ...s, departureDate: shiftIsoDate(s.departureDate, days) }));
+      navigateWithParams({
+        origin,
+        destination,
+        departureDate,
+        returnDate,
+        tripType,
+        adults: String(adults),
+        children: String(children),
+        kids: String(kids),
+        infants: String(infants),
+        class: cabinClass,
+        segments: shifted
+      });
+    } else {
+      const nextDeparture = shiftIsoDate(departureDate, days);
+      const nextReturn = returnDate ? shiftIsoDate(returnDate, days) : '';
+      navigateWithParams({
+        origin,
+        destination,
+        departureDate: nextDeparture,
+        returnDate: nextReturn,
+        tripType,
+        adults: String(adults),
+        children: String(children),
+        kids: String(kids),
+        infants: String(infants),
+        class: cabinClass
+      });
+    }
+  };
+
+  const handleModifySearch = () => {
+    const q = new URLSearchParams({
+      origin: origin || '',
+      destination: destination || '',
+      departureDate: departureDate || '',
+      returnDate: returnDate || '',
+      tripType: tripType || 'oneway',
+      adults: String(adults),
+      children: String(children),
+      kids: String(kids),
+      infants: String(infants),
+      class: cabinClass
+    });
+    if (tripType === 'multiway' && segments.length > 0) {
+      q.set('segments', JSON.stringify(segments));
+    }
+    router.push(`/air-ticketing/search?${q.toString()}`);
+  };
   const formatDuration = (minutes) => {
     if (!minutes) return 'N/A';
     const h = Math.floor(minutes / 60);
@@ -270,7 +452,7 @@ const FlightResultsPage = () => {
                 </div>
               </div>
               <button 
-                onClick={() => router.push('/air-ticketing/search')}
+                onClick={handleModifySearch}
                 className="bg-[#2e2b5f] hover:bg-[#3d3983] text-white px-4 py-2 md:px-6 rounded-lg font-semibold text-xs md:text-sm transition-colors shadow-md w-full md:w-auto"
               >
                 Modify Search
@@ -438,13 +620,13 @@ const FlightResultsPage = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-700 pl-4">
-                    <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+                    <button onClick={() => handlePrevNextDay(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Prev Day</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Prev Day {altPrices.prev ? `• BDT ${altPrices.prev}` : ''}</span>
                     <div className="h-4 w-[1px] bg-gray-300"></div>
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Next Day</span>
-                    <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Next Day {altPrices.next ? `• BDT ${altPrices.next}` : ''}</span>
+                    <button onClick={() => handlePrevNextDay(1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -481,6 +663,20 @@ const FlightResultsPage = () => {
                       ? itinerary.AirItineraryPricingInfo[0] 
                       : itinerary.AirItineraryPricingInfo;
                     const pricing = pricingInfo?.ItinTotalFare;
+                    const baseFareAmt = parseFloat(pricing?.BaseFare?.Amount || 0);
+                    const taxesAmt = parseFloat(pricing?.Taxes?.TotalTax?.Amount || 0);
+                    const totalAmt = parseFloat(pricing?.TotalFare?.Amount || 0);
+                    const currency = pricing?.TotalFare?.CurrencyCode || pricing?.BaseFare?.CurrencyCode || 'BDT';
+                    const brandName = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || '';
+                    const bookingClass = first.ResBookDesigCode || '';
+                    const seatsLeft = getSeatsLeft(itinerary, pricingInfo);
+                    const baggageText = getBaggageText(pricingInfo);
+                    const refundableFlag =
+                      pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable ||
+                      pricingInfo?.TPA_Extensions?.Refundable ||
+                      null;
+                    const totalElapsed = getTotalElapsedMinutes(itinerary);
+                    const isCheapest = totalAmt && totalAmt === getLowestPrice();
                     
                     if (!pricing) return null;
 
@@ -522,12 +718,13 @@ const FlightResultsPage = () => {
                                     <Plane className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 transform rotate-90" />
                                   </div>
                                 </div>
+                                <div className="text-[10px] text-gray-500 mt-1">{getLayoverLabel(segments)}</div>
                                 <div className="flex gap-4 mt-2">
                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                                     <Luggage className="w-3 h-3" /> 20 Kg
+                                     <Luggage className="w-3 h-3" /> {baggageText || '—'}
                                    </div>
                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                                     <Armchair className="w-3 h-3" /> 9 Seat
+                                     <Armchair className="w-3 h-3" /> {seatsLeft ? `${seatsLeft} seats left` : '—'}
                                    </div>
                                 </div>
                               </div>
@@ -542,21 +739,21 @@ const FlightResultsPage = () => {
                             {/* Price & Action */}
                             <div className="w-full lg:w-[25%] flex flex-col items-end border-l border-dashed border-gray-200 dark:border-gray-700 pl-6 gap-2">
                               <div className="flex gap-2 mb-1">
-                                 <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Refundable</span>
+                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{refundableFlag ? 'Refundable' : 'Non Refundable'}</span>
                                  <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                                    <div className="w-3 h-3 rounded-full bg-orange-400 text-white flex items-center justify-center text-[8px]">৳</div>
                                    +46
                                  </span>
+                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
                               
                               <div className="text-right">
-                                <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">
-                                  {pricing.TotalFare.CurrencyCode} {pricing.TotalFare.Amount}
-                                </div>
-                                <div className="text-xs text-gray-400 line-through">
-                                  {pricing.TotalFare.CurrencyCode} {(parseFloat(pricing.TotalFare.Amount) * 1.1).toFixed(2)}
-                                </div>
+                                <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
+                                <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
                                 <div className="text-[10px] text-gray-400 mt-0.5">Price for {passengers} travelers</div>
+                                <div className="text-[10px] text-gray-500 mt-0.5">Base {currency} {baseFareAmt.toFixed(2)} • Taxes {currency} {taxesAmt.toFixed(2)}</div>
+                                {brandName ? <div className="text-[10px] text-gray-500 mt-0.5">Fare Brand: {brandName}</div> : null}
+                                <div className="text-[10px] text-gray-500 mt-0.5">Booking Class: {bookingClass} {seatsLeft ? `• ${seatsLeft} seats left` : ''}</div>
                               </div>
 
                               <div className="w-full flex flex-col gap-2 mt-2">
@@ -610,9 +807,9 @@ const FlightResultsPage = () => {
                              {/* Itinerary Tab */}
                              {activeTab === 'itinerary' && (
                                <div className="space-y-6 px-4">
-                                 <div className="text-lg font-bold text-[#2e2b5f] dark:text-white mb-8">
-                                   {tripType === 'multiway' ? 'Flight Itinerary' : `${origin} - ${destination}`}
-                                 </div>
+                                  <div className="text-lg font-bold text-[#2e2b5f] dark:text-white mb-2">
+                                    Total journey time {formatDuration(totalElapsed)}
+                                  </div>
                                  {legs.map((leg, legIndex) => (
                                    <div key={legIndex} className="relative space-y-0">
                                      {leg.FlightSegment.map((seg, segIndex) => (
@@ -659,7 +856,7 @@ const FlightResultsPage = () => {
                                                   <div className="text-xs text-gray-500 mt-1 font-medium space-y-1">
                                                     <div>Operated by : {seg.OperatingAirline.Code}</div>
                                                     <div>Aircraft : {seg.Equipment?.[0]?.AirEquipType || 'ATR 72 - 600'}</div>
-                                                    <div>Class : {cabinClass} - (Economy)</div>
+                                                    <div>Class : {cabinClass} • Booking {seg.ResBookDesigCode || bookingClass}</div>
                                                   </div>
                                                 </div>
                                               </div>
@@ -713,8 +910,8 @@ const FlightResultsPage = () => {
                                    <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
                                      <tr>
                                        <td className="py-3 px-4">{origin} - {destination}</td>
-                                       <td className="py-3 px-4">7 KG</td>
-                                       <td className="py-3 px-4">20 KG</td>
+                                      <td className="py-3 px-4">{getBaggageText(pricingInfo) || '—'}</td>
+                                      <td className="py-3 px-4">{getBaggageText(pricingInfo) || '—'}</td>
                                      </tr>
                                    </tbody>
                                  </table>
@@ -726,11 +923,11 @@ const FlightResultsPage = () => {
                                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                                  <div className="flex gap-4">
                                    <div className="min-w-[100px] font-bold text-gray-900 dark:text-white">Cancellation</div>
-                                   <div>Refundable with penalty of BDT 1500 before 24 hours of flight.</div>
+                                   <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || 'Refer airline policy'}</div>
                                  </div>
                                  <div className="flex gap-4">
                                    <div className="min-w-[100px] font-bold text-gray-900 dark:text-white">Date Change</div>
-                                   <div>Allowed with penalty of BDT 1000 + Fare difference.</div>
+                                   <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange || 'Refer airline policy'}</div>
                                  </div>
                                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-yellow-800 dark:text-yellow-200 text-xs">
                                    * The airline penalty fee is indicative and subject to change without prior notice.
