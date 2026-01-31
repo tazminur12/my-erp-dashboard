@@ -16,7 +16,9 @@ import {
   Loader2,
   Building2,
   Eye,
-  EyeOff
+  EyeOff,
+  Key,
+  KeyIcon
 } from 'lucide-react';
 
 const roles = [
@@ -36,6 +38,11 @@ export default function UserManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -560,6 +567,20 @@ export default function UserManagement() {
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
+                          {session?.user?.role === 'super_admin' && (
+                            <button
+                              onClick={() => {
+                                setResetTargetUser(user);
+                                setResetPassword('');
+                                setResetConfirm('');
+                                setShowResetModal(true);
+                              }}
+                              className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors duration-200"
+                              title="Reset Password"
+                            >
+                              <Key className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleOpenModal(user)}
                             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200"
@@ -836,6 +857,96 @@ export default function UserManagement() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Reset Password Modal */}
+        {showResetModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 relative">
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Reset Password
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                User: {resetTargetUser?.name} ({resetTargetUser?.email})
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    value={resetConfirm}
+                    onChange={(e) => setResetConfirm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors duration-200"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={resetSubmitting}
+                  onClick={async () => {
+                    try {
+                      if (!resetPassword || resetPassword.length < 6) {
+                        Swal.fire({ icon: 'error', title: 'Invalid Password', text: 'Password must be at least 6 characters', confirmButtonColor: '#7c3aed' });
+                        return;
+                      }
+                      if (resetPassword !== resetConfirm) {
+                        Swal.fire({ icon: 'error', title: 'Password Mismatch', text: 'Passwords do not match', confirmButtonColor: '#7c3aed' });
+                        return;
+                      }
+                      setResetSubmitting(true);
+                      const res = await fetch(`/api/users/${resetTargetUser.id}/password`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: resetPassword })
+                      });
+                      const data = await res.json();
+                      if (!res.ok || !data.success) {
+                        throw new Error(data.error || 'Failed to reset password');
+                      }
+                      setShowResetModal(false);
+                      setResetPassword('');
+                      setResetConfirm('');
+                      Swal.fire({ icon: 'success', title: 'Password Updated', text: 'User password has been reset.', confirmButtonColor: '#7c3aed' });
+                    } catch (err) {
+                      Swal.fire({ icon: 'error', title: 'Reset Failed', text: err.message || 'Could not reset password', confirmButtonColor: '#7c3aed' });
+                    } finally {
+                      setResetSubmitting(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resetSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  <span>{resetSubmitting ? 'Processing...' : 'Update Password'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
