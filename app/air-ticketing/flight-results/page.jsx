@@ -22,7 +22,8 @@ import {
   ArrowRight,
   X,
   MapPin,
-  Calendar
+  Calendar,
+  Eye
 } from 'lucide-react';
 
 const FlightResultsPage = () => {
@@ -43,6 +44,7 @@ const FlightResultsPage = () => {
   const [filterAirlines, setFilterAirlines] = useState({});
   const [availableAirlines, setAvailableAirlines] = useState([]);
   const [altPrices, setAltPrices] = useState({ prev: null, next: null });
+  const [taxOpenIndex, setTaxOpenIndex] = useState(null);
 
   // Timer Effect
   useEffect(() => {
@@ -211,30 +213,50 @@ const FlightResultsPage = () => {
     }
   };
 
-  const getBaggageText = (pricingInfo) => {
-    const cands = [
+  const getBaggageInfo = (itinerary, pricingInfo) => {
+    const pick = (...vals) => vals.find((v) => !!v);
+    let checkin = pick(
       pricingInfo?.TPA_Extensions?.Baggage?.Checkin,
-      pricingInfo?.TPA_Extensions?.Baggage?.Cabin,
       pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Checkin
+    );
+    let cabin = pick(
+      pricingInfo?.TPA_Extensions?.Baggage?.Cabin,
       pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Cabin,
-      pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Checkin,
+      pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Baggage?.Cabin,
       pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.Baggage?.Cabin
-    ];
-    const direct = cands.find(Boolean);
-    if (direct) return direct;
-    const info = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.BaggageInformation || pricingInfo?.TPA_Extensions?.BaggageInformation;
-    if (info) {
-      try {
-        const first = Array.isArray(info) ? info[0] : info;
+    );
+    if (!checkin || !cabin) {
+      const infoRoot =
+        pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.BaggageInformation ||
+        pricingInfo?.TPA_Extensions?.BaggageInformation;
+      const list = Array.isArray(infoRoot) ? infoRoot : infoRoot ? [infoRoot] : [];
+      const first = list[0];
+      if (first) {
         const desc = first?.Description || first?.Provision || first?.BaggageDetails?.[0]?.Description;
-        if (desc) return desc;
-        const pieces = first?.Pieces;
+        const pieces = first?.Pieces ?? first?.Piece;
         const weight = first?.Weight;
-        if (pieces) return `${pieces}PC`;
-        if (weight) return `${weight}KG`;
+        const inferred = pieces ? `${pieces} Pc` : weight ? `${weight} Kg` : desc || null;
+        if (!checkin) checkin = inferred || null;
+        if (!cabin) cabin = first?.Cabin || null;
+      }
+    }
+    if (!checkin || !cabin) {
+      try {
+        const legs = itinerary?.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || [];
+        for (const leg of legs) {
+          for (const seg of leg.FlightSegment || []) {
+            const ch = seg?.TPA_Extensions?.Baggage?.Checkin;
+            const cb = seg?.TPA_Extensions?.Baggage?.Cabin;
+            if (!checkin && ch) checkin = ch;
+            if (!cabin && cb) cabin = cb;
+          }
+        }
       } catch {}
     }
-    return null;
+    const label = checkin && cabin ? `${checkin} • ${cabin}` : checkin || cabin || null;
+    return { checkin: checkin || null, cabin: cabin || null, label };
   };
   const applyFilters = (list) => {
     if (!list) return [];
@@ -291,6 +313,38 @@ const FlightResultsPage = () => {
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  const formatAmount = (value, fractionDigits) => {
+    if (value === null || value === undefined) return '—';
+    const num = Number(value);
+    if (!isFinite(num)) return '—';
+    const opts = typeof fractionDigits === 'number'
+      ? { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }
+      : { maximumFractionDigits: 2 };
+    return num.toLocaleString('en-US', opts);
+  };
+  const getPassengerFare = (pricingInfo) => {
+    return (
+      pricingInfo?.PTC_FareBreakdowns?.[0]?.PassengerFare ||
+      pricingInfo?.PTC_FareBreakdowns?.PTC_FareBreakdown?.[0]?.PassengerFare ||
+      null
+    );
+  };
+  const getTaxList = (pricingInfo) => {
+    try {
+      const pf = getPassengerFare(pricingInfo);
+      const taxes = pf?.Taxes;
+      const items = taxes?.Tax || [];
+      const arr = Array.isArray(items) ? items : items ? [items] : [];
+      return arr.map((t) => ({
+        code: t?.TaxCode || t?.Code || '',
+        amount: parseFloat(t?.Amount || 0),
+        currency: t?.CurrencyCode || pf?.Taxes?.TotalTax?.CurrencyCode || pricingInfo?.ItinTotalFare?.TotalFare?.CurrencyCode || 'BDT',
+        description: t?.Description || ''
+      })).filter((x) => x.amount > 0);
+    } catch {
+      return [];
+    }
   };
   
   useEffect(() => {
@@ -423,6 +477,59 @@ const FlightResultsPage = () => {
       setExpandedId(index);
       setActiveTab('itinerary');
     }
+  };
+  const handleTabClick = async (tab, index, itinerary, pricingInfo) => {
+    setActiveTab(tab);
+    try {
+      if (tab === 'baggage') {
+        const info = getBaggageInfo(itinerary, pricingInfo);
+        if (!(info.cabin || info.checkin)) {
+          const res = await fetch('/api/air-ticketing/baggage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pricingInfo })
+          });
+          const data = await res.json();
+          if (res.ok && data?.baggage) {
+            setResults((prev) => {
+              const next = [...prev];
+              const target = next[index];
+              const p = Array.isArray(target.AirItineraryPricingInfo) ? target.AirItineraryPricingInfo[0] : target.AirItineraryPricingInfo;
+              p.TPA_Extensions = p.TPA_Extensions || {};
+              p.TPA_Extensions.Baggage = { ...(p.TPA_Extensions.Baggage || {}), Checkin: data.baggage };
+              return next;
+            });
+          }
+        }
+      } else if (tab === 'cancellation' || tab === 'datechange') {
+        const rules = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules;
+        const missing = tab === 'cancellation' ? !rules?.Cancellation : !rules?.DateChange;
+        if (missing) {
+          const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pricingInfo })
+          });
+          const data = await res.json();
+          if (res.ok && data?.rules) {
+            setResults((prev) => {
+              const next = [...prev];
+              const target = next[index];
+              const p = Array.isArray(target.AirItineraryPricingInfo) ? target.AirItineraryPricingInfo[0] : target.AirItineraryPricingInfo;
+              p.FareInfo = p.FareInfo || [{}];
+              p.FareInfo[0].TPA_Extensions = p.FareInfo[0].TPA_Extensions || {};
+              p.FareInfo[0].TPA_Extensions.Rules = {
+                ...(p.FareInfo[0].TPA_Extensions.Rules || {}),
+                Cancellation: data.rules.cancellation,
+                DateChange: data.rules.dateChange,
+                NoShow: data.rules.noShow
+              };
+              return next;
+            });
+          }
+        }
+      }
+    } catch {}
   };
 
   // Helper to get lowest price for display
@@ -626,7 +733,7 @@ const FlightResultsPage = () => {
                       className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${sortOption === 'cheapest' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                       <div className="text-xs text-gray-400 font-normal">Cheapest</div>
-                      <div>BDT {getLowestPrice()}</div>
+                      <div>BDT {formatAmount(getLowestPrice())}</div>
                     </button>
                     <button 
                       onClick={() => setSortOption('fastest')}
@@ -635,7 +742,7 @@ const FlightResultsPage = () => {
                       <div className="text-xs text-gray-400 font-normal">Fastest</div>
                       <div>
                         {fastestStats.minutes ? formatDuration(fastestStats.minutes) : '—'}
-                        {fastestStats.amount ? ` • ${fastestStats.currency} ${fastestStats.amount}` : ''}
+                        {fastestStats.amount ? ` • ${fastestStats.currency} ${formatAmount(fastestStats.amount)}` : ''}
                       </div>
                     </button>
                   </div>
@@ -644,9 +751,9 @@ const FlightResultsPage = () => {
                     <button onClick={() => handlePrevNextDay(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Prev Day {altPrices.prev ? `• BDT ${altPrices.prev}` : ''}</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Prev Day {altPrices.prev ? `• BDT ${formatAmount(altPrices.prev)}` : ''}</span>
                     <div className="h-4 w-[1px] bg-gray-300"></div>
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Next Day {altPrices.next ? `• BDT ${altPrices.next}` : ''}</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Next Day {altPrices.next ? `• BDT ${formatAmount(altPrices.next)}` : ''}</span>
                     <button onClick={() => handlePrevNextDay(1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -694,7 +801,7 @@ const FlightResultsPage = () => {
                     const brandName = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || '';
                     const bookingClass = first.ResBookDesigCode || '';
                     const seatsLeft = getSeatsLeft(itinerary, pricingInfo);
-                    const baggageText = getBaggageText(pricingInfo);
+                    const baggage = getBaggageInfo(itinerary, pricingInfo);
                     const refundableFlag =
                       pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable ||
                       pricingInfo?.TPA_Extensions?.Refundable ||
@@ -754,7 +861,7 @@ const FlightResultsPage = () => {
                                 <div className="text-[10px] text-gray-500 mt-1">{getLayoverLabel(segments)}</div>
                                 <div className="flex gap-4 mt-2">
                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                                     <Luggage className="w-3 h-3" /> {baggageText || '—'}
+                                     <Luggage className="w-3 h-3" /> {baggage?.label || '—'}
                                    </div>
                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
                                      <Armchair className="w-3 h-3" /> {seatsLeft ? `${seatsLeft} seats left` : '—'}
@@ -775,7 +882,7 @@ const FlightResultsPage = () => {
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{refundableFlag ? 'Refundable' : 'Non Refundable'}</span>
                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
-                              <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
+                              <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {formatAmount(totalAmt)}</div>
                               <a
                                 href={`/air-ticketing/book?${buildBookingQuery()}`}
                                 onMouseDown={() => safeSaveSelectedFlight(itinerary)}
@@ -816,7 +923,7 @@ const FlightResultsPage = () => {
                                {['itinerary', 'fare', 'baggage', 'cancellation', 'datechange'].map((tab) => (
                                  <button
                                    key={tab}
-                                   onClick={() => setActiveTab(tab)}
+                                   onClick={() => handleTabClick(tab, index, itinerary, pricingInfo)}
                                    className={`pb-2 px-4 text-sm font-medium transition-colors relative ${
                                      activeTab === tab 
                                        ? 'text-[#2e2b5f] dark:text-blue-400' 
@@ -933,8 +1040,8 @@ const FlightResultsPage = () => {
                                    <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
                                      <tr>
                                        <td className="py-3 px-4">{origin} - {destination}</td>
-                                      <td className="py-3 px-4">{getBaggageText(pricingInfo) || '—'}</td>
-                                      <td className="py-3 px-4">{getBaggageText(pricingInfo) || '—'}</td>
+                                      <td className="py-3 px-4">{getBaggageInfo(itinerary, pricingInfo).cabin || '—'}</td>
+                                      <td className="py-3 px-4">{getBaggageInfo(itinerary, pricingInfo).checkin || '—'}</td>
                                      </tr>
                                    </tbody>
                                  </table>
@@ -963,19 +1070,54 @@ const FlightResultsPage = () => {
                                    <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
                                      <tr>
                                        <td className="py-3 px-4">Adult</td>
-                                       <td className="py-3 px-4">{currency} {baseFareAmt.toFixed(2)}</td>
-                                       <td className="py-3 px-4">{currency} {taxesAmt.toFixed(2)}</td>
+                                       <td className="py-3 px-4">{currency} {formatAmount(baseFareAmt, 2)}</td>
+                                      <td className="py-3 px-4">
+                                        <div
+                                          className="relative inline-flex items-center gap-2"
+                                          onMouseEnter={() => setTaxOpenIndex(index)}
+                                          onMouseLeave={() => setTaxOpenIndex(null)}
+                                        >
+                                          <span>{currency} {formatAmount(taxesAmt, 2)}</span>
+                                          <Eye className="w-4 h-4 text-gray-500" />
+                                          {taxOpenIndex === index && (
+                                            <div className="absolute top-6 left-0 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+                                              {getTaxList(pricingInfo).length > 0 ? (
+                                                <table className="w-full text-xs">
+                                                  <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500">
+                                                    <tr>
+                                                      <th className="py-2 px-3 text-left">Code</th>
+                                                      <th className="py-2 px-3 text-left">Amount</th>
+                                                      <th className="py-2 px-3 text-left">Description</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
+                                                    {getTaxList(pricingInfo).map((t, i) => (
+                                                      <tr key={`${t.code}-${i}`}>
+                                                        <td className="py-2 px-3">{t.code || '—'}</td>
+                                                        <td className="py-2 px-3">{t.currency} {formatAmount(t.amount, 2)}</td>
+                                                        <td className="py-2 px-3">{t.description || '—'}</td>
+                                                      </tr>
+                                                    ))}
+                                                  </tbody>
+                                                </table>
+                                              ) : (
+                                                <div className="px-3 py-2 text-xs text-gray-500">No tax details provided by airline</div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
                                        <td className="py-3 px-4">{currency} 0</td>
                                        <td className="py-3 px-4">{currency} 0</td>
                                        <td className="py-3 px-4">{currency} 0</td>
                                        <td className="py-3 px-4">{adults}</td>
-                                       <td className="py-3 px-4">{currency} {totalAmt.toFixed(2)}</td>
+                                       <td className="py-3 px-4">{currency} {formatAmount(totalAmt, 2)}</td>
                                      </tr>
                                    </tbody>
                                  </table>
                                  <div className="flex justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm font-bold">
                                    <span>Total Payable</span>
-                                   <span>{currency} {totalAmt.toFixed(2)}</span>
+                                   <span>{currency} {formatAmount(totalAmt, 2)}</span>
                                  </div>
                                </div>
                              )}
@@ -983,72 +1125,12 @@ const FlightResultsPage = () => {
                             {activeTab === 'cancellation' && (
                                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                                  <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || 'Refer airline policy'}</div>
-                                 {(!pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation) && (
-                                   <div>
-                                     <button
-                                       className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
-                                       onClick={async () => {
-                                         try {
-                                           const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
-                                             method: 'POST',
-                                             headers: { 'Content-Type': 'application/json' },
-                                             body: JSON.stringify({ pricingInfo })
-                                           });
-                                           const data = await res.json();
-                                           if (res.ok && data?.rules) {
-                                             pricingInfo.FareInfo = pricingInfo.FareInfo || [{}];
-                                             pricingInfo.FareInfo[0].TPA_Extensions = pricingInfo.FareInfo[0].TPA_Extensions || {};
-                                             pricingInfo.FareInfo[0].TPA_Extensions.Rules = {
-                                               ...(pricingInfo.FareInfo[0].TPA_Extensions.Rules || {}),
-                                               Cancellation: data.rules.cancellation,
-                                               DateChange: data.rules.dateChange,
-                                               NoShow: data.rules.noShow
-                                             };
-                                             setActiveTab('cancellation');
-                                           }
-                                         } catch {}
-                                       }}
-                                     >
-                                       Fetch fare rules
-                                     </button>
-                                   </div>
-                                 )}
                                </div>
                              )}
 
                              {activeTab === 'datechange' && (
                                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                                  <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange || 'Refer airline policy'}</div>
-                                 {(!pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange) && (
-                                   <div>
-                                     <button
-                                       className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
-                                       onClick={async () => {
-                                         try {
-                                           const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
-                                             method: 'POST',
-                                             headers: { 'Content-Type': 'application/json' },
-                                             body: JSON.stringify({ pricingInfo })
-                                           });
-                                           const data = await res.json();
-                                           if (res.ok && data?.rules) {
-                                             pricingInfo.FareInfo = pricingInfo.FareInfo || [{}];
-                                             pricingInfo.FareInfo[0].TPA_Extensions = pricingInfo.FareInfo[0].TPA_Extensions || {};
-                                             pricingInfo.FareInfo[0].TPA_Extensions.Rules = {
-                                               ...(pricingInfo.FareInfo[0].TPA_Extensions.Rules || {}),
-                                               Cancellation: data.rules.cancellation,
-                                               DateChange: data.rules.dateChange,
-                                               NoShow: data.rules.noShow
-                                             };
-                                             setActiveTab('datechange');
-                                           }
-                                         } catch {}
-                                       }}
-                                     >
-                                       Fetch fare rules
-                                     </button>
-                                   </div>
-                                 )}
                                </div>
                              )}
 
