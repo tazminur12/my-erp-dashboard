@@ -40,7 +40,8 @@ const FlightResultsPage = () => {
   const [activeTab, setActiveTab] = useState('itinerary'); // itinerary, baggage, rules
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes session
   const [filterStops, setFilterStops] = useState('all'); // all | direct | one | multi
-  const [filterAirlines, setFilterAirlines] = useState({ BS: false, BG: false, '2A': false });
+  const [filterAirlines, setFilterAirlines] = useState({});
+  const [availableAirlines, setAvailableAirlines] = useState([]);
   const [altPrices, setAltPrices] = useState({ prev: null, next: null });
 
   // Timer Effect
@@ -49,7 +50,7 @@ const FlightResultsPage = () => {
       setTimeLeft((prev) => {
         if (prev <= 0) return 0;
         return prev - 1;
-      });
+      }); 
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -106,7 +107,10 @@ const FlightResultsPage = () => {
             kids,
             infants,
             class: cabinClass
-          }
+          },
+          sortOption,
+          filterStops,
+          filterAirlines
         })
       });
       
@@ -123,6 +127,15 @@ const FlightResultsPage = () => {
       }
       
       setResults(itineraries);
+      try {
+        const carriers = Array.from(new Set(itineraries.map(getAirlineCode).filter(Boolean)));
+        setAvailableAirlines(carriers);
+        setFilterAirlines((prev) => {
+          const next = {};
+          carriers.forEach((c) => { next[c] = prev[c] || false; });
+          return next;
+        });
+      } catch {}
     } catch (err) {
       console.error(err);
       setError(err.message || 'An unexpected error occurred');
@@ -171,6 +184,12 @@ const FlightResultsPage = () => {
     } catch {
       return null;
     }
+  };
+  const getAirlineName = (code) => {
+    if (code === 'BS') return 'US-Bangla Airlines';
+    if (code === 'BG') return 'Biman Bangladesh';
+    if (code === '2A') return 'Air Astra';
+    return `${code} Airlines`;
   };
 
   const getSeatsLeft = (itinerary, pricingInfo) => {
@@ -415,9 +434,25 @@ const FlightResultsPage = () => {
     });
     return Math.min(...prices);
   };
+  const getFastestStats = () => {
+    if (!results || results.length === 0) return { minutes: null, amount: null, currency: 'BDT' };
+    let best = null;
+    for (const r of results) {
+      const minutes = getTotalElapsedMinutes(r);
+      const p = Array.isArray(r.AirItineraryPricingInfo) ? r.AirItineraryPricingInfo[0] : r.AirItineraryPricingInfo;
+      const pricing = p?.ItinTotalFare;
+      const amount = parseFloat(pricing?.TotalFare?.Amount || pricing?.Amount || 0);
+      const currency = pricing?.TotalFare?.CurrencyCode || 'BDT';
+      if (!best || (minutes || 0) < (best.minutes || Infinity)) {
+        best = { minutes, amount, currency };
+      }
+    }
+    return best || { minutes: null, amount: null, currency: 'BDT' };
+  };
 
   // --- Components ---
 
+  const fastestStats = getFastestStats();
 
   return (
     <DashboardLayout>
@@ -460,15 +495,10 @@ const FlightResultsPage = () => {
                     </div>
                   </div>
                   <div className="text-xs text-gray-500 mt-1 flex flex-wrap gap-2 md:gap-4">
-                    <span>{results ? `${results.length} Flights` : 'Searching...'}</span>
+                    <span className="text-green-600 font-semibold">{results ? `${results.length} Flights Available` : 'Searching...'}</span>
+                    <span className="hidden sm:inline text-gray-400">• Price includes VAT & Tax</span>
                     <span className="hidden sm:inline">•</span>
-                    <span className="hidden sm:inline">{passengers} Traveler(s)</span>
-                    {tripType === 'multiway' && (
-                       <>
-                         <span className="hidden sm:inline">•</span>
-                         <span className="hidden sm:inline">{segments.length} Segments</span>
-                       </>
-                    )}
+                    <span className="hidden sm:inline">{passengers} Passenger(s)</span>
                   </div>
                 </div>
               </div>
@@ -533,44 +563,36 @@ const FlightResultsPage = () => {
                     </button>
                   </div>
                 </div>
-                {/* Baggage */}
-                <div className="mb-6">
-                  <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">Baggage Filter</h4>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 text-xs font-medium rounded-lg border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100">20 Kg</button>
-                  </div>
-                </div>
+                {/* Baggage filter removed to avoid demo data */}
                 {/* Airlines */}
                 <div className="mb-6">
                   <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">Preferred Airlines</h4>
                   <div className="space-y-3">
-                    <label className="flex items-center cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filterAirlines.BS}
-                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, BS: e.target.checked }))}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">US-Bangla Airlines</span>
-                    </label>
-                    <label className="flex items-center cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filterAirlines.BG}
-                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, BG: e.target.checked }))}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">Biman Bangladesh Airlines</span>
-                    </label>
-                    <label className="flex items-center cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={filterAirlines['2A']}
-                        onChange={(e) => setFilterAirlines((prev) => ({ ...prev, '2A': e.target.checked }))}
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400 group-hover:text-gray-900 transition-colors">Air Astra</span>
-                    </label>
+                    {availableAirlines.length === 0 ? (
+                      <div className="text-xs text-gray-500">No airlines</div>
+                    ) : (
+                      availableAirlines.map((code) => (
+                        <label key={code} className="flex items-start gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={!!filterAirlines[code]}
+                            onChange={(e) => setFilterAirlines((prev) => ({ ...prev, [code]: e.target.checked }))}
+                            className="mt-0.5 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          />
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center font-bold text-xs text-gray-700">
+                              {code}
+                            </div>
+                            <div className="flex flex-col">
+                              <div className="font-bold text-gray-900 dark:text-white text-sm">
+                                {getAirlineName(code)}
+                              </div>
+                              <div className="text-[11px] text-gray-500">{code}</div>
+                            </div>
+                          </div>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
                 {/* Refundable */}
@@ -593,32 +615,7 @@ const FlightResultsPage = () => {
             {/* Main Content */}
             <div className="flex-1">
               
-              {/* Airline Tickers */}
-              {!loading && results && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-blue-100 shadow-sm flex items-center gap-3 cursor-pointer hover:shadow-md transition-all">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-xs">BS</div>
-                    <div>
-                      <div className="font-bold text-gray-900 dark:text-white">US-Bangla</div>
-                      <div className="text-xs text-gray-500">BDT {getLowestPrice()}</div>
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 cursor-pointer hover:shadow-md transition-all opacity-60">
-                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-xs">BG</div>
-                     <div>
-                      <div className="font-bold text-gray-900 dark:text-white">Biman</div>
-                      <div className="text-xs text-gray-500">BDT {getLowestPrice() + 500}</div>
-                    </div>
-                  </div>
-                   <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 cursor-pointer hover:shadow-md transition-all opacity-60">
-                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-xs">2A</div>
-                     <div>
-                      <div className="font-bold text-gray-900 dark:text-white">Air Astra</div>
-                      <div className="text-xs text-gray-500">BDT {getLowestPrice() + 800}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Airline chips removed to avoid demo data */}
 
               {/* Sorting Bar */}
               {!loading && results && (
@@ -636,7 +633,10 @@ const FlightResultsPage = () => {
                       className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-sm font-semibold transition-colors ${sortOption === 'fastest' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
                       <div className="text-xs text-gray-400 font-normal">Fastest</div>
-                      <div>BDT {getLowestPrice() + 200}</div>
+                      <div>
+                        {fastestStats.minutes ? formatDuration(fastestStats.minutes) : '—'}
+                        {fastestStats.amount ? ` • ${fastestStats.currency} ${fastestStats.amount}` : ''}
+                      </div>
                     </button>
                   </div>
                   
@@ -723,7 +723,12 @@ const FlightResultsPage = () => {
                                   </div>
                                   <span className="text-xs font-normal text-gray-500">{airlineCode}-{first.FlightNumber}</span>
                                 </div>
-                                <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Book & Hold</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Book & Hold</span>
+                                  {filterAirlines[airlineCode] && (
+                                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">Preferred</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -771,7 +776,6 @@ const FlightResultsPage = () => {
                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
                               <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
-                               <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
                               <a
                                 href={`/air-ticketing/book?${buildBookingQuery()}`}
                                 onMouseDown={() => safeSaveSelectedFlight(itinerary)}
@@ -860,9 +864,7 @@ const FlightResultsPage = () => {
                                               <div className="text-sm text-gray-500 font-medium mt-1">
                                                 ({seg.DepartureAirport.LocationCode})
                                               </div>
-                                              <div className="text-xs text-gray-400 mt-1">
-                                                Approx 2 to 3 hours for the check-in<br/>Terminal: D
-                                              </div>
+                                              <div className="text-xs text-gray-400 mt-1"></div>
 
                                               {/* Airline Info - Indented under Departure */}
                                               <div className="mt-6 flex items-start gap-4">
@@ -878,7 +880,7 @@ const FlightResultsPage = () => {
                                                   </div>
                                                   <div className="text-xs text-gray-500 mt-1 font-medium space-y-1">
                                                     <div>Operated by : {seg.OperatingAirline.Code}</div>
-                                                    <div>Aircraft : {seg.Equipment?.[0]?.AirEquipType || 'ATR 72 - 600'}</div>
+                                                    <div>Aircraft : {seg.Equipment?.[0]?.AirEquipType || '—'}</div>
                                                     <div>Class : {cabinClass} • Booking {seg.ResBookDesigCode || bookingClass}</div>
                                                   </div>
                                                 </div>
@@ -907,9 +909,7 @@ const FlightResultsPage = () => {
                                               <div className="text-sm text-gray-500 font-medium mt-1">
                                                 ({seg.ArrivalAirport.LocationCode})
                                               </div>
-                                              <div className="text-xs text-gray-400 mt-1">
-                                                Terminal: D
-                                              </div>
+                                              <div className="text-xs text-gray-400 mt-1"></div>
                                             </div>
                                          </div>
                                        </div>

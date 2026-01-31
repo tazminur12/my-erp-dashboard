@@ -8,7 +8,7 @@ export async function POST(request) {
     const { searchParams } = new URL(request.url);
     const debug = searchParams.get('debug') === 'true';
     const body = await request.json();
-    const { origin, destination, departureDate, returnDate, passengers, tripType, segments, travellers } = body;
+    const { origin, destination, departureDate, returnDate, passengers, tripType, segments, travellers, sortOption, filterStops, filterAirlines } = body;
 
     // Validation
     if (tripType === 'multiway') {
@@ -210,6 +210,58 @@ export async function POST(request) {
           } catch {}
         }
       });
+    }
+    if (searchResults?.OTA_AirLowFareSearchRS?.PricedItineraries?.PricedItinerary) {
+      const itins = searchResults.OTA_AirLowFareSearchRS.PricedItineraries.PricedItinerary;
+      const countStops = (itin) => {
+        try {
+          const legs = itin.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || [];
+          return legs.reduce((acc, leg) => acc + Math.max(0, (leg.FlightSegment?.length || 1) - 1), 0);
+        } catch {
+          return 0;
+        }
+      };
+      const totalElapsed = (itin) => {
+        try {
+          const legs = itin.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || [];
+          return legs.reduce((acc, leg) => acc + (leg.ElapsedTime || 0), 0);
+        } catch {
+          return 0;
+        }
+      };
+      const getCarrier = (itin) => {
+        try {
+          const seg = itin.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption?.[0]?.FlightSegment?.[0];
+          return seg?.MarketingAirline?.Code || null;
+        } catch {
+          return null;
+        }
+      };
+      const getTotal = (itin) => {
+        try {
+          const pinfo = Array.isArray(itin.AirItineraryPricingInfo) ? itin.AirItineraryPricingInfo[0] : itin.AirItineraryPricingInfo;
+          return parseFloat(pinfo?.ItinTotalFare?.TotalFare?.Amount || 0);
+        } catch {
+          return 0;
+        }
+      };
+      const airlinesSelected = filterAirlines && Object.values(filterAirlines).some(Boolean);
+      const filtered = itins.filter((itin) => {
+        const stops = countStops(itin);
+        let okStops = true;
+        if (filterStops === 'direct') okStops = stops === 0;
+        else if (filterStops === 'one') okStops = stops === 1;
+        else if (filterStops === 'multi') okStops = stops >= 2;
+        const carr = getCarrier(itin);
+        const okAir = airlinesSelected ? (!!carr && !!filterAirlines?.[carr]) : true;
+        return okStops && okAir;
+      });
+      if (sortOption === 'fastest') {
+        filtered.sort((a, b) => totalElapsed(a) - totalElapsed(b));
+      } else if (sortOption === 'cheapest') {
+        filtered.sort((a, b) => getTotal(a) - getTotal(b));
+      }
+      searchResults.OTA_AirLowFareSearchRS.PricedItineraries.PricedItinerary = filtered;
     }
 
     const buildSummary = (sr) => {
