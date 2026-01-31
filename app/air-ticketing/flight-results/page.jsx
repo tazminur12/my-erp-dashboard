@@ -346,6 +346,23 @@ const FlightResultsPage = () => {
       return [];
     }
   };
+  const computeAIT = (pricingInfo, totalAmt) => {
+    try {
+      const items = getTaxList(pricingInfo);
+      const excluded = new Set(['BD', 'UT', 'E5']);
+      const excludedSum = items.reduce((s, t) => {
+        const code = String(t.code || '').toUpperCase();
+        return excluded.has(code) ? s + (parseFloat(t.amount) || 0) : s;
+      }, 0);
+      const penalties = 0;
+      const base = (parseFloat(totalAmt) || 0) - penalties - excludedSum;
+      const val = base * 0.003;
+      if (!isFinite(val) || val < 0) return 0;
+      return val;
+    } catch {
+      return 0;
+    }
+  };
   
   useEffect(() => {
     const fetchAlt = async (days) => {
@@ -798,6 +815,8 @@ const FlightResultsPage = () => {
                       taxesAmt = 0;
                     }
                     const totalAmt = parseFloat(pricing?.TotalFare?.Amount || 0);
+                    const aitVal = computeAIT(pricingInfo, totalAmt);
+                    const payableTotal = totalAmt + aitVal;
                     const brandName = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || '';
                     const bookingClass = first.ResBookDesigCode || '';
                     const seatsLeft = getSeatsLeft(itinerary, pricingInfo);
@@ -1062,7 +1081,7 @@ const FlightResultsPage = () => {
                                        <th className="py-3 px-4 text-left">Tax</th>
                                        <th className="py-3 px-4 text-left">Other</th>
                                        <th className="py-3 px-4 text-left">Discount</th>
-                                       <th className="py-3 px-4 text-left">AIT VAT</th>
+                                       <th className="py-3 px-4 text-left">AIT</th>
                                        <th className="py-3 px-4 text-left">Pax Count</th>
                                        <th className="py-3 px-4 text-left">Amount</th>
                                      </tr>
@@ -1109,15 +1128,15 @@ const FlightResultsPage = () => {
                                       </td>
                                        <td className="py-3 px-4">{currency} 0</td>
                                        <td className="py-3 px-4">{currency} 0</td>
-                                       <td className="py-3 px-4">{currency} 0</td>
+                                       <td className="py-3 px-4">{currency} {formatAmount(computeAIT(pricingInfo, totalAmt), 2)}</td>
                                        <td className="py-3 px-4">{adults}</td>
-                                       <td className="py-3 px-4">{currency} {formatAmount(totalAmt, 2)}</td>
+                                       <td className="py-3 px-4">{currency} {formatAmount(payableTotal, 2)}</td>
                                      </tr>
                                    </tbody>
                                  </table>
                                  <div className="flex justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm font-bold">
                                    <span>Total Payable</span>
-                                   <span>{currency} {formatAmount(totalAmt, 2)}</span>
+                                   <span>{currency} {formatAmount(payableTotal, 2)}</span>
                                  </div>
                                </div>
                              )}

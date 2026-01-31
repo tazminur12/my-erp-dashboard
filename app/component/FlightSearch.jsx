@@ -240,7 +240,7 @@ const FlightSearch = ({ compact = false }) => {
         departureDate: seg.date
       }));
 
-      const query = new URLSearchParams({
+      const queryObjMulti = {
         tripType,
         adults: travellers.adults,
         children: travellers.children,
@@ -249,7 +249,27 @@ const FlightSearch = ({ compact = false }) => {
         class: travellers.class,
         segments: JSON.stringify(segmentsData),
         fareType
+      };
+      const query = new URLSearchParams({
+        ...queryObjMulti
       });
+
+      try {
+        const recentRaw = localStorage.getItem('recent_air_searches');
+        const recent = recentRaw ? JSON.parse(recentRaw) : [];
+        const entry = {
+          tripType,
+          segments: segmentsData,
+          travellers,
+          fareType,
+          queryString: query.toString(),
+          ts: Date.now()
+        };
+        const key = JSON.stringify({ tripType, segments: segmentsData, travellers, fareType });
+        const filtered = recent.filter(r => JSON.stringify({ tripType: r.tripType, segments: r.segments, travellers: r.travellers, fareType: r.fareType }) !== key);
+        const next = [entry, ...filtered].slice(0, 5);
+        localStorage.setItem('recent_air_searches', JSON.stringify(next));
+      } catch {}
 
       router.push(`/air-ticketing/flight-results?${query.toString()}`);
       return;
@@ -260,7 +280,7 @@ const FlightSearch = ({ compact = false }) => {
       return;
     }
 
-    const query = new URLSearchParams({
+    const baseObj = {
       origin: selectedFrom.iata,
       destination: selectedTo.iata,
       departureDate,
@@ -271,11 +291,48 @@ const FlightSearch = ({ compact = false }) => {
       class: travellers.class,
       tripType,
       fareType
-    });
+    };
+    const query = new URLSearchParams(baseObj);
 
     if (tripType === 'roundtrip' && returnDate) {
       query.append('returnDate', returnDate);
     }
+
+    try {
+      const recentRaw = localStorage.getItem('recent_air_searches');
+      const recent = recentRaw ? JSON.parse(recentRaw) : [];
+      const entry = {
+        tripType,
+        origin: selectedFrom.iata,
+        destination: selectedTo.iata,
+        departureDate,
+        returnDate: tripType === 'roundtrip' ? returnDate || '' : '',
+        travellers,
+        fareType,
+        queryString: query.toString(),
+        ts: Date.now()
+      };
+      const key = JSON.stringify({
+        tripType,
+        origin: selectedFrom.iata,
+        destination: selectedTo.iata,
+        departureDate,
+        returnDate: tripType === 'roundtrip' ? (returnDate || '') : '',
+        travellers,
+        fareType
+      });
+      const filtered = recent.filter(r => JSON.stringify({
+        tripType: r.tripType,
+        origin: r.origin,
+        destination: r.destination,
+        departureDate: r.departureDate,
+        returnDate: r.returnDate || '',
+        travellers: r.travellers,
+        fareType: r.fareType
+      }) !== key);
+      const next = [entry, ...filtered].slice(0, 5);
+      localStorage.setItem('recent_air_searches', JSON.stringify(next));
+    } catch {}
 
     router.push(`/air-ticketing/flight-results?${query.toString()}`);
   };
