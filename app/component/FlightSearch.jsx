@@ -18,9 +18,21 @@ import {
   PlaneTakeoff,
   PlaneLanding
 } from 'lucide-react';
+import DatePicker from 'react-datepicker';
 import airportsData from '../jsondata/airports.json';
 
-const FlightSearch = ({ compact = false }) => {
+const FlightSearch = ({
+  compact = false,
+  initialTripType,
+  initialOrigin,
+  initialDestination,
+  initialDepartureDate,
+  initialReturnDate,
+  initialTravellers,
+  initialSegments,
+  initialFareType,
+  onSearchComplete
+}) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('flight');
   const [tripType, setTripType] = useState('oneway');
@@ -45,6 +57,34 @@ const FlightSearch = ({ compact = false }) => {
     class: 'Economy' 
   });
   const [fareType, setFareType] = useState('regular');
+  
+  useEffect(() => {
+    if (initialTripType) setTripType(initialTripType);
+    if (initialOrigin) {
+      setSelectedFrom({ iata: initialOrigin, name: initialOrigin });
+      setFromSearch(initialOrigin);
+    }
+    if (initialDestination) {
+      setSelectedTo({ iata: initialDestination, name: initialDestination });
+      setToSearch(initialDestination);
+    }
+    if (initialDepartureDate) setDepartureDate(initialDepartureDate);
+    if (initialReturnDate) setReturnDate(initialReturnDate);
+    if (initialTravellers) setTravellers(initialTravellers);
+    if (initialSegments && Array.isArray(initialSegments) && initialSegments.length > 0) {
+      const mapped = initialSegments.map((s, idx) => ({
+        id: idx + 1,
+        from: s.origin ? { iata: s.origin, name: s.origin } : null,
+        to: s.destination ? { iata: s.destination, name: s.destination } : null,
+        date: s.departureDate || '',
+        fromSearch: s.origin || '',
+        toSearch: s.destination || ''
+      }));
+      setMultiCitySegments(mapped);
+      setTripType('multiway');
+    }
+    if (initialFareType) setFareType(initialFareType);
+  }, []);
   
   const getTotalPassengers = () => {
     return travellers.adults + travellers.children + travellers.kids + travellers.infants;
@@ -272,6 +312,7 @@ const FlightSearch = ({ compact = false }) => {
       } catch {}
 
       router.push(`/air-ticketing/flight-results?${query.toString()}`);
+      if (onSearchComplete) onSearchComplete();
       return;
     }
 
@@ -335,6 +376,7 @@ const FlightSearch = ({ compact = false }) => {
     } catch {}
 
     router.push(`/air-ticketing/flight-results?${query.toString()}`);
+    if (onSearchComplete) onSearchComplete();
   };
 
   return (
@@ -491,11 +533,15 @@ const FlightSearch = ({ compact = false }) => {
                       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> Journey Date
                       </label>
-                      <input 
-                        type="date"
-                        value={segment.date}
-                        onChange={(e) => setMultiCitySegments(prev => prev.map(s => s.id === segment.id ? { ...s, date: e.target.value } : s))}
+                      <DatePicker
+                        selected={segment.date ? new Date(segment.date) : null}
+                        onChange={(date) => setMultiCitySegments(prev => prev.map(s => s.id === segment.id ? { ...s, date: (date ? date.toISOString().slice(0,10) : '') } : s))}
+                        placeholderText="Select Date"
+                        dateFormat="dd MMM, yyyy"
+                        minDate={new Date()}
                         className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
+                        popperPlacement="bottom-start"
+                        showPopperArrow={false}
                       />
                       <div className="text-xs text-gray-400 mt-1">
                         {segment.date ? new Date(segment.date).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }) : 'Select Date'}
@@ -755,11 +801,15 @@ const FlightSearch = ({ compact = false }) => {
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3" /> Journey Date
               </label>
-              <input 
-                type="date"
-                value={departureDate}
-                onChange={(e) => setDepartureDate(e.target.value)}
+              <DatePicker
+                selected={departureDate ? new Date(departureDate) : null}
+                onChange={(date) => setDepartureDate(date ? date.toISOString().slice(0,10) : '')}
+                placeholderText="Select Date"
+                dateFormat="dd MMM, yyyy"
+                minDate={new Date()}
                 className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
+                popperPlacement="bottom-start"
+                showPopperArrow={false}
               />
               <div className="text-xs text-gray-400 mt-1">
                 {departureDate ? new Date(departureDate).toLocaleDateString('en-US', { weekday: 'long' }) : 'Select Date'}
@@ -773,11 +823,15 @@ const FlightSearch = ({ compact = false }) => {
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                   <Calendar className="w-3 h-3" /> Return Date
                 </label>
-                <input 
-                  type="date"
-                  value={returnDate}
-                  onChange={(e) => setReturnDate(e.target.value)}
+                <DatePicker
+                  selected={returnDate ? new Date(returnDate) : null}
+                  onChange={(date) => setReturnDate(date ? date.toISOString().slice(0,10) : '')}
+                  placeholderText="Select Date"
+                  dateFormat="dd MMM, yyyy"
+                  minDate={departureDate ? new Date(departureDate) : new Date()}
                   className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
+                  popperPlacement="bottom-start"
+                  showPopperArrow={false}
                 />
                 <div className="text-xs text-gray-400 mt-1">
                   {returnDate ? new Date(returnDate).toLocaleDateString('en-US', { weekday: 'long' }) : 'Book Roundtrip'}

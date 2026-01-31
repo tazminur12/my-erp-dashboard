@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import DashboardLayout from '../../component/DashboardLayout';
+import FlightSearch from '../../component/FlightSearch';
 import { 
   Loader2, 
   AlertCircle, 
@@ -45,6 +46,22 @@ const FlightResultsPage = () => {
   const [availableAirlines, setAvailableAirlines] = useState([]);
   const [altPrices, setAltPrices] = useState({ prev: null, next: null });
   const [taxOpenIndex, setTaxOpenIndex] = useState(null);
+  const [showModify, setShowModify] = useState(false);
+  useEffect(() => {
+    try {
+      if (showModify) {
+        document.body.style.overflow = 'hidden';
+        const onKey = (e) => { if (e.key === 'Escape') setShowModify(false); };
+        window.addEventListener('keydown', onKey);
+        return () => {
+          window.removeEventListener('keydown', onKey);
+          document.body.style.overflow = '';
+        };
+      } else {
+        document.body.style.overflow = '';
+      }
+    } catch {}
+  }, [showModify]);
 
   // Timer Effect
   useEffect(() => {
@@ -330,6 +347,18 @@ const FlightResultsPage = () => {
       null
     );
   };
+  const getTaxDescription = (code) => {
+    const c = String(code || '').toUpperCase();
+    const map = {
+      BD: 'Passenger Service Charge',
+      UT: 'VAT',
+      E5: 'AIT (Advance Income Tax)',
+      YQ: 'Carrier Surcharge',
+      YR: 'Carrier Surcharge',
+      XT: 'Combined Taxes/Fees'
+    };
+    return map[c] || '';
+  };
   const getTaxList = (pricingInfo) => {
     try {
       const pf = getPassengerFare(pricingInfo);
@@ -340,7 +369,7 @@ const FlightResultsPage = () => {
         code: t?.TaxCode || t?.Code || '',
         amount: parseFloat(t?.Amount || 0),
         currency: t?.CurrencyCode || pf?.Taxes?.TotalTax?.CurrencyCode || pricingInfo?.ItinTotalFare?.TotalFare?.CurrencyCode || 'BDT',
-        description: t?.Description || ''
+        description: t?.Description || getTaxDescription(t?.TaxCode || t?.Code || '')
       })).filter((x) => x.amount > 0);
     } catch {
       return [];
@@ -627,7 +656,7 @@ const FlightResultsPage = () => {
                 </div>
               </div>
               <button 
-                onClick={handleModifySearch}
+                onClick={() => setShowModify(true)}
                 className="bg-[#2e2b5f] hover:bg-[#3d3983] text-white px-4 py-2 md:px-6 rounded-lg font-semibold text-xs md:text-sm transition-colors shadow-md w-full md:w-auto"
               >
                 Modify Search
@@ -1180,6 +1209,42 @@ const FlightResultsPage = () => {
             </div>
           </div>
         </div>
+        
+        {showModify && (
+          <div className="fixed inset-0 z-[1000]">
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowModify(false)}></div>
+            <div className="absolute inset-0 flex items-start md:items-center justify-center p-2 md:p-6">
+              <div className="w-full max-w-5xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Modify</span>
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      {origin || '—'} <span className="text-gray-400">→</span> {destination || '—'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowModify(false)}
+                    className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+                <div className="p-3 md:p-6 max-h-[85vh] overflow-y-auto">
+                  <FlightSearch
+                    initialTripType={tripType || 'oneway'}
+                    initialOrigin={origin || ''}
+                    initialDestination={destination || ''}
+                    initialDepartureDate={departureDate || ''}
+                    initialReturnDate={returnDate || ''}
+                    initialTravellers={{ adults, children, kids, infants, class: cabinClass }}
+                    initialSegments={segments}
+                    onSearchComplete={() => setShowModify(false)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

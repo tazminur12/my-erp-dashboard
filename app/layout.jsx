@@ -1,4 +1,5 @@
 import "./globals.css";
+import "react-datepicker/dist/react-datepicker.css";
 import SessionProvider from "./providers/SessionProvider";
 import { getSession } from "@/lib/auth";
 import Script from "next/script";
