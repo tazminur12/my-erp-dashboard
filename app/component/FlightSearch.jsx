@@ -23,7 +23,7 @@ import airportsData from '../jsondata/airports.json';
 const FlightSearch = ({ compact = false }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('flight');
-  const [tripType, setTripType] = useState('roundtrip');
+  const [tripType, setTripType] = useState('oneway');
   
   // Search States
   const [fromSearch, setFromSearch] = useState('');

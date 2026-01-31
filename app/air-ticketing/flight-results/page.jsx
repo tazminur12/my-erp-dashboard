@@ -1049,7 +1049,7 @@ const FlightResultsPage = () => {
                              )}
 
                              {activeTab === 'fare' && (
-                               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-visible">
                                  <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-3">
                                    <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Refundable</span>
                                    <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Book & Hold</span>
@@ -1080,7 +1080,7 @@ const FlightResultsPage = () => {
                                           <span>{currency} {formatAmount(taxesAmt, 2)}</span>
                                           <Eye className="w-4 h-4 text-gray-500" />
                                           {taxOpenIndex === index && (
-                                            <div className="absolute top-6 left-0 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+                                            <div className="absolute bottom-full left-0 mb-2 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
                                               {getTaxList(pricingInfo).length > 0 ? (
                                                 <table className="w-full text-xs">
                                                   <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500">
