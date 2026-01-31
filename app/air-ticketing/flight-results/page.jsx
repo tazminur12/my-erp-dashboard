@@ -47,6 +47,7 @@ const FlightResultsPage = () => {
   const [altPrices, setAltPrices] = useState({ prev: null, next: null });
   const [taxOpenIndex, setTaxOpenIndex] = useState(null);
   const [showModify, setShowModify] = useState(false);
+  const fetchedRefundableRef = React.useRef(new Set());
   useEffect(() => {
     try {
       if (showModify) {
@@ -162,6 +163,51 @@ const FlightResultsPage = () => {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    const enrichRefundables = async () => {
+      if (!results || !Array.isArray(results)) return;
+      let fetchCount = 0;
+      const maxFetch = 4;
+      const nextResults = [...results];
+      for (let i = 0; i < nextResults.length && fetchCount < maxFetch; i++) {
+        const target = nextResults[i];
+        const p = Array.isArray(target.AirItineraryPricingInfo) ? target.AirItineraryPricingInfo[0] : target.AirItineraryPricingInfo;
+        const flag = getRefundableFlag(p);
+        if (flag === null && !fetchedRefundableRef.current.has(i)) {
+          fetchedRefundableRef.current.add(i);
+          try {
+            const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pricingInfo: p })
+            });
+            const data = await res.json();
+            if (res.ok && data?.rules) {
+              const txt = `${data.rules.cancellation || ''} ${data.rules.dateChange || ''} ${data.rules.noShow || ''}`;
+              let inferred = inferRefundableFromText(txt);
+              if (inferred === null && Array.isArray(data.fareBasisCodes)) {
+                const hasNR = data.fareBasisCodes.some(c => String(c || '').toUpperCase().includes('NR'));
+                if (hasNR) inferred = false;
+              }
+              if (inferred === null && typeof data.inferredRefundable === 'boolean') {
+                inferred = data.inferredRefundable;
+              }
+              if (inferred !== null) {
+                const pp = Array.isArray(nextResults[i].AirItineraryPricingInfo) ? nextResults[i].AirItineraryPricingInfo[0] : nextResults[i].AirItineraryPricingInfo;
+                pp.FareInfo = pp.FareInfo || [{}];
+                pp.FareInfo[0].TPA_Extensions = pp.FareInfo[0].TPA_Extensions || {};
+                pp.FareInfo[0].TPA_Extensions.Refundables = pp.FareInfo[0].TPA_Extensions.Refundables || {};
+                pp.FareInfo[0].TPA_Extensions.Refundables.Refundable = inferred;
+              }
+            }
+          } catch {}
+          fetchCount++;
+        }
+      }
+      setResults(nextResults);
+    };
+    enrichRefundables();
+  }, [results]);
 
   const getStopsCount = (itinerary) => {
     try {
@@ -390,6 +436,63 @@ const FlightResultsPage = () => {
       return val;
     } catch {
       return 0;
+    }
+  };
+  const getRefundableFlag = (pricingInfo) => {
+    const norm = (v) => {
+      if (v === true) return true;
+      if (v === false) return false;
+      const s = String(v ?? '').trim().toUpperCase();
+      if (!s) return null;
+      if (['Y', 'YES', 'TRUE', 'T', '1', 'REFUNDABLE'].includes(s)) return true;
+      if (['N', 'NO', 'FALSE', 'F', '0', 'NON REFUNDABLE', 'NON-REFUNDABLE', 'NOT REFUNDABLE'].includes(s)) return false;
+      return null;
+    };
+    let val = norm(pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable);
+    if (val === null) val = norm(pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundable);
+    if (val === null) val = norm(pricingInfo?.TPA_Extensions?.Refundables?.Refundable);
+    if (val === null) val = norm(pricingInfo?.TPA_Extensions?.Refundable);
+    if (val === null) {
+      const rule = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.General || '';
+      const txt = String(rule || '').toUpperCase();
+      if (txt.includes('NON REFUNDABLE') || txt.includes('NON-REFUNDABLE') || txt.includes('NOT REFUNDABLE')) val = false;
+      else if (txt.includes('REFUNDABLE')) val = true;
+    }
+    if (val === null) {
+      try {
+        const extTxt = JSON.stringify(pricingInfo?.FareInfo?.[0]?.TPA_Extensions || pricingInfo?.TPA_Extensions || {}).toUpperCase();
+        if (extTxt.includes('NONREFUNDABLE') || extTxt.includes('NON REFUNDABLE') || extTxt.includes('NON-REFUNDABLE') || extTxt.includes('NOT REFUNDABLE') || extTxt.includes('NONREF')) val = false;
+        else if (extTxt.includes('REFUNDABLE')) val = true;
+      } catch {}
+    }
+    if (val === null) {
+      const fareBasis = pricingInfo?.FareInfo?.[0]?.FareBasisCode || pricingInfo?.FareInfos?.FareInfo?.[0]?.FareBasisCode || '';
+      const fb = String(fareBasis || '').toUpperCase();
+      if (fb && (fb.includes('NR') || fb.includes('-NR'))) val = false;
+    }
+    if (val === null) {
+      const codes = getFareBasisCodes(pricingInfo).map(c => String(c || '').toUpperCase());
+      if (codes.some(c => c.includes('NR') || c.includes('-NR'))) val = false;
+    }
+    return val;
+  };
+  const inferRefundableFromText = (txt) => {
+    const T = String(txt || '').toUpperCase();
+    if (!T) return null;
+    if (T.includes('NONREFUNDABLE') || T.includes('NON REFUNDABLE') || T.includes('NON-REFUNDABLE') || T.includes('NOT REFUNDABLE') || T.includes('NONREF')) return false;
+    if (T.includes('REFUNDABLE')) return true;
+    return null;
+  };
+  const getFareBasisCodes = (pricingInfo) => {
+    try {
+      const list =
+        pricingInfo?.PTC_FareBreakdowns?.PTC_FareBreakdown?.[0]?.FareBasisCodes?.FareBasisCode ||
+        pricingInfo?.PTC_FareBreakdowns?.[0]?.FareBasisCodes?.FareBasisCode ||
+        [];
+      const arr = Array.isArray(list) ? list : list ? [list] : [];
+      return arr.map(f => (typeof f === 'string' ? f : (f?.content || f?.FareBasisCode || ''))).filter(Boolean);
+    } catch {
+      return [];
     }
   };
   
@@ -850,10 +953,7 @@ const FlightResultsPage = () => {
                     const bookingClass = first.ResBookDesigCode || '';
                     const seatsLeft = getSeatsLeft(itinerary, pricingInfo);
                     const baggage = getBaggageInfo(itinerary, pricingInfo);
-                    const refundableFlag =
-                      pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable ||
-                      pricingInfo?.TPA_Extensions?.Refundable ||
-                      null;
+                    const refundableFlag = getRefundableFlag(pricingInfo);
                     const totalElapsed = getTotalElapsedMinutes(itinerary);
                     const isCheapest = totalAmt && totalAmt === getLowestPrice();
                     const cabinCode =
@@ -927,7 +1027,7 @@ const FlightResultsPage = () => {
                             {/* Price & Action */}
                             <div className="w-full lg:w-[25%] flex flex-col items-end border-l border-dashed border-gray-200 dark:border-gray-700 pl-6 gap-2">
                               <div className="flex gap-2 mb-1">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{refundableFlag ? 'Refundable' : 'Non Refundable'}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag === true ? 'bg-green-100 text-green-700' : refundableFlag === false ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{refundableFlag === true ? 'Refundable' : refundableFlag === false ? 'Non Refundable' : '—'}</span>
                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
                               <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {formatAmount(totalAmt)}</div>
@@ -1098,8 +1198,8 @@ const FlightResultsPage = () => {
 
                              {activeTab === 'fare' && (
                                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-visible">
-                                 <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-3">
-                                   <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Refundable</span>
+                                  <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-3">
+                                   <span className={`${getRefundableFlag(pricingInfo) === true ? 'bg-green-50 text-green-700' : getRefundableFlag(pricingInfo) === false ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-600'} text-[10px] font-bold px-2 py-0.5 rounded`}>{getRefundableFlag(pricingInfo) === true ? 'Refundable' : getRefundableFlag(pricingInfo) === false ? 'Non Refundable' : '—'}</span>
                                    <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Book & Hold</span>
                                  </div>
                                  <table className="w-full text-sm">

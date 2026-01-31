@@ -185,6 +185,53 @@ export async function POST(request) {
             pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
             pricingInfo.TPA_Extensions.Baggage = { Checkin: bag.text };
           }
+          // Normalize Refundable flag
+          try {
+            const normBool = (v) => {
+              if (v === true) return true;
+              if (v === false) return false;
+              const s = String(v ?? '').trim().toUpperCase();
+              if (!s) return null;
+              if (['Y','YES','TRUE','T','1','REFUNDABLE'].includes(s)) return true;
+              if (['N','NO','FALSE','F','0','NON REFUNDABLE','NON-REFUNDABLE','NOT REFUNDABLE'].includes(s)) return false;
+              return null;
+            };
+            let refSource = null;
+            let refVal = normBool(pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable);
+            if (refVal !== null) refSource = 'field';
+            if (refVal === null) { refVal = normBool(pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Refundable); if (refVal !== null) refSource = 'field'; }
+            if (refVal === null) { refVal = normBool(pricingInfo?.TPA_Extensions?.Refundables?.Refundable); if (refVal !== null) refSource = 'field'; }
+            if (refVal === null) { refVal = normBool(pricingInfo?.TPA_Extensions?.Refundable); if (refVal !== null) refSource = 'field'; }
+            if (refVal === null) {
+              const cancelText = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.General || '';
+              const txt = String(cancelText || '').toUpperCase();
+              if (txt.includes('NON REFUNDABLE') || txt.includes('NON-REFUNDABLE') || txt.includes('NOT REFUNDABLE')) refVal = false;
+              else if (txt.includes('REFUNDABLE')) refVal = true;
+              if (refVal !== null) refSource = 'rules';
+            }
+            if (refVal === null) {
+              try {
+                const extTxt = JSON.stringify(pricingInfo?.FareInfo?.[0]?.TPA_Extensions || pricingInfo?.TPA_Extensions || {}).toUpperCase();
+                if (extTxt.includes('NONREFUNDABLE') || extTxt.includes('NON REFUNDABLE') || extTxt.includes('NON-REFUNDABLE') || extTxt.includes('NOT REFUNDABLE') || extTxt.includes('NONREF')) refVal = false;
+                else if (extTxt.includes('REFUNDABLE')) refVal = true;
+                if (refVal !== null) refSource = 'text';
+              } catch {}
+            }
+            if (refVal === null) {
+              const fareBasis = pricingInfo?.FareInfo?.[0]?.FareBasisCode || pricingInfo?.FareInfos?.FareInfo?.[0]?.FareBasisCode || '';
+              const fb = String(fareBasis || '').toUpperCase();
+              if (fb && (fb.includes('NR') || fb.includes('-NR'))) refVal = false;
+              if (refVal !== null) refSource = 'farebasis';
+            }
+            if (refVal !== null) {
+              pricingInfo.FareInfo = pricingInfo.FareInfo || [{}];
+              pricingInfo.FareInfo[0].TPA_Extensions = pricingInfo.FareInfo[0].TPA_Extensions || {};
+              pricingInfo.FareInfo[0].TPA_Extensions.Refundables = pricingInfo.FareInfo[0].TPA_Extensions.Refundables || {};
+              pricingInfo.FareInfo[0].TPA_Extensions.Refundables.Refundable = refVal;
+              pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
+              pricingInfo.TPA_Extensions.Refundables = { ...(pricingInfo.TPA_Extensions.Refundables || {}), Refundable: refVal, Source: refSource };
+            }
+          } catch {}
           // Normalize Cabin from FareInfos if present
           const cabinCode = pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin;
           if (cabinCode) {
@@ -273,6 +320,16 @@ export async function POST(request) {
         const segs = legs[0]?.FlightSegment || [];
         const pinfo = Array.isArray(first?.AirItineraryPricingInfo) ? first.AirItineraryPricingInfo[0] : first?.AirItineraryPricingInfo;
         const fare = pinfo?.ItinTotalFare;
+        const stats = (() => {
+          let t = 0, f = 0, n = 0;
+          itins.forEach(itin => {
+            const p = Array.isArray(itin.AirItineraryPricingInfo) ? itin.AirItineraryPricingInfo[0] : itin.AirItineraryPricingInfo;
+            const v = p?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable ??
+                      p?.TPA_Extensions?.Refundables?.Refundable ?? null;
+            if (v === true) t++; else if (v === false) f++; else n++;
+          });
+          return { refundableTrue: t, refundableFalse: f, refundableNull: n };
+        })();
         return {
           totalItineraries: total,
           sample: {
@@ -294,16 +351,19 @@ export async function POST(request) {
               baggage: pinfo?.TPA_Extensions?.Baggage || null,
               seatsRemaining: pinfo?.TPA_Extensions?.SeatsRemaining || pinfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.SeatsRemaining || null,
               brand: pinfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || null,
-              cabin: pinfo?.TPA_Extensions?.Cabin?.Cabin || pinfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin || null
+              cabin: pinfo?.TPA_Extensions?.Cabin?.Cabin || pinfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin || null,
+              refundable: (pinfo?.FareInfo?.[0]?.TPA_Extensions?.Refundables?.Refundable ?? pinfo?.TPA_Extensions?.Refundables?.Refundable ?? null),
+              refundableSource: pinfo?.TPA_Extensions?.Refundables?.Source || null
             }
           },
           rawSample: {
             AirItineraryPricingInfo: pinfo || null,
             OriginDestinationOptionsCount: (first?.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || []).length
-          }
+          },
+          stats
         };
       } catch {
-        return { totalItineraries: 0 };
+        return { totalItineraries: 0, stats: { refundableTrue: 0, refundableFalse: 0, refundableNull: 0 } };
       }
     };
     const summary = buildSummary(searchResults);

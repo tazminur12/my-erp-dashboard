@@ -16,7 +16,9 @@ import {
   Plus,
   Trash2,
   PlaneTakeoff,
-  PlaneLanding
+  PlaneLanding,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import airportsData from '../jsondata/airports.json';
@@ -57,6 +59,11 @@ const FlightSearch = ({
     class: 'Economy' 
   });
   const [fareType, setFareType] = useState('regular');
+  const [fareCalendar, setFareCalendar] = useState({});
+  const [calendarMonth, setCalendarMonth] = useState(null);
+  const [isCalLoading, setIsCalLoading] = useState(false);
+  const [calStats, setCalStats] = useState({ min: null, max: null });
+  const calFetchIdRef = useRef(0);
   
   useEffect(() => {
     if (initialTripType) setTripType(initialTripType);
@@ -93,6 +100,108 @@ const FlightSearch = ({
   const fromRef = useRef(null);
   const toRef = useRef(null);
   const multiCityRef = useRef(null);
+  const formatCompact = (n) => {
+    if (!isFinite(n) || n <= 0) return '';
+    const v = Math.round(n);
+    if (v >= 1000000) return `${Math.round(v/1000000)}m`;
+    if (v >= 1000) return `${Math.round(v/1000)}k`;
+    return String(v);
+  };
+  const fetchFareCalendar = async (baseDate) => {
+    try {
+      if (!selectedFrom || !selectedTo) return;
+      const fetchId = ++calFetchIdRef.current;
+      const monthStr = `${baseDate.getFullYear()}-${String(baseDate.getMonth()+1).padStart(2,'0')}`;
+      setIsCalLoading(true);
+      setTimeout(() => {
+        if (calFetchIdRef.current === fetchId) setIsCalLoading(false);
+      }, 12000);
+      const qs = new URLSearchParams({
+        origin: selectedFrom.iata,
+        destination: selectedTo.iata,
+        month: monthStr,
+        adults: String(travellers.adults),
+        cabin: travellers.class
+      });
+      const res = await fetch(`/api/air-ticketing/fare-calendar?${qs.toString()}`);
+      const data = await res.json();
+      const map = {};
+      if (res.ok && data?.fares && Array.isArray(data.fares)) {
+        data.fares.forEach(f => {
+          if (f?.date) map[f.date] = { amount: f.amount, currency: f.currency };
+        });
+        const vals = Object.values(map).map(x => x?.amount).filter(a => typeof a === 'number' && isFinite(a));
+        if (vals.length) {
+          const mn = Math.min(...vals);
+          const mx = Math.max(...vals);
+          setCalStats({ min: mn, max: mx });
+        } else {
+          setCalStats({ min: null, max: null });
+        }
+      }
+      if (calFetchIdRef.current === fetchId) setFareCalendar(map);
+    } catch {
+    } finally {
+      setIsCalLoading(false);
+    }
+  };
+  const renderFareDay = (day, date) => {
+    const key = date.toISOString().slice(0,10);
+    const info = fareCalendar[key];
+    return (
+      <div className="flex flex-col items-center">
+        <span className="font-semibold">{day}</span>
+        {info && typeof info.amount === 'number'
+          ? <span className="text-[10px] mt-1 text-pink-600">৳ {formatCompact(info.amount)}</span>
+          : <span className="text-[10px] mt-1 skeleton-fare">&nbsp;</span>}
+      </div>
+    );
+  };
+  const renderCalHeader = ({ date, decreaseMonth, increaseMonth, changeMonth, changeYear }) => {
+    const monthName = date.toLocaleString('default', { month: 'long' });
+    const year = date.getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString('default', { month: 'long' }));
+    const years = Array.from({ length: 3 }, (_, i) => year - 1 + i); // previous, current, next
+    return (
+      <div className="flex items-center justify-between px-2 py-2">
+        <button type="button" onClick={decreaseMonth} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={monthName}
+            onChange={(e) => {
+              const idx = months.findIndex(m => m === e.target.value);
+              if (idx >= 0) changeMonth(idx);
+            }}
+            className="text-sm font-semibold bg-transparent"
+          >
+            {months.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select
+            value={year}
+            onChange={(e) => changeYear(parseInt(e.target.value, 10))}
+            className="text-sm font-semibold bg-transparent"
+          >
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button type="button" onClick={increaseMonth} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  };
+  useEffect(() => {
+    try {
+      if (selectedFrom && selectedTo) {
+        const base = calendarMonth || new Date();
+        const first = new Date(base.getFullYear(), base.getMonth(), 1);
+        setCalendarMonth(first);
+        fetchFareCalendar(first);
+      }
+    } catch {}
+  }, [selectedFrom?.iata, selectedTo?.iata, travellers.adults, travellers.class]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -800,6 +909,7 @@ const FlightSearch = ({
             <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-4 h-full flex flex-col justify-center hover:border-gray-300 transition-colors">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Calendar className="w-3 h-3" /> Journey Date
+                {isCalLoading && <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600">Updating fares…</span>}
               </label>
               <DatePicker
                 selected={departureDate ? new Date(departureDate) : null}
@@ -810,6 +920,19 @@ const FlightSearch = ({
                 className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
                 popperPlacement="bottom-start"
                 showPopperArrow={false}
+                renderDayContents={renderFareDay}
+                renderCustomHeader={renderCalHeader}
+                onCalendarOpen={() => {
+                  const base = departureDate ? new Date(departureDate) : new Date();
+                  const first = new Date(base.getFullYear(), base.getMonth(), 1);
+                  setCalendarMonth(first);
+                  fetchFareCalendar(first);
+                }}
+                onMonthChange={(date) => {
+                  const first = new Date(date.getFullYear(), date.getMonth(), 1);
+                  setCalendarMonth(first);
+                  fetchFareCalendar(first);
+                }}
               />
               <div className="text-xs text-gray-400 mt-1">
                 {departureDate ? new Date(departureDate).toLocaleDateString('en-US', { weekday: 'long' }) : 'Select Date'}
@@ -832,6 +955,19 @@ const FlightSearch = ({
                   className="w-full font-bold text-gray-900 dark:text-white bg-transparent border-none p-0 focus:ring-0 text-sm"
                   popperPlacement="bottom-start"
                   showPopperArrow={false}
+                  renderDayContents={renderFareDay}
+                  renderCustomHeader={renderCalHeader}
+                  onCalendarOpen={() => {
+                    const base = returnDate ? new Date(returnDate) : new Date();
+                    const first = new Date(base.getFullYear(), base.getMonth(), 1);
+                    setCalendarMonth(first);
+                    fetchFareCalendar(first);
+                  }}
+                  onMonthChange={(date) => {
+                    const first = new Date(date.getFullYear(), date.getMonth(), 1);
+                    setCalendarMonth(first);
+                    fetchFareCalendar(first);
+                  }}
                 />
                 <div className="text-xs text-gray-400 mt-1">
                   {returnDate ? new Date(returnDate).toLocaleDateString('en-US', { weekday: 'long' }) : 'Book Roundtrip'}

@@ -35,10 +35,25 @@ export async function POST(request) {
 
     // If rules already exist, return them directly
     if (existing && (existing.cancellation || existing.dateChange || existing.noShow)) {
+      // Infer refundable from existing cancellation text if possible
+      const txt = `${existing.cancellation || ''} ${existing.dateChange || ''} ${existing.noShow || ''}`.toUpperCase();
+      let inferredRefundable = null;
+      let source = null;
+      if (txt.includes('NON REFUNDABLE') || txt.includes('NON-REFUNDABLE') || txt.includes('NOT REFUNDABLE') || txt.includes('NONREFUNDABLE') || txt.includes('NONREF')) {
+        inferredRefundable = false; source = 'rules';
+      } else if (txt.includes('REFUNDABLE')) {
+        inferredRefundable = true; source = 'rules';
+      }
+      if (inferredRefundable === null && fareBasisCodes.length > 0) {
+        const hasNR = fareBasisCodes.some(c => String(c || '').toUpperCase().includes('NR'));
+        if (hasNR) { inferredRefundable = false; source = 'farebasis'; }
+      }
       return NextResponse.json({
         success: true,
         rules: existing,
-        fareBasisCodes
+        fareBasisCodes,
+        inferredRefundable,
+        inferredSource: source
       });
     }
 
@@ -49,10 +64,20 @@ export async function POST(request) {
       noShow: null
     };
 
+    // Infer refundable from fare basis if possible
+    let inferredRefundable = null;
+    let source = null;
+    if (fareBasisCodes.length > 0) {
+      const hasNR = fareBasisCodes.some(c => String(c || '').toUpperCase().includes('NR'));
+      if (hasNR) { inferredRefundable = false; source = 'farebasis'; }
+    }
+
     return NextResponse.json({
       success: true,
       rules: placeholders,
-      fareBasisCodes
+      fareBasisCodes,
+      inferredRefundable,
+      inferredSource: source
     });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message || 'Failed to fetch fare rules' }, { status: 200 });

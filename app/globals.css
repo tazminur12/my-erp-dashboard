@@ -59,3 +59,37 @@ body * {
   font-family: var(--font-english) !important;
   font-weight: 700 !important;
 }
+
+/* React DatePicker calendar tweaks for two-line day content with fare badges */
+.react-datepicker__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2 !important;
+  padding-top: 2px;
+  width: 2.2rem;
+  height: 2.6rem;
+}
+.react-datepicker__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.react-datepicker__header {
+  padding: 8px 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.react-datepicker__current-month {
+  font-weight: 600;
+}
+.skeleton-fare {
+  width: 24px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

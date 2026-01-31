@@ -29,7 +29,7 @@ const SessionTimer = () => {
   );
 };
 
-const BookingStepper = ({ onBack }) => {
+const BookingStepper = ({ onBack, currentStep = 1 }) => {
   return (
     <div className="bg-[#1e1b4b] text-white py-4 px-4 sm:px-6 lg:px-8 mb-8">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -38,15 +38,15 @@ const BookingStepper = ({ onBack }) => {
          </button>
          
          <div className="flex items-center gap-4 flex-1 justify-center">
-            <div className="flex items-center gap-2 opacity-60">
-                <div className="w-6 h-6 rounded-full border border-white flex items-center justify-center text-xs">1</div>
-                <span className="text-sm hidden sm:inline">Flight Itinerary</span>
-            </div>
+           <div className={`flex items-center gap-2 ${currentStep === 1 ? 'font-bold' : 'opacity-60'}`}>
+               <div className={`w-6 h-6 rounded-full ${currentStep === 1 ? 'bg-white text-[#1e1b4b]' : 'border border-white text-white'} flex items-center justify-center text-xs`}>1</div>
+               <span className="text-sm hidden sm:inline">Passenger Details</span>
+           </div>
             <div className="w-16 h-[1px] bg-gray-500"></div>
-             <div className="flex items-center gap-2 font-bold">
-                <div className="w-6 h-6 rounded-full bg-white text-[#1e1b4b] flex items-center justify-center text-xs">2</div>
+             <div className={`flex items-center gap-2 ${currentStep === 2 ? 'font-bold' : 'opacity-60'}`}>
+                <div className={`w-6 h-6 rounded-full ${currentStep === 2 ? 'bg-white text-[#1e1b4b]' : 'border border-white text-white'} flex items-center justify-center text-xs`}>2</div>
                 <span className="text-sm hidden sm:inline">Review & Book</span>
-            </div>
+             </div>
          </div>
          
          <div className="w-6"></div> {/* Spacer for centering */}
@@ -62,6 +62,7 @@ const BookingPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pnr, setPnr] = useState(null);
+  const [showReview, setShowReview] = useState(false);
   
   // Passenger Data State
   const [passengersData, setPassengersData] = useState([]);
@@ -256,7 +257,7 @@ const BookingPage = () => {
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
-        <BookingStepper onBack={handleBack} />
+        <BookingStepper onBack={handleBack} currentStep={showReview ? 2 : 1} />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -317,6 +318,51 @@ const BookingPage = () => {
                     </div>
                  </div>
               </div>
+              
+              {showReview && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Review Summary</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-gray-800 dark:text-white">Contact:</span> {contactData.email || '—'} • {contactData.phone || '—'}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-gray-800 dark:text-white">Passengers:</span>
+                      </div>
+                      <div className="space-y-2">
+                        {passengersData.map((p, i) => (
+                          <div key={`rv-${i}`} className="flex justify-between text-sm">
+                            <span className="text-gray-700 dark:text-gray-300">{i + 1}. {p.title} {p.firstName} {p.lastName}</span>
+                            <span className="text-gray-500">{types[i] || primaryPassengerType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-gray-800 dark:text-white">Itinerary:</span>
+                      </div>
+                      <div className="space-y-2">
+                        {legs.map((leg, i) => {
+                          const f = leg.FlightSegment[0];
+                          const l = leg.FlightSegment[leg.FlightSegment.length - 1];
+                          return (
+                            <div key={`ri-${i}`} className="flex justify-between text-sm">
+                              <span className="text-gray-700 dark:text-gray-300">{f.DepartureAirport.LocationCode} → {l.ArrivalAirport.LocationCode}</span>
+                              <span className="text-gray-500">{formatDate(f.DepartureDateTime)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-2 flex justify-between font-semibold">
+                        <span className="text-gray-800 dark:text-white">Total Payable</span>
+                        <span className="text-gray-900 dark:text-white">{currency} {(total + aitVat - discount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
                {/* Buttons */}
                <div className="flex justify-between items-center mt-8">
@@ -326,13 +372,23 @@ const BookingPage = () => {
                   >
                     Back
                   </button>
-                  <button 
-                    onClick={handleBooking}
-                    disabled={loading}
-                    className="px-8 py-2.5 bg-[#1e1b4b] text-white font-medium rounded-lg hover:bg-[#2e2a6b] transition-colors shadow-lg disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {loading ? 'Processing...' : 'Next'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {showReview && (
+                      <button 
+                        onClick={() => setShowReview(false)}
+                        className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Edit Details
+                      </button>
+                    )}
+                    <button 
+                      onClick={showReview ? handleBooking : () => setShowReview(true)}
+                      disabled={loading}
+                      className="px-8 py-2.5 bg-[#1e1b4b] text-white font-medium rounded-lg hover:bg-[#2e2a6b] transition-colors shadow-lg disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {loading ? 'Processing...' : (showReview ? 'Book' : 'Next')}
+                    </button>
+                  </div>
                </div>
             </div>
 
