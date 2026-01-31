@@ -28,6 +28,7 @@ import {
 import Swal from 'sweetalert2';
 import divisionData from '../../../jsondata/AllDivision.json';
 import { CLOUDINARY_CONFIG, validateCloudinaryConfig } from '../../../../config/cloudinary.js';
+import Tesseract from 'tesseract.js';
 
 const NewPassenger = () => {
   const router = useRouter();
@@ -129,6 +130,8 @@ const NewPassenger = () => {
   const [dateOfBirth, setDateOfBirth] = useState(null);
   const [passportScanFile, setPassportScanFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const ocrFileInputRef = React.useRef(null);
   
   // Division data from JSON
   const [divisions, setDivisions] = useState([]);
@@ -290,6 +293,226 @@ const NewPassenger = () => {
       });
     } finally {
       setIsScanning(false);
+    }
+  };
+  
+  const parseMrz = (raw) => {
+    const text = String(raw || '').toUpperCase().replace(/[^\nA-Z0-9< ]/g, '');
+    const lines = text.split(/\n|\\n/).map(l => l.trim()).filter(Boolean);
+    // Prefer TD3 format: two lines, each length 44
+    let l1 = null, l2 = null;
+    for (let i = 0; i < lines.length; i++) {
+      const ln = lines[i];
+      if (ln.startsWith('P<') && ln.length >= 40) {
+        l1 = ln;
+        if (i + 1 < lines.length) {
+          const ln2 = lines[i + 1];
+          if (/^[A-Z0-9<]{40,}$/.test(ln2)) {
+            l2 = ln2;
+            break;
+          }
+        }
+      }
+    }
+    const out = {};
+    const normalizeNoise = (s) => {
+      let x = String(s || '').toUpperCase();
+      x = x.replace(/(CL|LC|LL|CC|II){2,}/g, '<<');
+      x = x.replace(/[<]/g, '<');
+      return x;
+    };
+    const cleanNameTokens = (s) => {
+      const tokens = String(s || '').replace(/</g, ' ').split(' ').filter(Boolean);
+      const cleaned = tokens.filter(t => !/^[CL]+$/.test(t) && !/(?:CL|LC|LL|CC){2,}/.test(t));
+      return cleaned.join(' ');
+    };
+    if (l1) {
+      const parts = normalizeNoise(l1).split('<<');
+      if (parts.length >= 2) {
+        const namePart = parts[1] || '';
+        const given = cleanNameTokens(namePart);
+        if (given) out.passportFirstName = given;
+        // parts[0] = "P<XXX[SURNAME...]" → remove "P<" + issuing state (3 chars)
+        const pre = parts[0];
+        const surnamePart = cleanNameTokens(pre.slice(5));
+        if (surnamePart) out.passportLastName = surnamePart;
+        const nat = pre.slice(2, 5);
+        if (nat) out.nationality = nat;
+      }
+    }
+    if (l2) {
+      const m = l2.match(/^([A-Z0-9<]{9})([0-9])([A-Z]{3})([0-9]{6})([0-9])([MF<])([0-9]{6})([0-9])([A-Z0-9<]+)([0-9]).*$/);
+      if (m) {
+        const num = m[1].replace(/</g, '');
+        out.passportNumber = num;
+        const dob = m[4];
+        const sex = m[6];
+        const exp = m[7];
+        const toDate = (yyMMdd) => {
+          const yy = parseInt(yyMMdd.slice(0,2),10);
+          const mm = yyMMdd.slice(2,4);
+          const dd = yyMMdd.slice(4,6);
+          const cent = yy >= 50 ? '19' : '20';
+          return `${cent}${String(yy).padStart(2,'0')}-${mm}-${dd}`;
+        };
+        out.dateOfBirth = /^\d{6}$/.test(dob) ? toDate(dob) : undefined;
+        out.expiryDate = /^\d{6}$/.test(exp) ? toDate(exp) : undefined;
+        out.gender = sex === 'M' ? 'Male' : sex === 'F' ? 'Female' : undefined;
+      }
+    }
+    return out;
+  };
+  const parseByKeywords = (raw) => {
+    const text = String(raw || '');
+    const up = text.toUpperCase();
+    const out = {};
+    const pick = (label, re) => {
+      const m = up.match(re);
+      if (m) out[label] = m[1].replace(/[^A-Z0-9\/\- ]/g, '').trim();
+    };
+    pick('passportNumber', /PASSPORT\s*(NO|NUMBER)\s*[:\-]?\s*([A-Z0-9]{6,})/);
+    const cleanTextName = (s) => {
+      return String(s || '').replace(/(CL|LC|LL|CC|II){2,}/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+    {
+      const m = up.match(/GIVEN\s*NAMES?\s*[:\-]?\s*([A-Z ]{2,})/);
+      if (m) out.passportFirstName = cleanTextName(m[1]);
+    }
+    {
+      const m = up.match(/SURNAME\s*[:\-]?\s*([A-Z ]{2,})/);
+      if (m) out.passportLastName = cleanTextName(m[1]);
+    }
+    pick('nationality', /NATIONALITY\s*[:\-]?\s*([A-Z]{3,})/);
+    // Passport Type from "TYPE" or textual lines
+    const typeMatch = up.match(/TYPE\s*[:\-]?\s*([A-Z])/);
+    if (typeMatch) {
+      const t = typeMatch[1];
+      out.passportType = t === 'D' ? 'Diplomatic' : t === 'O' ? 'Official' : 'Ordinary';
+    } else if (up.includes('DIPLOMATIC PASSPORT')) {
+      out.passportType = 'Diplomatic';
+    } else if (up.includes('OFFICIAL PASSPORT')) {
+      out.passportType = 'Official';
+    } else if (up.includes('ORDINARY PASSPORT')) {
+      out.passportType = 'Ordinary';
+    }
+    const dateNormalize = (s) => {
+      const str = String(s || '').trim().replace(/,/g, ' ');
+      const monthMap = { JAN:'01', FEB:'02', MAR:'03', APR:'04', MAY:'05', JUN:'06', JUL:'07', AUG:'08', SEP:'09', OCT:'10', NOV:'11', DEC:'12' };
+      const twoToFour = (yy) => {
+        if (yy.length === 4) return yy;
+        const n = parseInt(yy, 10);
+        return (n >= 50 ? `19${yy}` : `20${yy}`);
+      };
+      let m;
+      // dd/mm/yy or dd-mm-yyyy
+      m = str.match(/^\s*(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})\s*$/);
+      if (m) return `${twoToFour(m[3])}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+      // yyyy/mm/dd
+      m = str.match(/^\s*(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})\s*$/);
+      if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+      // dd MON yyyy
+      m = str.match(/^\s*(\d{1,2})\s+([A-Z]{3})\s+(\d{2,4})\s*$/);
+      if (m && monthMap[m[2]]) return `${twoToFour(m[3])}-${monthMap[m[2]]}-${String(m[1]).padStart(2,'0')}`;
+      // MON dd yyyy
+      m = str.match(/^\s*([A-Z]{3})\s+(\d{1,2})\s+(\d{2,4})\s*$/);
+      if (m && monthMap[m[1]]) return `${twoToFour(m[3])}-${monthMap[m[1]]}-${String(m[2]).padStart(2,'0')}`;
+      // yyyymmdd or ddmmyyyy
+      m = str.match(/^\s*(\d{8})\s*$/);
+      if (m) {
+        const v = m[1];
+        if (v.startsWith('19') || v.startsWith('20')) {
+          return `${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}`;
+        } else {
+          const yy = twoToFour(v.slice(4,8));
+          return `${yy}-${v.slice(2,4)}-${v.slice(0,2)}`;
+        }
+      }
+      return null;
+    };
+    const dobMatch = up.match(/(DATE\s*OF\s*BIRTH|DOB)[^0-9]*([0-9\/\-. ]{6,10})/);
+    if (dobMatch) {
+      const d = dateNormalize(dobMatch[2]);
+      if (d) out.dateOfBirth = d;
+    }
+    const expMatch = up.match(/(DATE\s*OF\s*EXPIRY|EXPIRY)[^0-9A-Z]*([0-9A-Z\/\-. ,]{6,15})/);
+    if (expMatch) {
+      const d = dateNormalize(expMatch[2]);
+      if (d) out.expiryDate = d;
+    }
+    const issMatch = up.match(/(DATE\s*OF\s*ISSUE|ISSUE\s*DATE|ISSUED\s*ON|DATE\s*OF\s*ISSUANCE)[^0-9A-Z]*([0-9A-Z\/\-. ,]{6,15})/);
+    if (issMatch) {
+      const d = dateNormalize(issMatch[2]);
+      if (d) out.issueDate = d;
+    }
+    return out;
+  };
+  const mergeParsed = (parsed) => {
+    if (!parsed) return;
+    setFormData((prev) => ({
+      ...prev,
+      passportNumber: parsed.passportNumber || prev.passportNumber,
+      passportFirstName: parsed.passportFirstName || prev.passportFirstName,
+      passportLastName: parsed.passportLastName || prev.passportLastName,
+      passportType: parsed.passportType || prev.passportType,
+      nationality: parsed.nationality || prev.nationality,
+      dateOfBirth: parsed.dateOfBirth || prev.dateOfBirth,
+      issueDate: parsed.issueDate || prev.issueDate,
+      expiryDate: parsed.expiryDate || prev.expiryDate,
+      gender: parsed.gender || prev.gender,
+    }));
+    if (parsed.dateOfBirth) setDateOfBirth(new Date(parsed.dateOfBirth));
+    if (parsed.issueDate) setIssueDate(new Date(parsed.issueDate));
+    if (parsed.expiryDate) setExpiryDate(new Date(parsed.expiryDate));
+  };
+  const hasAnyValue = (obj) => {
+    if (!obj) return false;
+    return ['passportNumber','passportFirstName','passportLastName','dateOfBirth','issueDate','expiryDate','gender','passportType'].some(k => obj[k] && String(obj[k]).trim());
+  };
+  const handleOcrButtonClick = () => {
+    if (ocrFileInputRef.current) ocrFileInputRef.current.click();
+  };
+  const handleOcrFileSelected = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setIsScanning(true);
+    setOcrProgress(0);
+    try {
+      const { data } = await Tesseract.recognize(file, 'eng', {
+        logger: (m) => {
+          if (typeof m.progress === 'number') setOcrProgress(Math.round(m.progress * 100));
+        }
+      });
+      const text = data?.text || '';
+      const mrz = parseMrz(text);
+      const kw = parseByKeywords(text);
+      const merged = { ...kw, ...mrz };
+      if (hasAnyValue(merged)) {
+        mergeParsed(merged);
+        Swal.fire({
+          icon: 'success',
+          title: 'Autofilled',
+          text: 'Passport fields have been auto-filled from OCR',
+          confirmButtonColor: '#10B981'
+        });
+      } else {
+        Swal.fire({
+          icon: 'warning',
+          title: 'No fields detected',
+          text: 'Try a clearer image or the Scan via API option.',
+          confirmButtonColor: '#F59E0B'
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'OCR Failed',
+        text: 'Could not read text from the image. Try a clearer photo.',
+        confirmButtonColor: '#EF4444'
+      });
+    } finally {
+      setIsScanning(false);
+      setOcrProgress(0);
+      e.target.value = '';
     }
   };
 
@@ -1259,27 +1482,41 @@ const NewPassenger = () => {
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
                       Passport Scan (optional)
                     </label>
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-col md:flex-row gap-3 items-center">
                       <input 
                         type="file" 
-                        accept="image/*,.pdf" 
+                        accept="image/*"
                         onChange={handlePassportScanFileChange} 
-                        className="w-full sm:w-auto flex-1 border rounded-xl px-4 py-3 min-w-0 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" 
+                        className="w-full md:w-auto flex-1 border rounded-xl px-4 py-3 min-w-0 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white" 
                       />
                       <button
                         type="button"
                         onClick={handleScanAndFill}
                         disabled={!passportScanFile || isScanning}
-                        className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl w-full sm:w-auto ${
+                        className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl w-full md:w-auto ${
                           !passportScanFile || isScanning ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
                         }`}
-                        title="Scan and auto-fill passport fields"
+                        title="Scan via API"
                       >
                         <Wand2 className="w-4 h-4" />
-                        {isScanning ? 'Scanning…' : 'Scan & Fill'}
+                        {isScanning ? 'Processing…' : 'Scan via API'}
+                      </button>
+                      <input ref={ocrFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleOcrFileSelected} />
+                      <button
+                        type="button"
+                        onClick={handleOcrButtonClick}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                        title="Upload Passport to Autofill"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload Passport to Autofill
                       </button>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">TODO: Integrate real OCR/MRZ service to parse fields from the uploaded image.</p>
+                    {isScanning && (
+                      <div className="mt-3 w-full bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden h-2">
+                        <div className="h-2 bg-blue-600 transition-all" style={{ width: `${ocrProgress}%` }} />
+                      </div>
+                    )}
                   </div>
 
                   {/* পাসপোর্ট নাম্বার */}
