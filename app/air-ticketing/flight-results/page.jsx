@@ -751,35 +751,26 @@ const FlightResultsPage = () => {
                             {/* Price & Action */}
                             <div className="w-full lg:w-[25%] flex flex-col items-end border-l border-dashed border-gray-200 dark:border-gray-700 pl-6 gap-2">
                               <div className="flex gap-2 mb-1">
-                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{refundableFlag ? 'Refundable' : 'Non Refundable'}</span>
-                                 <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                                   <div className="w-3 h-3 rounded-full bg-orange-400 text-white flex items-center justify-center text-[8px]">৳</div>
-                                   +46
-                                 </span>
-                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${refundableFlag ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{refundableFlag ? 'Refundable' : 'Non Refundable'}</span>
+                                {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
-                              
-                              <div className="text-right">
-                                <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
+                              <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
+                              <button 
+                                type="button"
+                                onClick={() => handleSelectFlight(itinerary)}
+                                className="mt-2 w-full bg-[#2e2b5f] hover:bg-[#3d3983] text-white py-2.5 rounded-lg font-bold text-sm shadow-md transform transition active:scale-95"
+                              >
+                                Book Flight
+                              </button>
+                              <div className="text-right w-full">
                                 <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
                                 <div className="text-[10px] text-gray-400 mt-0.5">Price for {passengers} travelers</div>
-                                <div className="text-[10px] text-gray-500 mt-0.5">Base {currency} {baseFareAmt.toFixed(2)} • Taxes {currency} {taxesAmt.toFixed(2)}</div>
                                 {brandName ? <div className="text-[10px] text-gray-500 mt-0.5">Fare Brand: {brandName}</div> : null}
                                 <div className="text-[10px] text-gray-500 mt-0.5">
                                   Booking Class: {bookingClass}
                                   {seatsLeft ? ` • ${seatsLeft} seats left` : ''}
                                   {cabinCode ? ` • Cabin: ${cabinCode}` : ''}
                                 </div>
-                              </div>
-
-                              <div className="w-full flex flex-col gap-2 mt-2">
-                                
-                                <button 
-                                  onClick={() => handleSelectFlight(itinerary)}
-                                  className="w-full bg-[#2e2b5f] hover:bg-[#3d3983] text-white py-2.5 rounded-lg font-bold text-sm shadow-md transform transition active:scale-95"
-                                >
-                                  Book Flight
-                                </button>
                               </div>
                             </div>
 
