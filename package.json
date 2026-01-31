@@ -25,8 +25,9 @@
     "react-datepicker": "^9.1.0",
     "react-dom": "19.2.3",
     "react-helmet-async": "^2.0.5",
+    "sweetalert2": "^11.26.17",
     "tesseract.js": "^4.0.2",
-    "sweetalert2": "^11.26.17"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

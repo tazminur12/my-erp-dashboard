@@ -42,6 +42,8 @@ const HajiList = () => {
     status: 'all',
     package: 'all',
   });
+  const [excelUploading, setExcelUploading] = useState(false);
+  const excelInputRef = React.useRef(null);
 
   const fetchHajis = useCallback(async () => {
     try {
@@ -500,13 +502,48 @@ const HajiList = () => {
               )}
               <span>{bulkDeleting ? 'মুছে ফেলা হচ্ছে...' : 'নির্বাচিত মুছুন'}</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+            <a href="/templates/haji-upload-template.csv" download className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
               <Download className="w-4 h-4" />
-              <span>এক্সপোর্ট</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 text-green-600 dark:text-green-400 border border-green-300 dark:border-green-600 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200">
-              <Upload className="w-4 h-4" />
-              <span>এক্সেল আপলোড</span>
+              <span>টেমপ্লেট ডাউনলোড</span>
+            </a>
+            <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={async (e) => {
+              const file = e.target.files && e.target.files[0];
+              if (!file) return;
+              setExcelUploading(true);
+              try {
+                const form = new FormData();
+                form.append('file', file);
+                const res = await fetch('/api/hajj-umrah/hajis/upload', { method: 'POST', body: form });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                  throw new Error(data.error || 'Upload failed');
+                }
+                await fetchHajis();
+                Swal.fire({
+                  icon: 'success',
+                  title: 'এক্সেল আপলোড সফল',
+                  text: `মোট ${data.insertedCount} টি রেকর্ড যুক্ত হয়েছে`,
+                  confirmButtonColor: '#10B981'
+                });
+              } catch (err) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'আপলোড ব্যর্থ',
+                  text: err.message || 'ফাইল আপলোড করতে সমস্যা হয়েছে',
+                  confirmButtonColor: '#EF4444'
+                });
+              } finally {
+                setExcelUploading(false);
+                if (excelInputRef.current) excelInputRef.current.value = '';
+              }
+            }} />
+            <button
+              onClick={() => excelInputRef.current && excelInputRef.current.click()}
+              className={`flex items-center space-x-2 px-4 py-2 ${excelUploading ? 'text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed' : 'text-green-600 dark:text-green-400 border border-green-300 dark:border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'} rounded-lg transition-colors duration-200`}
+              disabled={excelUploading}
+            >
+              {excelUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              <span>{excelUploading ? 'আপলোড হচ্ছে…' : 'এক্সেল আপলোড'}</span>
             </button>
             <Link
               href="/hajj-umrah/hajj/haji/add"

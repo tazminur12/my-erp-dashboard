@@ -314,7 +314,7 @@ export const navigation = [
         icon: Settings,
         children: [
           { name: 'OTP Settings', href: '/settings/system', icon: Settings },
-          { name: 'Module Access', href: '/settings/module-access', icon: Eye },
+          { name: 'Module Access', href: '/settings/module-access', icon: Eye , roles: ['super_admin'] },
           { name: 'Permission Management' , href: '/settings/permissions', icon: Shield, roles: ['super_admin'] }
         ]
       },
