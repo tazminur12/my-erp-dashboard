@@ -75,7 +75,15 @@ const BookingPage = () => {
 
   useEffect(() => {
     // Retrieve flight from session storage
-    const storedFlight = sessionStorage.getItem('selectedFlight');
+    let storedFlight = null;
+    try {
+      storedFlight = sessionStorage.getItem('selectedFlight');
+    } catch {}
+    if (!storedFlight) {
+      try {
+        storedFlight = localStorage.getItem('selectedFlight');
+      } catch {}
+    }
     if (!storedFlight) {
       router.push('/air-ticketing/search');
       return;

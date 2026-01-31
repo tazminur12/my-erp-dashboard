@@ -42,15 +42,11 @@ export async function POST(request) {
       });
     }
 
-    // Fallback: Provide structured placeholders tied to fare basis
+    // Fallback: return nulls so UI shows standard fallback text
     const placeholders = {
-      cancellation: fareBasisCodes.length
-        ? `Cancellation rules for fare ${fareBasisCodes[0]} are not provided in search response`
-        : 'Cancellation rules not available',
-      dateChange: fareBasisCodes.length
-        ? `Date change rules for fare ${fareBasisCodes[0]} are not provided in search response`
-        : 'Date change rules not available',
-      noShow: 'No-show policy not available'
+      cancellation: null,
+      dateChange: null,
+      noShow: null
     };
 
     return NextResponse.json({

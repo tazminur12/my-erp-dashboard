@@ -255,9 +255,6 @@ export async function POST(request) {
       }
     };
     const summary = buildSummary(searchResults);
-    if (debug) {
-      console.log('SabreSearchSummary', JSON.stringify(summary));
-    }
     return NextResponse.json({ success: true, data: searchResults, debug: debug ? summary : undefined });
 
   } catch (error) {

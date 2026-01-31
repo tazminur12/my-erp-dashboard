@@ -111,9 +111,6 @@ const FlightResultsPage = () => {
       });
       
       const data = await res.json();
-      if (data?.debug) {
-        console.log('Sabre search debug:', data.debug);
-      }
       
       if (!res.ok) {
         throw new Error(data.error || 'Search failed');
@@ -238,8 +235,18 @@ const FlightResultsPage = () => {
     });
   };
 
+  const safeSaveSelectedFlight = (itinerary) => {
+    try {
+      sessionStorage.setItem('selectedFlight', JSON.stringify(itinerary));
+    } catch {
+      try {
+        localStorage.setItem('selectedFlight', JSON.stringify(itinerary));
+      } catch {}
+    }
+  };
+
   const handleSelectFlight = (itinerary) => {
-    sessionStorage.setItem('selectedFlight', JSON.stringify(itinerary));
+    safeSaveSelectedFlight(itinerary);
     const query = new URLSearchParams({
       adults: String(adults),
       children: String(children),
