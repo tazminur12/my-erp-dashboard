@@ -755,6 +755,7 @@ const FlightResultsPage = () => {
                                 {isCheapest && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded">Cheapest</span>}
                               </div>
                               <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
+                               <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
                               <button 
                                 type="button"
                                 onClick={() => handleSelectFlight(itinerary)}
@@ -763,7 +764,6 @@ const FlightResultsPage = () => {
                                 Book Flight
                               </button>
                               <div className="text-right w-full">
-                                <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
                                 <div className="text-[10px] text-gray-400 mt-0.5">Price for {passengers} travelers</div>
                                 {brandName ? <div className="text-[10px] text-gray-500 mt-0.5">Fare Brand: {brandName}</div> : null}
                                 <div className="text-[10px] text-gray-500 mt-0.5">
@@ -964,15 +964,75 @@ const FlightResultsPage = () => {
                                </div>
                              )}
 
-                             {activeTab === 'cancellation' && (
+                            {activeTab === 'cancellation' && (
                                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                                  <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || 'Refer airline policy'}</div>
+                                 {(!pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation) && (
+                                   <div>
+                                     <button
+                                       className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
+                                       onClick={async () => {
+                                         try {
+                                           const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
+                                             method: 'POST',
+                                             headers: { 'Content-Type': 'application/json' },
+                                             body: JSON.stringify({ pricingInfo })
+                                           });
+                                           const data = await res.json();
+                                           if (res.ok && data?.rules) {
+                                             pricingInfo.FareInfo = pricingInfo.FareInfo || [{}];
+                                             pricingInfo.FareInfo[0].TPA_Extensions = pricingInfo.FareInfo[0].TPA_Extensions || {};
+                                             pricingInfo.FareInfo[0].TPA_Extensions.Rules = {
+                                               ...(pricingInfo.FareInfo[0].TPA_Extensions.Rules || {}),
+                                               Cancellation: data.rules.cancellation,
+                                               DateChange: data.rules.dateChange,
+                                               NoShow: data.rules.noShow
+                                             };
+                                             setActiveTab('cancellation');
+                                           }
+                                         } catch {}
+                                       }}
+                                     >
+                                       Fetch fare rules
+                                     </button>
+                                   </div>
+                                 )}
                                </div>
                              )}
 
                              {activeTab === 'datechange' && (
                                <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
                                  <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange || 'Refer airline policy'}</div>
+                                 {(!pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange) && (
+                                   <div>
+                                     <button
+                                       className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs"
+                                       onClick={async () => {
+                                         try {
+                                           const res = await fetch('/api/air-ticketing/fare-rules/fetch', {
+                                             method: 'POST',
+                                             headers: { 'Content-Type': 'application/json' },
+                                             body: JSON.stringify({ pricingInfo })
+                                           });
+                                           const data = await res.json();
+                                           if (res.ok && data?.rules) {
+                                             pricingInfo.FareInfo = pricingInfo.FareInfo || [{}];
+                                             pricingInfo.FareInfo[0].TPA_Extensions = pricingInfo.FareInfo[0].TPA_Extensions || {};
+                                             pricingInfo.FareInfo[0].TPA_Extensions.Rules = {
+                                               ...(pricingInfo.FareInfo[0].TPA_Extensions.Rules || {}),
+                                               Cancellation: data.rules.cancellation,
+                                               DateChange: data.rules.dateChange,
+                                               NoShow: data.rules.noShow
+                                             };
+                                             setActiveTab('datechange');
+                                           }
+                                         } catch {}
+                                       }}
+                                     >
+                                       Fetch fare rules
+                                     </button>
+                                   </div>
+                                 )}
                                </div>
                              )}
 
