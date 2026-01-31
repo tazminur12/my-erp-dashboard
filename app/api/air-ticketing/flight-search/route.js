@@ -5,6 +5,8 @@ import { getDb } from '@/lib/mongodb';
 
 export async function POST(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const debug = searchParams.get('debug') === 'true';
     const body = await request.json();
     const { origin, destination, departureDate, returnDate, passengers, tripType, segments, travellers } = body;
 
@@ -70,6 +72,12 @@ export async function POST(request) {
               const n = seg?.TPA_Extensions?.SeatsRemaining?.Number;
               if (n) return n;
             }
+          }
+          const pinfo = Array.isArray(itinerary.AirItineraryPricingInfo) ? itinerary.AirItineraryPricingInfo[0] : itinerary.AirItineraryPricingInfo;
+          const fareInfos = pinfo?.FareInfos?.FareInfo || [];
+          for (const fi of fareInfos) {
+            const nfi = fi?.TPA_Extensions?.SeatsRemaining?.Number;
+            if (nfi) return nfi;
           }
           return null;
         } catch {
@@ -165,8 +173,11 @@ export async function POST(request) {
             pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
             pricingInfo.TPA_Extensions.SeatsRemaining = { Number: seats };
             if (Array.isArray(pricingInfo.PTC_FareBreakdowns) && pricingInfo.PTC_FareBreakdowns.length > 0) {
-              pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions = pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions || {};
-              pricingInfo.PTC_FareBreakdowns[0].TPA_Extensions.SeatsRemaining = { Number: seats };
+            if (pricingInfo.PTC_FareBreakdowns?.PTC_FareBreakdown?.[0]) {
+              pricingInfo.PTC_FareBreakdowns.PTC_FareBreakdown[0].TPA_Extensions =
+                pricingInfo.PTC_FareBreakdowns.PTC_FareBreakdown[0].TPA_Extensions || {};
+              pricingInfo.PTC_FareBreakdowns.PTC_FareBreakdown[0].TPA_Extensions.SeatsRemaining = { Number: seats };
+            }
             }
           }
           const bag = normalizeBaggage(pricingInfo);
@@ -174,21 +185,91 @@ export async function POST(request) {
             pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
             pricingInfo.TPA_Extensions.Baggage = { Checkin: bag.text };
           }
+          // Normalize Cabin from FareInfos if present
+          const cabinCode = pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin;
+          if (cabinCode) {
+            pricingInfo.TPA_Extensions = pricingInfo.TPA_Extensions || {};
+            pricingInfo.TPA_Extensions.Cabin = { Cabin: cabinCode };
+          }
+          // Normalize Taxes.TotalTax in ItinTotalFare if missing
+          try {
+            const pf = pricingInfo?.PTC_FareBreakdowns?.PTC_FareBreakdown?.[0]?.PassengerFare;
+            let taxAmt = pf?.Taxes?.TotalTax?.Amount;
+            if (taxAmt == null) {
+              const list = pf?.Taxes?.Tax || [];
+              taxAmt = list.reduce((sum, t) => sum + (parseFloat(t?.Amount || 0) || 0), 0);
+            }
+            if (taxAmt != null) {
+              pricingInfo.ItinTotalFare = pricingInfo.ItinTotalFare || {};
+              pricingInfo.ItinTotalFare.Taxes = pricingInfo.ItinTotalFare.Taxes || {};
+              pricingInfo.ItinTotalFare.Taxes.TotalTax = {
+                Amount: taxAmt,
+                CurrencyCode: pricingInfo.ItinTotalFare?.TotalFare?.CurrencyCode || pf?.TotalFare?.CurrencyCode || pf?.EquivFare?.CurrencyCode || 'BDT'
+              };
+            }
+          } catch {}
         }
       });
     }
 
-    return NextResponse.json({ success: true, data: searchResults });
+    const buildSummary = (sr) => {
+      try {
+        const itins = sr?.OTA_AirLowFareSearchRS?.PricedItineraries?.PricedItinerary || [];
+        const total = itins.length;
+        const first = itins[0];
+        const legs = first?.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || [];
+        const segs = legs[0]?.FlightSegment || [];
+        const pinfo = Array.isArray(first?.AirItineraryPricingInfo) ? first.AirItineraryPricingInfo[0] : first?.AirItineraryPricingInfo;
+        const fare = pinfo?.ItinTotalFare;
+        return {
+          totalItineraries: total,
+          sample: {
+            segmentsCount: segs.length,
+            firstSegment: {
+              marketing: segs[0]?.MarketingAirline?.Code,
+              flightNumber: segs[0]?.FlightNumber,
+              origin: segs[0]?.DepartureAirport?.LocationCode,
+              depart: segs[0]?.DepartureDateTime,
+              destination: segs[0]?.ArrivalAirport?.LocationCode,
+              arrive: segs[0]?.ArrivalDateTime,
+              bookingClass: segs[0]?.ResBookDesigCode,
+            },
+            pricing: {
+              currency: fare?.TotalFare?.CurrencyCode,
+              base: fare?.EquivFare?.Amount,
+              taxes: fare?.Taxes?.TotalTax?.Amount,
+              total: fare?.TotalFare?.Amount,
+              baggage: pinfo?.TPA_Extensions?.Baggage || null,
+              seatsRemaining: pinfo?.TPA_Extensions?.SeatsRemaining || pinfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.SeatsRemaining || null,
+              brand: pinfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || null,
+              cabin: pinfo?.TPA_Extensions?.Cabin?.Cabin || pinfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin || null
+            }
+          },
+          rawSample: {
+            AirItineraryPricingInfo: pinfo || null,
+            OriginDestinationOptionsCount: (first?.AirItinerary?.OriginDestinationOptions?.OriginDestinationOption || []).length
+          }
+        };
+      } catch {
+        return { totalItineraries: 0 };
+      }
+    };
+    const summary = buildSummary(searchResults);
+    if (debug) {
+      console.log('SabreSearchSummary', JSON.stringify(summary));
+    }
+    return NextResponse.json({ success: true, data: searchResults, debug: debug ? summary : undefined });
 
   } catch (error) {
     console.error('API Search Error:', error);
+    // Return a 200 with structured error to avoid breaking client UI
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message || 'Internal Server Error',
-        details: error // In prod, be careful not to leak sensitive info
+        error: (typeof error === 'string' ? error : (error?.message || 'Search failed')),
+        details: error
       }, 
-      { status: 500 }
+      { status: 200 }
     );
   }
 }

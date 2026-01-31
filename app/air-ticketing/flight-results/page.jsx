@@ -89,7 +89,7 @@ const FlightResultsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/air-ticketing/flight-search', {
+      const res = await fetch('/api/air-ticketing/flight-search?debug=true', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,6 +111,9 @@ const FlightResultsPage = () => {
       });
       
       const data = await res.json();
+      if (data?.debug) {
+        console.log('Sabre search debug:', data.debug);
+      }
       
       if (!res.ok) {
         throw new Error(data.error || 'Search failed');
@@ -182,6 +185,8 @@ const FlightResultsPage = () => {
           if (n) return n;
         }
       }
+      const nFi = pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.SeatsRemaining?.Number;
+      if (nFi) return nFi;
       const n2 = pricingInfo?.PTC_FareBreakdowns?.[0]?.TPA_Extensions?.SeatsRemaining?.Number;
       if (n2) return n2;
       return null;
@@ -663,10 +668,13 @@ const FlightResultsPage = () => {
                       ? itinerary.AirItineraryPricingInfo[0] 
                       : itinerary.AirItineraryPricingInfo;
                     const pricing = pricingInfo?.ItinTotalFare;
-                    const baseFareAmt = parseFloat(pricing?.BaseFare?.Amount || 0);
-                    const taxesAmt = parseFloat(pricing?.Taxes?.TotalTax?.Amount || 0);
+                    const currency = pricing?.TotalFare?.CurrencyCode || 'BDT';
+                    const baseFareAmt = parseFloat(pricing?.EquivFare?.Amount || 0);
+                    let taxesAmt = parseFloat(pricing?.Taxes?.TotalTax?.Amount ?? 0);
+                    if (!taxesAmt) {
+                      taxesAmt = 0;
+                    }
                     const totalAmt = parseFloat(pricing?.TotalFare?.Amount || 0);
-                    const currency = pricing?.TotalFare?.CurrencyCode || pricing?.BaseFare?.CurrencyCode || 'BDT';
                     const brandName = pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Brand?.Name || '';
                     const bookingClass = first.ResBookDesigCode || '';
                     const seatsLeft = getSeatsLeft(itinerary, pricingInfo);
@@ -677,6 +685,10 @@ const FlightResultsPage = () => {
                       null;
                     const totalElapsed = getTotalElapsedMinutes(itinerary);
                     const isCheapest = totalAmt && totalAmt === getLowestPrice();
+                    const cabinCode =
+                      pricingInfo?.TPA_Extensions?.Cabin?.Cabin ||
+                      pricingInfo?.FareInfos?.FareInfo?.[0]?.TPA_Extensions?.Cabin?.Cabin ||
+                      null;
                     
                     if (!pricing) return null;
 
@@ -753,7 +765,11 @@ const FlightResultsPage = () => {
                                 <div className="text-[10px] text-gray-400 mt-0.5">Price for {passengers} travelers</div>
                                 <div className="text-[10px] text-gray-500 mt-0.5">Base {currency} {baseFareAmt.toFixed(2)} • Taxes {currency} {taxesAmt.toFixed(2)}</div>
                                 {brandName ? <div className="text-[10px] text-gray-500 mt-0.5">Fare Brand: {brandName}</div> : null}
-                                <div className="text-[10px] text-gray-500 mt-0.5">Booking Class: {bookingClass} {seatsLeft ? `• ${seatsLeft} seats left` : ''}</div>
+                                <div className="text-[10px] text-gray-500 mt-0.5">
+                                  Booking Class: {bookingClass}
+                                  {seatsLeft ? ` • ${seatsLeft} seats left` : ''}
+                                  {cabinCode ? ` • Cabin: ${cabinCode}` : ''}
+                                </div>
                               </div>
 
                               <div className="w-full flex flex-col gap-2 mt-2">
@@ -786,7 +802,7 @@ const FlightResultsPage = () => {
                           <div className="bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 p-6 animate-in slide-in-from-top-2 duration-200">
                              {/* Tabs */}
                              <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700">
-                               {['itinerary', 'baggage', 'rules'].map((tab) => (
+                               {['itinerary', 'fare', 'baggage', 'cancellation', 'datechange'].map((tab) => (
                                  <button
                                    key={tab}
                                    onClick={() => setActiveTab(tab)}
@@ -796,7 +812,7 @@ const FlightResultsPage = () => {
                                        : 'text-gray-500 hover:text-gray-700'
                                    }`}
                                  >
-                                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                   {tab === 'datechange' ? 'Date Change' : (tab.charAt(0).toUpperCase() + tab.slice(1))}
                                    {activeTab === tab && (
                                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#2e2b5f] dark:bg-blue-400 rounded-t-full"></div>
                                    )}
@@ -915,6 +931,57 @@ const FlightResultsPage = () => {
                                      </tr>
                                    </tbody>
                                  </table>
+                               </div>
+                             )}
+
+                             {activeTab === 'fare' && (
+                               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                 <div className="px-4 py-3 text-xs text-gray-500 flex items-center gap-3">
+                                   <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Refundable</span>
+                                   <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded">Book & Hold</span>
+                                 </div>
+                                 <table className="w-full text-sm">
+                                   <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500">
+                                     <tr>
+                                       <th className="py-3 px-4 text-left">Pax Type</th>
+                                       <th className="py-3 px-4 text-left">Base Fare</th>
+                                       <th className="py-3 px-4 text-left">Tax</th>
+                                       <th className="py-3 px-4 text-left">Other</th>
+                                       <th className="py-3 px-4 text-left">Discount</th>
+                                       <th className="py-3 px-4 text-left">AIT VAT</th>
+                                       <th className="py-3 px-4 text-left">Pax Count</th>
+                                       <th className="py-3 px-4 text-left">Amount</th>
+                                     </tr>
+                                   </thead>
+                                   <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
+                                     <tr>
+                                       <td className="py-3 px-4">Adult</td>
+                                       <td className="py-3 px-4">{currency} {baseFareAmt.toFixed(2)}</td>
+                                       <td className="py-3 px-4">{currency} {taxesAmt.toFixed(2)}</td>
+                                       <td className="py-3 px-4">{currency} 0</td>
+                                       <td className="py-3 px-4">{currency} 0</td>
+                                       <td className="py-3 px-4">{currency} 0</td>
+                                       <td className="py-3 px-4">{adults}</td>
+                                       <td className="py-3 px-4">{currency} {totalAmt.toFixed(2)}</td>
+                                     </tr>
+                                   </tbody>
+                                 </table>
+                                 <div className="flex justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm font-bold">
+                                   <span>Total Payable</span>
+                                   <span>{currency} {totalAmt.toFixed(2)}</span>
+                                 </div>
+                               </div>
+                             )}
+
+                             {activeTab === 'cancellation' && (
+                               <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+                                 <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.Cancellation || 'Refer airline policy'}</div>
+                               </div>
+                             )}
+
+                             {activeTab === 'datechange' && (
+                               <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+                                 <div>{pricingInfo?.FareInfo?.[0]?.TPA_Extensions?.Rules?.DateChange || 'Refer airline policy'}</div>
                                </div>
                              )}
 
