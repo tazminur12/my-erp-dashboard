@@ -29,11 +29,11 @@ const SessionTimer = () => {
   );
 };
 
-const BookingStepper = () => {
+const BookingStepper = ({ onBack }) => {
   return (
     <div className="bg-[#1e1b4b] text-white py-4 px-4 sm:px-6 lg:px-8 mb-8">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-         <button className="text-white hover:text-gray-300">
+         <button className="text-white hover:text-gray-300" onClick={onBack}>
              <ArrowLeft className="w-6 h-6" />
          </button>
          
@@ -190,6 +190,18 @@ const BookingPage = () => {
 
   if (!flight) return null; // Or loading spinner
 
+  const handleBack = () => {
+    try {
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push('/air-ticketing/search');
+      }
+    } catch {
+      router.push('/air-ticketing/search');
+    }
+  };
+
   if (pnr) {
     return (
       <DashboardLayout>
@@ -236,15 +248,15 @@ const BookingPage = () => {
   const baseFare = parseFloat(price?.EquivFare?.Amount || 0);
   const tax = parseFloat(price?.Taxes?.TotalTax?.Amount || 0);
   const total = parseFloat(price?.TotalFare?.Amount || 0);
-  const discount = 382; // Example discount
+  const discount = 0;
   const serviceFee = 0;
-  const aitVat = 15;
+  const aitVat = 0;
   const payable = total - discount + serviceFee + aitVat; 
 
   return (
     <DashboardLayout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
-        <BookingStepper />
+        <BookingStepper onBack={handleBack} />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
@@ -309,7 +321,7 @@ const BookingPage = () => {
                {/* Buttons */}
                <div className="flex justify-between items-center mt-8">
                   <button 
-                    onClick={() => router.back()}
+                    onClick={handleBack}
                     className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Back
@@ -385,11 +397,6 @@ const BookingPage = () => {
                  );
               })}
               
-              <div className="bg-red-50 text-red-600 text-xs p-2 rounded flex justify-between items-center">
-                 <span>Total Earned Reward Points</span>
-                 <span className="font-bold">+ 46</span>
-              </div>
-              
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
                 <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                     <h3 className="font-bold text-gray-800 dark:text-white">Customer Price Summary</h3>
@@ -411,11 +418,11 @@ const BookingPage = () => {
                     </div>
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                         <span>Discount</span>
-                        <span className="text-green-600">-{discount.toFixed(2)} {currency}</span>
+                        <span className="text-green-600">{discount > 0 ? `-${discount.toFixed(2)} ${currency}` : `${currency} 0`}</span>
                     </div>
                      <div className="flex justify-between text-gray-600 dark:text-gray-400">
                         <span>AIT & VAT</span>
-                        <span>{aitVat.toFixed(2)} {currency}</span>
+                        <span>{currency} {aitVat.toFixed(2)}</span>
                     </div>
                     <div className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
                         <span>Total Payable (incl. All charges)</span>
