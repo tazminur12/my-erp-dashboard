@@ -232,7 +232,8 @@ const BookingPage = () => {
   // Handle pricing safely
   const pricingInfo = Array.isArray(flight.AirItineraryPricingInfo) ? flight.AirItineraryPricingInfo[0] : flight.AirItineraryPricingInfo;
   const price = pricingInfo?.ItinTotalFare;
-  const baseFare = parseFloat(price?.BaseFare?.Amount || 0);
+  const currency = price?.TotalFare?.CurrencyCode || 'BDT';
+  const baseFare = parseFloat(price?.EquivFare?.Amount || 0);
   const tax = parseFloat(price?.Taxes?.TotalTax?.Amount || 0);
   const total = parseFloat(price?.TotalFare?.Amount || 0);
   const discount = 382; // Example discount
@@ -402,19 +403,23 @@ const BookingPage = () => {
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                         <span>Traveller 1 (Adult) <ChevronDown className="w-3 h-3 inline"/></span>
-                        <span>{baseFare.toFixed(2)} BDT</span>
+                        <span>{currency} {baseFare.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                        <span>Tax</span>
+                        <span>{currency} {tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-gray-600 dark:text-gray-400">
                         <span>Discount</span>
-                        <span className="text-green-600">-{discount.toFixed(2)} BDT</span>
+                        <span className="text-green-600">-{discount.toFixed(2)} {currency}</span>
                     </div>
                      <div className="flex justify-between text-gray-600 dark:text-gray-400">
                         <span>AIT & VAT</span>
-                        <span>{aitVat.toFixed(2)} BDT</span>
+                        <span>{aitVat.toFixed(2)} {currency}</span>
                     </div>
                     <div className="border-t border-gray-100 dark:border-gray-700 my-2 pt-2 flex justify-between font-bold text-gray-900 dark:text-white">
                         <span>Total Payable (incl. All charges)</span>
-                        <span>{(total + aitVat - discount).toFixed(2)} BDT</span>
+                        <span>{currency} {(total + aitVat - discount).toFixed(2)}</span>
                     </div>
                 </div>
               </div>

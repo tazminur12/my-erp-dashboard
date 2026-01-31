@@ -256,6 +256,15 @@ const FlightResultsPage = () => {
     });
     router.push(`/air-ticketing/book?${query.toString()}`);
   };
+  const buildBookingQuery = () => {
+    return new URLSearchParams({
+      adults: String(adults),
+      children: String(children),
+      kids: String(kids),
+      infants: String(infants),
+      class: cabinClass
+    }).toString();
+  };
 
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -763,13 +772,13 @@ const FlightResultsPage = () => {
                               </div>
                               <div className="text-2xl font-bold text-[#2e2b5f] dark:text-blue-400">{currency} {totalAmt}</div>
                                <div className="text-xs text-gray-400 line-through">{currency} {(totalAmt * 1.1).toFixed(2)}</div>
-                              <button 
-                                type="button"
-                                onClick={() => handleSelectFlight(itinerary)}
-                                className="mt-2 w-full bg-[#2e2b5f] hover:bg-[#3d3983] text-white py-2.5 rounded-lg font-bold text-sm shadow-md transform transition active:scale-95"
+                              <a
+                                href={`/air-ticketing/book?${buildBookingQuery()}`}
+                                onMouseDown={() => safeSaveSelectedFlight(itinerary)}
+                                className="mt-2 w-full bg-[#2e2b5f] hover:bg-[#3d3983] text-white py-2.5 rounded-lg font-bold text-sm shadow-md transform transition active:scale-95 text-center"
                               >
                                 Book Flight
-                              </button>
+                              </a>
                               <div className="text-right w-full">
                                 <div className="text-[10px] text-gray-400 mt-0.5">Price for {passengers} travelers</div>
                                 {brandName ? <div className="text-[10px] text-gray-500 mt-0.5">Fare Brand: {brandName}</div> : null}
