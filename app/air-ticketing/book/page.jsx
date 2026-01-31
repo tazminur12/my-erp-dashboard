@@ -10,7 +10,7 @@ const SessionTimer = () => {
   const [timeLeft, setTimeLeft] = useState(20 * 60); // 20 minutes in seconds
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const timer = setInterval(() => { 
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
@@ -251,7 +251,21 @@ const BookingPage = () => {
   const total = parseFloat(price?.TotalFare?.Amount || 0);
   const discount = 0;
   const serviceFee = 0;
-  const aitVat = 0;
+  const taxItems = (() => {
+    const t = price?.Taxes?.Tax || [];
+    const arr = Array.isArray(t) ? t : t ? [t] : [];
+    return arr.map(x => ({
+      code: String(x?.TaxCode || x?.Code || '').toUpperCase(),
+      amount: parseFloat(x?.Amount || 0)
+    }));
+  })();
+  const aitVat = (() => {
+    const excluded = new Set(['BD', 'UT', 'E5']);
+    const excludedSum = taxItems.reduce((s, t) => excluded.has(t.code) ? s + (t.amount || 0) : s, 0);
+    const base = (parseFloat(total) || 0) - excludedSum;
+    const val = base * 0.003;
+    return isFinite(val) && val > 0 ? val : 0;
+  })();
   const payable = total - discount + serviceFee + aitVat; 
 
   return (
