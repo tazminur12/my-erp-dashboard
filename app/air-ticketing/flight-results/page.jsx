@@ -438,6 +438,37 @@ const FlightResultsPage = () => {
       return 0;
     }
   };
+  const getPaxBreakdowns = (pricingInfo) => {
+    try {
+      const pb = pricingInfo?.PTC_FareBreakdowns?.PTC_FareBreakdown || pricingInfo?.PTC_FareBreakdowns || [];
+      const arr = Array.isArray(pb) ? pb : pb ? [pb] : [];
+      return arr.map((b) => {
+        const ptq = b?.PassengerTypeQuantity || {};
+        const code = (ptq?.Code || '').toUpperCase();
+        const qty = parseInt(ptq?.Quantity || b?.Quantity || 0, 10) || 0;
+        const pf = b?.PassengerFare || {};
+        const currency = pf?.TotalFare?.CurrencyCode || pf?.EquivFare?.CurrencyCode || pf?.Taxes?.TotalTax?.CurrencyCode || pricingInfo?.ItinTotalFare?.TotalFare?.CurrencyCode || 'BDT';
+        const base = parseFloat(pf?.EquivFare?.Amount || 0);
+        const taxes = parseFloat(pf?.Taxes?.TotalTax?.Amount || 0);
+        const total = parseFloat(pf?.TotalFare?.Amount || 0);
+        const taxesItems = (() => {
+          const items = pf?.Taxes?.Tax || [];
+          const list = Array.isArray(items) ? items : items ? [items] : [];
+          return list.map(t => ({
+            code: t?.TaxCode || t?.Code || '',
+            amount: parseFloat(t?.Amount || 0)
+          }));
+        })();
+        const label = code === 'ADT' ? 'Adult' : (code === 'CNN' || code === 'CHD' || code === 'C' ? 'Child' : code === 'INF' ? 'Infant' : code || 'Pax');
+        const excludedSet = new Set(['BD','UT','E5']);
+        const excludedSum = taxesItems.reduce((s,t)=> excludedSet.has(String(t.code||'').toUpperCase()) ? s + (parseFloat(t.amount)||0) : s, 0);
+        const ait = ((parseFloat(total)||0) - excludedSum) * 0.003;
+        return { code, label, qty, currency, base, taxes, total, ait: isFinite(ait) && ait > 0 ? ait : 0 };
+      }).filter(x => x.qty > 0);
+    } catch {
+      return [];
+    }
+  };
   const getRefundableFlag = (pricingInfo) => {
     const norm = (v) => {
       if (v === true) return true;
@@ -1216,56 +1247,58 @@ const FlightResultsPage = () => {
                                      </tr>
                                    </thead>
                                    <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
-                                     <tr>
-                                       <td className="py-3 px-4">Adult</td>
-                                       <td className="py-3 px-4">{currency} {formatAmount(baseFareAmt, 2)}</td>
-                                      <td className="py-3 px-4">
-                                        <div
-                                          className="relative inline-flex items-center gap-2"
-                                          onMouseEnter={() => setTaxOpenIndex(index)}
-                                          onMouseLeave={() => setTaxOpenIndex(null)}
-                                        >
-                                          <span>{currency} {formatAmount(taxesAmt, 2)}</span>
-                                          <Eye className="w-4 h-4 text-gray-500" />
-                                          {taxOpenIndex === index && (
-                                            <div className="absolute bottom-full left-0 mb-2 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
-                                              {getTaxList(pricingInfo).length > 0 ? (
-                                                <table className="w-full text-xs">
-                                                  <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500">
-                                                    <tr>
-                                                      <th className="py-2 px-3 text-left">Code</th>
-                                                      <th className="py-2 px-3 text-left">Amount</th>
-                                                      <th className="py-2 px-3 text-left">Description</th>
-                                                    </tr>
-                                                  </thead>
-                                                  <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
-                                                    {getTaxList(pricingInfo).map((t, i) => (
-                                                      <tr key={`${t.code}-${i}`}>
-                                                        <td className="py-2 px-3">{t.code || '—'}</td>
-                                                        <td className="py-2 px-3">{t.currency} {formatAmount(t.amount, 2)}</td>
-                                                        <td className="py-2 px-3">{t.description || '—'}</td>
+                                    {getPaxBreakdowns(pricingInfo).map((row, rIdx) => (
+                                      <tr key={`${row.code}-${rIdx}`}>
+                                        <td className="py-3 px-4">{row.label}</td>
+                                        <td className="py-3 px-4">{row.currency} {formatAmount(row.base, 2)}</td>
+                                        <td className="py-3 px-4">
+                                          <div
+                                            className="relative inline-flex items-center gap-2"
+                                            onMouseEnter={() => setTaxOpenIndex(index)}
+                                            onMouseLeave={() => setTaxOpenIndex(null)}
+                                          >
+                                            <span>{row.currency} {formatAmount(row.taxes, 2)}</span>
+                                            <Eye className="w-4 h-4 text-gray-500" />
+                                            {taxOpenIndex === index && (
+                                              <div className="absolute bottom-full left-0 mb-2 z-50 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg">
+                                                {getTaxList(pricingInfo).length > 0 ? (
+                                                  <table className="w-full text-xs">
+                                                    <thead className="bg-gray-50 dark:bg-gray-700 text-gray-500">
+                                                      <tr>
+                                                        <th className="py-2 px-3 text-left">Code</th>
+                                                        <th className="py-2 px-3 text-left">Amount</th>
+                                                        <th className="py-2 px-3 text-left">Description</th>
                                                       </tr>
-                                                    ))}
-                                                  </tbody>
-                                                </table>
-                                              ) : (
-                                                <div className="px-3 py-2 text-xs text-gray-500">No tax details provided by airline</div>
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </td>
-                                       <td className="py-3 px-4">{currency} 0</td>
-                                       <td className="py-3 px-4">{currency} 0</td>
-                                       <td className="py-3 px-4">{currency} {formatAmount(computeAIT(pricingInfo, totalAmt), 2)}</td>
-                                       <td className="py-3 px-4">{adults}</td>
-                                       <td className="py-3 px-4">{currency} {formatAmount(payableTotal, 2)}</td>
-                                     </tr>
+                                                    </thead>
+                                                    <tbody className="text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700">
+                                                      {getTaxList(pricingInfo).map((t, i) => (
+                                                        <tr key={`${t.code}-${i}`}>
+                                                          <td className="py-2 px-3">{t.code || '—'}</td>
+                                                          <td className="py-2 px-3">{t.currency} {formatAmount(t.amount, 2)}</td>
+                                                          <td className="py-2 px-3">{t.description || '—'}</td>
+                                                        </tr>
+                                                      ))}
+                                                    </tbody>
+                                                  </table>
+                                                ) : (
+                                                  <div className="px-3 py-2 text-xs text-gray-500">No tax details provided by airline</div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="py-3 px-4">{row.currency} 0</td>
+                                        <td className="py-3 px-4">{row.currency} 0</td>
+                                        <td className="py-3 px-4">{row.currency} {formatAmount(row.ait, 2)}</td>
+                                        <td className="py-3 px-4">{row.qty}</td>
+                                        <td className="py-3 px-4">{row.currency} {formatAmount(row.total + row.ait, 2)}</td>
+                                      </tr>
+                                    ))}
                                    </tbody>
                                  </table>
                                  <div className="flex justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700 text-sm font-bold">
                                    <span>Total Payable</span>
-                                   <span>{currency} {formatAmount(payableTotal, 2)}</span>
+                                   <span>{currency} {formatAmount(getPaxBreakdowns(pricingInfo).reduce((s, r) => s + (r.total + r.ait), 0), 2)}</span>
                                  </div>
                                </div>
                              )}
